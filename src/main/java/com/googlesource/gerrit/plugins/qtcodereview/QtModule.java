@@ -4,6 +4,8 @@
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
+import static com.google.gerrit.server.change.ChangeResource.CHANGE_KIND;
+
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.config.FactoryModule;
 import com.google.gerrit.extensions.restapi.RestApiModule;
@@ -18,10 +20,13 @@ public class QtModule extends FactoryModule  {
     @Override
     protected void configure() {
 
+        factory(QtChangeUpdateOp.Factory.class);
+
         install(
             new RestApiModule() {
                 @Override
                 protected void configure() {
+                    post(CHANGE_KIND, "defer").to(QtDefer.class);
                 }
             }
         );

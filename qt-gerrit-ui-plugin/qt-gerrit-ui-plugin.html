@@ -1,0 +1,190 @@
+//
+// Copyright (C) 2018 The Qt Company
+//
+// This plugin provides UI customization for codereview.qt-project.org
+//
+
+<dom-module id="qt-gerrit-ui-plugin">
+    <script>
+        'use strict';
+
+        var BUTTONS = {
+            'gerrit-plugin-qt-workflow~defer' : {
+                header: 'Defer the change?',
+                action_name: 'defer'
+            }
+        };
+
+        Gerrit.install(plugin => {
+
+            plugin.custom_popup = null;
+            plugin.custom_popup_promise = null;
+            plugin.buttons = null;
+
+            function htmlToElement(html) {
+                var template = document.createElement('template');
+                html = html.trim(); // No white space
+                template.innerHTML = html;
+                return template.content.firstChild;
+            }
+
+            // Customize header changes dropdown menu
+            plugin.hook('header-dropdown-Changes').onAttached(element => {
+                // this is ugly, but there is no API for this
+                var ul_elem = element.content.children[1].children[0].children[0].children[0];
+                var li_elem;
+                var link_elem;
+
+                li_elem = htmlToElement(ul_elem.children[1].outerHTML);
+                link_elem = li_elem.children[0].children[1];
+                link_elem.text = 'Deferred';
+                link_elem.href = '/q/status:deferred';
+                ul_elem.insertBefore(li_elem, ul_elem.children[3]);
+            });
+
+            // Customize change view
+            plugin.on('showchange', function(changeInfo, revisionInfo) {
+                plugin.ca = plugin.changeActions();
+
+                // Remove any existing buttons
+                if (plugin.buttons) {
+                    for (var key in BUTTONS) {
+                        if (BUTTONS.hasOwnProperty(key)) {
+                            if(typeof plugin.buttons[key] !== 'undefined' && plugin.buttons[key] !== null) {
+                                plugin.ca.removeTapListener(plugin.buttons[key], (param) => {} );
+                                plugin.ca.remove(plugin.buttons[key]);
+                                plugin.buttons[key] = null;
+                            }
+                        }
+                    }
+                } else plugin.buttons = [];
+
+                // Add buttons based on server response
+                for (var key in BUTTONS) {
+                    if (BUTTONS.hasOwnProperty(key)) {
+                        var action = plugin.ca.getActionDetails(key);
+                        if (action) {
+                            // hide dropdown action
+                            plugin.ca.setActionHidden(action.__type, action.__key, true);
+
+                            // add button
+                            plugin.buttons[key] = plugin.ca.add(action.__type, action.label);
+                            plugin.ca.setTitle(plugin.buttons[key], action.title);
+                            plugin.ca.addTapListener(plugin.buttons[key], buttonEventCallback);
+                        }
+                    }
+                }
+
+                function buttonEventCallback(event) {
+                    var button_key = event.type.substring(0, event.type.indexOf('-tap'));
+                    var button_action = null;
+                    var button_index;
+                    for (var k in plugin.buttons) {
+                        if (plugin.buttons[k] === button_key) {
+                            button_action = plugin.ca.getActionDetails(k);
+                            button_index = k;
+                            break;
+                        }
+                    }
+
+                    if (button_action) {
+                        plugin.popup('qt-gerrit-ui-confirm-dialog').then( (param) => {
+                            plugin.custom_popup_promise = param;
+                            plugin.custom_popup.set('header', BUTTONS[button_index].header);
+                            plugin.custom_popup.set('subject', changeInfo.subject);
+                            plugin.custom_popup.set('action_name', BUTTONS[button_index].action_name);
+                            plugin.custom_popup.set('api_url', button_action.__url);
+                        }).catch( (param) => { console.log('unexpected error: promise failed');});
+                    } else console.log('unexpected error: no action');
+                }
+            });
+        });
+    </script>
+</dom-module>
+
+<dom-module id="qt-gerrit-ui-confirm-dialog">
+    <template>
+        <style include="shared-styles">
+            #dialog {
+                min-width: 40em;
+            }
+            p {
+                margin-bottom: 1em;
+            }
+            @media screen and (max-width: 50em) {
+                #dialog {
+                      min-width: inherit;
+                      width: 100%;
+                }
+            }
+        </style>
+        <gr-dialog
+            id="dialog"
+            confirm-label="Continue"
+            confirm-on-enter
+            on-cancel="_handleCancelTap"
+            on-confirm="_handleConfirmTap">
+            <div class="header" slot="header">[[header]]</div>
+            <div class="main" slot="main">
+                <p>Ready to [[action_name]] &ldquo;<strong>[[subject]]</strong>&rdquo;?</p>
+                <p class="main" style="color: red;font-weight: bold;">[[errorMessage]]</p>
+            </div>
+        </gr-dialog>
+    </template>
+    <script>
+        'use strict';
+
+        var qtgerrituiconfirmdialog = Polymer({
+            is: 'qt-gerrit-ui-confirm-dialog',
+
+            properties: {
+                header: {
+                    type: String,
+                    value: '...wait...'
+                },
+                action_name: {
+                    type: String,
+                    value: ''
+                },
+                api_url: {
+                    type: String,
+                    value: ''
+                },
+                subject: {
+                    type: String,
+                    value: ''
+                },
+                errorMessage: {
+                    type: String,
+                    value: ''
+                }
+            },
+
+            attached: function() {
+                this.plugin.custom_popup = this;
+            },
+
+            resetFocus(e) {
+                this.$.dialog.resetFocus();
+            },
+
+            _handleConfirmTap(e) {
+                e.preventDefault();
+                this.plugin.restApi().post(this.get('api_url'), {})
+                    .then((ok_resp) => {
+                        this.plugin.custom_popup_promise.close();
+                        this.plugin.custom_popup_promise = null;
+                        window.location.reload(true);
+                    }).catch((failed_resp) => {
+                        this.set('errorMessage', 'FAILED: ' + failed_resp);
+                    });
+            },
+
+            _handleCancelTap(e) {
+                e.preventDefault();
+                this.plugin.custom_popup_promise.close();
+                this.plugin.custom_popup_promise = null;
+            },
+        });
+    </script>
+</dom-module>
