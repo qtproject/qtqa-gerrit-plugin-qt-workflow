@@ -29,6 +29,7 @@ public class QtModule extends FactoryModule  {
             new RestApiModule() {
                 @Override
                 protected void configure() {
+                    post(CHANGE_KIND, "abandon").to(QtAbandon.class);
                     post(CHANGE_KIND, "defer").to(QtDefer.class);
                 }
             }

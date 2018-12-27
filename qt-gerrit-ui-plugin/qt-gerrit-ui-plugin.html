@@ -9,6 +9,10 @@
         'use strict';
 
         var BUTTONS = {
+            'gerrit-plugin-qt-workflow~abandon' : {
+                header: 'Abandon the change?',
+                action_name: 'abandon'
+            },
             'gerrit-plugin-qt-workflow~defer' : {
                 header: 'Defer the change?',
                 action_name: 'defer'
@@ -118,7 +122,6 @@
                             break;
                         }
                     }
-
                     if (button_action) {
                         plugin.popup('qt-gerrit-ui-confirm-dialog').then( (param) => {
                             plugin.custom_popup_promise = param;
