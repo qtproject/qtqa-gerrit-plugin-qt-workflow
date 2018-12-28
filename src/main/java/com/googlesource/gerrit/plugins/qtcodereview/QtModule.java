@@ -31,6 +31,7 @@ public class QtModule extends FactoryModule  {
                 protected void configure() {
                     post(CHANGE_KIND, "abandon").to(QtAbandon.class);
                     post(CHANGE_KIND, "defer").to(QtDefer.class);
+                    post(CHANGE_KIND, "reopen").to(QtReOpen.class);
                 }
             }
         );
