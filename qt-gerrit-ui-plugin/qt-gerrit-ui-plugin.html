@@ -20,6 +20,10 @@
             'gerrit-plugin-qt-workflow~reopen' : {
                 header: 'Reopen the change?',
                 action_name: 'reopen'
+            },
+            'gerrit-plugin-qt-workflow~stage' : {
+                header: 'Submit to staging?',
+                action_name: 'stage'
             }
         };
 
@@ -74,9 +78,16 @@
 
                 li_elem = htmlToElement(ul_elem.children[1].outerHTML);
                 link_elem = li_elem.children[0].children[1];
+                link_elem.text = 'Staged';
+                link_elem.href = '/q/status:staged';
+                ul_elem.insertBefore(li_elem, ul_elem.children[2]);
+
+
+                li_elem = htmlToElement(ul_elem.children[1].outerHTML);
+                link_elem = li_elem.children[0].children[1];
                 link_elem.text = 'Deferred';
                 link_elem.href = '/q/status:deferred';
-                ul_elem.insertBefore(li_elem, ul_elem.children[3]);
+                ul_elem.insertBefore(li_elem, ul_elem.children[4]);
             });
 
             // Customize change view

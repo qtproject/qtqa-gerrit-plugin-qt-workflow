@@ -5,6 +5,7 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.gerrit.server.change.ChangeResource.CHANGE_KIND;
+import static com.google.gerrit.server.change.RevisionResource.REVISION_KIND;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.config.FactoryModule;
@@ -32,6 +33,7 @@ public class QtModule extends FactoryModule  {
                     post(CHANGE_KIND, "abandon").to(QtAbandon.class);
                     post(CHANGE_KIND, "defer").to(QtDefer.class);
                     post(CHANGE_KIND, "reopen").to(QtReOpen.class);
+                    post(REVISION_KIND, "stage").to(QtStage.class);
                 }
             }
         );

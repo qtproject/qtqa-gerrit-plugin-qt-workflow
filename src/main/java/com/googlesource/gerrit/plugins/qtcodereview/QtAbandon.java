@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2018 The Qt Company
+// Copyright (C) 2019 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -81,7 +81,8 @@ public class QtAbandon extends RetryingRestModifyView<ChangeResource, AbandonInp
         QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.ABANDONED,
                                                      "Abandoned",
                                                      input.message,
-                                                     ChangeMessagesUtil.TAG_ABANDON);
+                                                     ChangeMessagesUtil.TAG_ABANDON,
+                                                     null);
         try (BatchUpdate u =  updateFactory.create(dbProvider.get(), change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
             u.addOp(rsrc.getId(), op).execute();
         }
