@@ -34,6 +34,7 @@ public class QtModule extends FactoryModule  {
                     post(CHANGE_KIND, "defer").to(QtDefer.class);
                     post(CHANGE_KIND, "reopen").to(QtReOpen.class);
                     post(REVISION_KIND, "stage").to(QtStage.class);
+                    post(REVISION_KIND, "unstage").to(QtUnStage.class);
                 }
             }
         );

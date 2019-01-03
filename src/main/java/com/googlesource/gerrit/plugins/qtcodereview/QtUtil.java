@@ -16,12 +16,27 @@
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
+import com.google.gerrit.common.FooterConstants;
+import com.google.common.collect.Lists;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.reviewdb.client.Branch;
+import com.google.gerrit.reviewdb.client.Change;
+import com.google.gerrit.reviewdb.client.PatchSet;
+import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.server.IdentifiedUser;
+import com.google.gerrit.server.extensions.events.GitReferenceUpdated;
 import com.google.gerrit.server.project.NoSuchRefException;
+import com.google.gerrit.server.query.change.InternalChangeQuery;
+import com.google.gerrit.server.query.change.ChangeData;
+import com.google.gerrit.server.submit.IntegrationException;
+import com.google.gwtorm.server.OrmException;
+import com.google.inject.Inject;
+import com.google.inject.Provider;
 import com.google.inject.Singleton;
 
+import org.eclipse.jgit.errors.MissingObjectException;
 import org.eclipse.jgit.lib.CommitBuilder;
+import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectInserter;
 import org.eclipse.jgit.lib.PersonIdent;
@@ -35,6 +50,8 @@ import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 
 /**
@@ -48,10 +65,49 @@ public class QtUtil {
     public static final String R_HEADS = "refs/heads/";
     public static final String R_STAGING = "refs/staging/";
 
+    private final Provider<InternalChangeQuery> queryProvider;
+    private final GitReferenceUpdated referenceUpdated;
+    private final QtCherryPickPatch qtCherryPickPatch;
+
+    @Inject
+    QtUtil(Provider<InternalChangeQuery> queryProvider,
+           GitReferenceUpdated referenceUpdated,
+           QtCherryPickPatch qtCherryPickPatch) {
+        this.queryProvider = queryProvider;
+        this.referenceUpdated = referenceUpdated;
+        this.qtCherryPickPatch = qtCherryPickPatch;
+    }
+
     public static class MergeConflictException extends Exception {
         private static final long serialVersionUID = 1L;
         public MergeConflictException(final String message) {
             super(message);
+        }
+    }
+
+    public static Project.NameKey getProjectKey(final String project) {
+        String projectName = project;
+        if (project.endsWith(Constants.DOT_GIT_EXT)) {
+            projectName = project.substring(0, project.length() - Constants.DOT_GIT_EXT.length());
+        }
+        return new Project.NameKey(projectName);
+    }
+
+    /**
+     * Creates a branch key without any prefix.
+     * @param project Project for the branch key.
+     * @param prefix Prefix to remove.
+     * @param branch Branch name with or without prefix.
+     * @return Branch name key without prefix.
+     */
+    public static Branch.NameKey getNameKeyShort(final String project,
+                                                 final String prefix,
+                                                 final String branch) {
+        final Project.NameKey projectKey = getProjectKey(project);
+        if (branch.startsWith(prefix)) {
+            return new Branch.NameKey(projectKey, branch.substring(prefix.length()));
+        } else {
+            return new Branch.NameKey(projectKey, branch);
         }
     }
 
@@ -119,6 +175,134 @@ public class QtUtil {
         refUpdate.setForceUpdate(force);
         RefUpdate.Result result = refUpdate.update();
         return result;
+    }
+
+    private String getChangeId(RevCommit commit) {
+        List<String> changeIds = commit.getFooterLines(FooterConstants.CHANGE_ID);
+        String changeId = null;
+        if (!changeIds.isEmpty()) changeId = changeIds.get(0);
+        return changeId;
+    }
+
+    private ChangeData findChangeFromList(String changeId, List<ChangeData> changes)
+                                          throws OrmException {
+        for (ChangeData item : changes) {
+            if (item.change().getKey().get().equals(changeId)) return item;
+        }
+        return null;
+    }
+
+    private List<ChangeData> arrangeOrderLikeInRef(Repository git,
+                                                   ObjectId refObj,
+                                                   ObjectId tipObj,
+                                                   List<ChangeData> changeList)
+                                                   throws MissingObjectException, OrmException,
+                                                          IOException {
+        List<ChangeData> results = new ArrayList<ChangeData>();
+        if (refObj.equals(tipObj)) return results;
+
+        RevWalk revWalk = new RevWalk(git);
+        RevCommit commit = revWalk.parseCommit(refObj);
+        int count = 0;
+        do {
+            count++;
+            String changeId = getChangeId(commit);
+
+            if (commit.getParentCount() == 0) {
+                commit = null; // something is going wrong, just exit
+            } else {
+                if (changeId == null && commit.getParentCount() > 1) {
+                    changeId = getChangeId(revWalk.parseCommit(commit.getParent(1)));
+                }
+                ChangeData change = findChangeFromList(changeId, changeList);
+                if (change != null) results.add(0, change);
+
+                commit = revWalk.parseCommit(commit.getParent(0));
+            }
+        } while (commit != null && !commit.equals(tipObj) && count < 100);
+
+        if (count == 100) return null;
+        return results;
+    }
+
+    private ObjectId pickChangestoStagingRef(Repository git,
+                                             final Project.NameKey projectKey,
+                                             List<ChangeData> changes,
+                                             ObjectId tipObj)
+                                             throws OrmException, IOException, IntegrationException {
+        ObjectId newId = tipObj;
+        for (ChangeData item : changes) {
+            Change change = item.change();
+            logger.atInfo().log("qtcodereview: rebuilding add %s", change);
+            PatchSet p = item.currentPatchSet();
+            ObjectId srcId = git.resolve(p.getRevision().get());
+            newId = qtCherryPickPatch.cherryPickPatch(item,
+                                                      projectKey,
+                                                      srcId,
+                                                      newId,
+                                                      true, // allowFastForward
+                                                      null, // newStatus
+                                                      null, // defaultMessage
+                                                      null, // inputMessage
+                                                      null  // tag
+                                                      ).toObjectId();
+        }
+        return newId;
+    }
+
+    public void rebuildStagingBranch(Repository git,
+                                     IdentifiedUser user,
+                                     final Project.NameKey projectKey,
+                                     final Branch.NameKey stagingBranchKey,
+                                     final Branch.NameKey destBranchShortKey)
+                                     throws MergeConflictException {
+        try {
+            ObjectId oldStageRefObjId = git.resolve(stagingBranchKey.get());
+            ObjectId branchObjId = git.resolve(destBranchShortKey.get());
+
+            InternalChangeQuery query = queryProvider.get();
+            List<ChangeData> changes_integrating = query.byBranchStatus(destBranchShortKey, Change.Status.INTEGRATING);
+
+            query = queryProvider.get();
+            List<ChangeData> changes_staged = query.byBranchStatus(destBranchShortKey, Change.Status.STAGED);
+
+            List<ChangeData> changes_allowed = new ArrayList<ChangeData>();
+            changes_allowed.addAll(changes_integrating);
+            changes_allowed.addAll(changes_staged);
+            List<ChangeData> changes = arrangeOrderLikeInRef(git, oldStageRefObjId, branchObjId, changes_allowed);
+
+            logger.atInfo().log("qtcodereview: rebuild reset %s back to %s", stagingBranchKey, destBranchShortKey);
+            Result result = QtUtil.createStagingBranch(git, destBranchShortKey);
+            if (result == null) throw new NoSuchRefException("Cannot create staging ref: " + stagingBranchKey.get());
+            logger.atInfo().log("qtcodereview: rebuild reset result %s",result);
+
+            ObjectId newId = pickChangestoStagingRef(git,
+                                                     projectKey,
+                                                     changes,
+                                                     git.resolve(stagingBranchKey.get()));
+
+            RefUpdate refUpdate = git.updateRef(stagingBranchKey.get());
+            refUpdate.setNewObjectId(newId);
+            refUpdate.update();
+
+            // send ref updated event only if it changed
+            if (!newId.equals(oldStageRefObjId)) {
+                referenceUpdated.fire(projectKey, stagingBranchKey.get(), oldStageRefObjId, newId, user.state());
+            }
+
+        } catch (OrmException e) {
+            logger.atSevere().log("qtcodereview: rebuild %s failed. Failed to access database %s", stagingBranchKey, e);
+            throw new MergeConflictException("fatal: Failed to access database");
+        } catch (IOException e) {
+            logger.atSevere().log("qtcodereview: rebuild %s failed. IOException %s", stagingBranchKey, e);
+            throw new MergeConflictException("fatal: IOException");
+        } catch (NoSuchRefException e) {
+            logger.atSevere().log("qtcodereview: rebuild %s failed. No such ref %s", stagingBranchKey, e);
+            throw new MergeConflictException("fatal: NoSuchRefException");
+        } catch(IntegrationException e) {
+            logger.atSevere().log("qtcodereview: rebuild %s failed. IntegrationException %s", stagingBranchKey, e);
+            throw new MergeConflictException("fatal: IntegrationException");
+        }
     }
 
     public static RevCommit merge(PersonIdent committerIdent,

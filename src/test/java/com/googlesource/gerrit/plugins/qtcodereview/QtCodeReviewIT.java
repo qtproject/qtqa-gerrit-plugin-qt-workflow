@@ -103,6 +103,19 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         return response;
     }
 
+    protected void QtUnStage(PushOneCommit.Result c) throws Exception {
+        RestResponse response = call_REST_API_UnStage(c.getChangeId(), getCurrentPatchId(c));
+        response.assertOK();
+        Change change = c.getChange().change();
+        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+    }
+
+    protected RestResponse call_REST_API_UnStage(String changeId, String revisionId) throws Exception {
+        String url = "/changes/" + changeId + "/revisions/" + revisionId + "/gerrit-plugin-qt-workflow~unstage";
+        RestResponse response = userRestSession.post(url);
+        return response;
+    }
+
     protected PushOneCommit.Result pushCommit(String branch,
                                               String message,
                                               String file,
@@ -190,6 +203,10 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         rw.markStart(rw.parseCommit(repo.exactRef(ref).getObjectId()));
         return Lists.newArrayList(rw);
       }
+    }
+
+    protected String getCurrentPatchId(PushOneCommit.Result c) throws Exception {
+        return String.valueOf(c.getChange().currentPatchSet().getPatchSetId());
     }
 
 }
