@@ -86,12 +86,17 @@
                 link_elem.href = '/q/status:staged';
                 ul_elem.insertBefore(li_elem, ul_elem.children[2]);
 
+                li_elem = htmlToElement(ul_elem.children[1].outerHTML);
+                link_elem = li_elem.children[0].children[1];
+                link_elem.text = 'Integrating';
+                link_elem.href = '/q/status:integrating';
+                ul_elem.insertBefore(li_elem, ul_elem.children[3]);
 
                 li_elem = htmlToElement(ul_elem.children[1].outerHTML);
                 link_elem = li_elem.children[0].children[1];
                 link_elem.text = 'Deferred';
                 link_elem.href = '/q/status:deferred';
-                ul_elem.insertBefore(li_elem, ul_elem.children[4]);
+                ul_elem.insertBefore(li_elem, ul_elem.children[5]);
             });
 
             // Customize change view

@@ -48,10 +48,14 @@ import org.eclipse.jgit.merge.MergeStrategy;
 import org.eclipse.jgit.merge.ThreeWayMerger;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
+import org.eclipse.jgit.transport.ReceiveCommand;
 
 import java.io.IOException;
+import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 
 
 /**
@@ -64,6 +68,7 @@ public class QtUtil {
 
     public static final String R_HEADS = "refs/heads/";
     public static final String R_STAGING = "refs/staging/";
+    public static final String R_BUILDS = "refs/builds/";
 
     private final Provider<InternalChangeQuery> queryProvider;
     private final GitReferenceUpdated referenceUpdated;
@@ -85,12 +90,37 @@ public class QtUtil {
         }
     }
 
+    public static class BranchNotFoundException extends Exception {
+        private static final long serialVersionUID = 1L;
+        public BranchNotFoundException(final String message) {
+            super(message);
+        }
+    }
+
     public static Project.NameKey getProjectKey(final String project) {
         String projectName = project;
         if (project.endsWith(Constants.DOT_GIT_EXT)) {
             projectName = project.substring(0, project.length() - Constants.DOT_GIT_EXT.length());
         }
         return new Project.NameKey(projectName);
+    }
+
+    /**
+     * Creates a branch key including ref prefix.
+     * @param project Project for the branch key.
+     * @param prefix Expected prefix.
+     * @param branch Branch name with or without prefix.
+     * @return Branch name key with prefix.
+     */
+    public static Branch.NameKey getNameKeyLong(final String project,
+                                                final String prefix,
+                                                final String branch) {
+        final Project.NameKey projectKey = getProjectKey(project);
+        if (branch.startsWith(prefix)) {
+            return new Branch.NameKey(projectKey, branch);
+        } else {
+            return new Branch.NameKey(projectKey, prefix + branch);
+        }
     }
 
     /**
@@ -109,6 +139,11 @@ public class QtUtil {
         } else {
             return new Branch.NameKey(projectKey, branch);
         }
+    }
+
+    public static boolean branchExists(Repository git, final Branch.NameKey branch)
+                                       throws IOException {
+        return git.getRefDatabase().getRef(branch.get()) != null;
     }
 
     /**
@@ -150,6 +185,51 @@ public class QtUtil {
         } catch (NoSuchRefException | IOException e ) {
             return null;
         }
+    }
+
+    /**
+     * Creates a build ref. Build refs are stored under refs/builds.
+     *
+     * @param git Git repository.
+     * @param stagingBranch Staging branch to create the build ref from. Can be
+     *        short name.
+     * @param newBranch Build ref name, under refs/builds. Can be short name.
+     * @return
+     * @throws IOException
+     * @throws NoSuchRefException
+     */
+    public Result createBuildRef(Repository git,
+                                 IdentifiedUser user,
+                                 final Project.NameKey projectKey,
+                                 final Branch.NameKey stagingBranch,
+                                 final Branch.NameKey newBranch)
+                                 throws IOException, NoSuchRefException {
+        final String stagingBranchName;
+        if (stagingBranch.get().startsWith(R_STAGING)) {
+            stagingBranchName = stagingBranch.get();
+        } else {
+            stagingBranchName = R_STAGING + stagingBranch.get();
+        }
+
+        final String buildBranchName;
+        if (newBranch.get().startsWith(R_BUILDS)) {
+            buildBranchName = newBranch.get();
+        } else {
+            buildBranchName = R_BUILDS + newBranch.get();
+        }
+
+        Ref sourceRef = git.getRefDatabase().getRef(stagingBranchName);
+        if (sourceRef == null) { throw new NoSuchRefException(stagingBranchName); }
+
+        RefUpdate refUpdate = git.updateRef(buildBranchName);
+        refUpdate.setNewObjectId(sourceRef.getObjectId());
+        refUpdate.setForceUpdate(false);
+        RefUpdate.Result result = refUpdate.update();
+
+        // send ref created event
+        referenceUpdated.fire(projectKey, refUpdate, ReceiveCommand.Type.CREATE, user.state());
+
+        return result;
     }
 
     private static Result updateRef(Repository git,
@@ -303,6 +383,52 @@ public class QtUtil {
             logger.atSevere().log("qtcodereview: rebuild %s failed. IntegrationException %s", stagingBranchKey, e);
             throw new MergeConflictException("fatal: IntegrationException");
         }
+    }
+
+    /**
+     * Lists not merged changes between branches.
+     * @param git jGit Repository. Must be open.
+     * @param db ReviewDb of a Gerrit site.
+     * @param branch Branch to search for the changes.
+     * @param destination Destination branch for changes.
+     * @return List of not merged changes.
+     * @throws IOException Thrown by Repository or RevWalk if repository is not
+     *         accessible.
+     * @throws OrmException Thrown if ReviewDb is not accessible.
+     */
+    public List<Map.Entry<ChangeData,RevCommit>> listChangesNotMerged(Repository git,
+                                                                      final Branch.NameKey branch,
+                                                                      final Branch.NameKey destination)
+                                                                      throws IOException, OrmException,
+                                                                             BranchNotFoundException {
+
+        List<Map.Entry<ChangeData, RevCommit>> result = new ArrayList<Map.Entry<ChangeData, RevCommit>>();
+        RevWalk revWalk = new RevWalk(git);
+
+        try {
+            Ref ref = git.getRefDatabase().getRef(branch.get());
+            if (ref == null) throw new BranchNotFoundException("No such branch: " + branch);
+            Ref refDest = git.getRefDatabase().getRef(destination.get());
+            if (refDest == null) throw new BranchNotFoundException("No such branch: " + destination);
+            RevCommit firstCommit = revWalk.parseCommit(ref.getObjectId());
+            revWalk.markStart(firstCommit);
+            // Destination is the walker end point
+            revWalk.markUninteresting(revWalk.parseCommit(refDest.getObjectId()));
+
+            Iterator<RevCommit> i = revWalk.iterator();
+            while (i.hasNext()) {
+                RevCommit commit = i.next();
+                List<ChangeData> changes = queryProvider.get().byBranchCommit(destination, commit.name());
+                if (changes != null && !changes.isEmpty()) {
+                    if (changes.size() > 1) logger.atWarning().log("qtcodereview: commit belongs to multiple changes: %s", commit.name());
+                    ChangeData cd = changes.get(0);
+                    result.add(new AbstractMap.SimpleEntry<ChangeData,RevCommit>(cd, commit));
+                }
+            }
+        } finally {
+            revWalk.dispose();
+        }
+        return result;
     }
 
     public static RevCommit merge(PersonIdent committerIdent,

@@ -45,6 +45,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
 
     protected static final String R_HEADS = "refs/heads/";
     protected static final String R_STAGING = "refs/staging/";
+    protected static final String R_BUILDS = "refs/builds/";
     protected static final String R_PUSH = "refs/for/";
 
     protected static final String CONTENT_DATA = "hereisjustsomecontentforthecommits";
@@ -114,6 +115,17 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         String url = "/changes/" + changeId + "/revisions/" + revisionId + "/gerrit-plugin-qt-workflow~unstage";
         RestResponse response = userRestSession.post(url);
         return response;
+    }
+
+    protected void QtNewBuild(String branch, String buildId)  throws Exception {
+        String commandStr;
+        commandStr ="gerrit-plugin-qt-workflow staging-new-build";
+        commandStr += " --project " + project.get();
+        commandStr += " --staging-branch " + branch;
+        commandStr += " --build-id " + buildId;
+        String resultStr = adminSshSession.exec(commandStr);
+        assertThat(adminSshSession.getError()).isNull();
+        resetEvents();
     }
 
     protected PushOneCommit.Result pushCommit(String branch,

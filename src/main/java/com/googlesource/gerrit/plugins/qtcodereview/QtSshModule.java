@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2018 The Qt Company
+// Copyright (C) 2019 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -11,5 +11,6 @@ class QtSshModule extends PluginCommandModule {
     @Override
     protected void configureCommands() {
         command(QtCommandPing.class);
+        command(QtCommandNewBuild.class);
     }
 }
