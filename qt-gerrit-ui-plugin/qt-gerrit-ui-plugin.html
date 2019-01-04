@@ -75,6 +75,9 @@
             plugin.on('showchange', function(changeInfo, revisionInfo) {
                 plugin.ca = plugin.changeActions();
 
+                // always hide the rebase button
+                plugin.ca.setActionHidden('revision', 'rebase', true);
+
                 // Remove any existing buttons
                 if (plugin.buttons) {
                     for (var key in BUTTONS) {
