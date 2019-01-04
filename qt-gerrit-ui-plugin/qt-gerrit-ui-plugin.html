@@ -99,12 +99,36 @@
                 ul_elem.insertBefore(li_elem, ul_elem.children[5]);
             });
 
+            // Hide Sanity Bot review score row by default in reply dialog
+            plugin.hook('review-label-scores-Sanity-Review').onAttached(element => {
+                const html = '<div onclick="\
+                                            document.getElementById(\'sanitybotreviewmorediv\').style.display=\'none\'; \
+                                            document.getElementById(\'sanitybotreviewscorediv\').style.display=\'block\'; \
+                                            \"> \
+                                  <div id="sanitybotreviewmorediv" style="display:block;">more...</div> \
+                                  <div id="sanitybotreviewscorediv" style="display:none;"></div> \
+                              </div>';
+                var wrapper_elem = document.createElement('div');
+                wrapper_elem.innerHTML = html;
+                var child_elem = element.content.children[0];
+                element.content.replaceChild(wrapper_elem, child_elem);
+                document.getElementById('sanitybotreviewscorediv').appendChild(child_elem);
+            });
+
             // Customize change view
             plugin.on('showchange', function(changeInfo, revisionInfo) {
                 plugin.ca = plugin.changeActions();
 
                 // always hide the rebase button
                 plugin.ca.setActionHidden('revision', 'rebase', true);
+
+                // Hide 'Sanity-Review+1' button in header
+                var secondaryActionsElem = document.getElementById("secondaryActions");
+                if (secondaryActionsElem &&
+                    secondaryActionsElem.innerHTML &&
+                    secondaryActionsElem.innerHTML.indexOf('Sanity-Review+1') != -1) {
+                    plugin.ca.hideQuickApproveAction();
+                }
 
                 // Remove any existing buttons
                 if (plugin.buttons) {
