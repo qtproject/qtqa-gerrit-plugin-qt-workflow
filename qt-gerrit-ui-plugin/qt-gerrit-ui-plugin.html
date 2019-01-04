@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2018 The Qt Company
+// Copyright (C) 2019 The Qt Company
 //
 // This plugin provides UI customization for codereview.qt-project.org
 //
@@ -27,6 +27,35 @@
                 template.innerHTML = html;
                 return template.content.firstChild;
             }
+
+            // Customize header
+            plugin.hook('header-title',  {replace: true} ).onAttached(element => {
+                const css_str = '<style> \
+                                    #qt-header ul { \
+                                        width: 100%; \
+                                        margin: 0; \
+                                        text-align: left; \
+                                        padding: 0.5em 0 .1em 0; \
+                                    } \
+                                    #qt-header li { \
+                                        display: inline; \
+                                        padding: 0.3em; \
+                                    } \
+                                    #qt-header img { \
+                                        vertical-align: top; \
+                                    } \
+                                  </style>';
+                const html_str = '<div id="qt-header"> \
+                                    <ul> \
+                                      <li><img src="/static/logo_qt.png"/></li> \
+                                      <li><img src="/static/logo_open_gov.png"/></li> \
+                                    </ul> \
+                                  </div>';
+                var elem = htmlToElement(css_str);
+                element.appendChild(elem);
+                elem = htmlToElement(html_str);
+                element.appendChild(elem);
+            });
 
             // Customize header changes dropdown menu
             plugin.hook('header-dropdown-Changes').onAttached(element => {
