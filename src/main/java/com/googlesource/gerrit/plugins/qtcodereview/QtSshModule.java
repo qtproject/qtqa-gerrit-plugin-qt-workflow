@@ -11,6 +11,7 @@ class QtSshModule extends PluginCommandModule {
     @Override
     protected void configureCommands() {
         command(QtCommandPing.class);
+        command(QtCommandBuildApprove.class);
         command(QtCommandNewBuild.class);
         command(QtCommandListStaging.class);
         command(QtCommandRebuildStaging.class);

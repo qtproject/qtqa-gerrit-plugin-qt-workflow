@@ -128,6 +128,30 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         resetEvents();
     }
 
+    protected void QtApproveBuild(String branch, String buildId) throws Exception {
+        String commandStr;
+        commandStr ="gerrit-plugin-qt-workflow staging-approve";
+        commandStr += " --project " + project.get();
+        commandStr += " --branch " + branch;
+        commandStr += " --build-id "+ buildId;
+        commandStr += " --result pass";
+        commandStr += " --message thebuildpassed";
+        String resultStr = adminSshSession.exec(commandStr);
+        assertThat(adminSshSession.getError()).isNull();
+    }
+
+    protected void QtFailBuild(String branch, String buildId)  throws Exception {
+        String commandStr;
+        commandStr ="gerrit-plugin-qt-workflow staging-approve";
+        commandStr += " --project " + project.get();
+        commandStr += " --branch " + branch;
+        commandStr += " --build-id "+ buildId;
+        commandStr += " --result fail";
+        commandStr += " --message thebuildfailed";
+        String resultStr = adminSshSession.exec(commandStr);
+        assertThat(adminSshSession.getError()).isNull();
+    }
+
     protected PushOneCommit.Result pushCommit(String branch,
                                               String message,
                                               String file,

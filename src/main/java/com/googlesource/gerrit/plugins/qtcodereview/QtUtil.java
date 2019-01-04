@@ -51,11 +51,13 @@ import org.eclipse.jgit.revwalk.RevWalk;
 import org.eclipse.jgit.transport.ReceiveCommand;
 
 import java.io.IOException;
+import java.sql.Timestamp;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 
 
 /**
@@ -473,6 +475,56 @@ public class QtUtil {
         mergeCommit.setMessage(message);
 
         return revWalk.parseCommit(objInserter.insert(mergeCommit));
+    }
+
+    public static RefUpdate.Result mergeBranches(IdentifiedUser user,
+                                                 Repository git,
+                                                 final Branch.NameKey branch,
+                                                 final Branch.NameKey destination)
+                                                 throws NoSuchRefException, IOException, MergeConflictException {
+
+        ObjectId srcId = git.resolve(branch.get());
+        if (srcId == null) throw new NoSuchRefException("Invalid Revision: " + branch);
+
+        return mergeObjectToBranch(user, git, srcId, destination);
+    }
+
+    private static RefUpdate.Result mergeObjectToBranch(IdentifiedUser user,
+                                                        Repository git,
+                                                        ObjectId srcId,
+                                                        final Branch.NameKey destination)
+                                                        throws NoSuchRefException, IOException, MergeConflictException {
+
+        Ref destRef = git.getRefDatabase().getRef(destination.get());
+        if (destRef == null) throw new NoSuchRefException("No such branch: " + destination);
+
+        ObjectId destId = git.resolve(destination.get());
+        if (destId == null) throw new NoSuchRefException("Invalid Revision: " + destination);
+
+        RevWalk revWalk = new RevWalk(git);
+        try {
+
+            ObjectInserter objInserter = git.newObjectInserter();
+            RevCommit mergeTip = revWalk.lookupCommit(destId);
+            RevCommit toMerge = revWalk.lookupCommit(srcId);
+            PersonIdent committer = user.newCommitterIdent(new Timestamp(System.currentTimeMillis()), TimeZone.getDefault());
+
+            RevCommit mergeCommit = merge(committer,
+                                          git,
+                                          objInserter,
+                                          revWalk,
+                                          toMerge,
+                                          mergeTip,
+                                          false);
+            objInserter.flush();
+            logger.atInfo().log("qtcodereview: merge commit for %s added to %s", srcId, destination);
+
+            RefUpdate refUpdate = git.updateRef(destination.get());
+            refUpdate.setNewObjectId(mergeCommit);
+            return refUpdate.update();
+        } finally {
+            revWalk.dispose();
+        }
     }
 
 }
