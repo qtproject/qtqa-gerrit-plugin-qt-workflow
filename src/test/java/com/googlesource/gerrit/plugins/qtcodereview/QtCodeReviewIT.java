@@ -40,7 +40,6 @@ import org.junit.Test;
     sshModule = "com.googlesource.gerrit.plugins.qtcodereview.QtSshModule"
 )
 
-@UseSsh
 public class QtCodeReviewIT extends LightweightPluginDaemonTest {
 
     protected static final String R_HEADS = "refs/heads/";
@@ -69,11 +68,9 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     }
 
     @Test
-    public void pingSSHTest() throws Exception {
-        assertThat(adminSshSession.exec("gerrit-plugin-qt-workflow ping")).contains("Pong");
-        assertThat(adminSshSession.getError()).isNull();
-    }
+    public void dummyTest() throws Exception {
 
+    }
 
 // Helper functions
 
