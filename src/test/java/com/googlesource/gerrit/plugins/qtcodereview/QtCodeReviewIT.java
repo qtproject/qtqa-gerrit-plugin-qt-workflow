@@ -8,7 +8,7 @@ import com.google.gerrit.acceptance.LightweightPluginDaemonTest;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
-
+import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.reviewdb.client.Change;
 
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -22,6 +22,7 @@ import org.junit.Test;
     sshModule = "com.googlesource.gerrit.plugins.qtcodereview.QtSshModule"
 )
 
+@UseSsh
 public class QtCodeReviewIT extends LightweightPluginDaemonTest {
 
     protected static final String R_HEADS = "refs/heads/";
@@ -29,8 +30,9 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     protected static final String R_PUSH = "refs/for/";
 
     @Test
-    public void dummyTest() {
-
+    public void pingSSHTest() throws Exception {
+        assertThat(adminSshSession.exec("gerrit-plugin-qt-workflow ping")).contains("Pong");
+        assertThat(adminSshSession.getError()).isNull();
     }
 
 

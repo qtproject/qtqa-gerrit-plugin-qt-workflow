@@ -10,6 +10,6 @@ class QtSshModule extends PluginCommandModule {
 
     @Override
     protected void configureCommands() {
-
+        command(QtCommandPing.class);
     }
 }
