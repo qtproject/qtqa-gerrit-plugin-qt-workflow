@@ -347,4 +347,41 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         assertThat(updatedHead).isEqualTo(initialHead);
     }
 
+    @Test
+    public void unStage_MergeConflict_While_Building() throws Exception {
+        RevCommit initialHead = getRemoteHead();
+        PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "file1", "content1");
+        testRepo.reset(initialHead);
+        PushOneCommit.Result c2 = pushCommit("master", "commitmsg2", "file2", "content2");
+        testRepo.reset(initialHead);
+        PushOneCommit.Result c3 = pushCommit("master", "commitmsg3", "thesamefile", "content3");
+        // c4 depends on c3
+        PushOneCommit.Result c4 = pushCommit("master", "commitmsg4", "thesamefile", "conflict content3");
+        approve(c1.getChangeId());
+        approve(c2.getChangeId());
+        approve(c3.getChangeId());
+        approve(c4.getChangeId());
+
+        QtStage(c1);
+        QtNewBuild("master", "master-build-500");
+        RevCommit stagingExpected = getRemoteHead(project, R_STAGING + "master");
+
+        QtStage(c2);
+        QtStage(c3);
+        QtStage(c4);
+
+        QtUnStage(c3);
+        Change change = c1.getChange().change();
+        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
+        change = c2.getChange().change();
+        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        change = c3.getChange().change();
+        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        change = c4.getChange().change();
+        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+
+        RevCommit stagingHeadMaster = getRemoteHead(project, R_STAGING + "master");
+        assertThat(stagingHeadMaster.getId()).isEqualTo(stagingExpected.getId());
+    }
+
 }

@@ -18,17 +18,22 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.gerrit.common.FooterConstants;
 import com.google.common.collect.Lists;
+import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.extensions.events.GitReferenceUpdated;
 import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.submit.IntegrationException;
+import com.google.gerrit.server.update.BatchUpdate;
+import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.gwtorm.server.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -72,17 +77,26 @@ public class QtUtil {
     public static final String R_STAGING = "refs/staging/";
     public static final String R_BUILDS = "refs/builds/";
 
+    private final Provider<ReviewDb> dbProvider;
     private final Provider<InternalChangeQuery> queryProvider;
     private final GitReferenceUpdated referenceUpdated;
+    private final BatchUpdate.Factory updateFactory;
     private final QtCherryPickPatch qtCherryPickPatch;
+    private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
     @Inject
-    QtUtil(Provider<InternalChangeQuery> queryProvider,
+    QtUtil(Provider<ReviewDb> dbProvider,
+           Provider<InternalChangeQuery> queryProvider,
            GitReferenceUpdated referenceUpdated,
-           QtCherryPickPatch qtCherryPickPatch) {
+           BatchUpdate.Factory updateFactory,
+           QtCherryPickPatch qtCherryPickPatch,
+           QtChangeUpdateOp.Factory qtUpdateFactory) {
+        this.dbProvider = dbProvider;
         this.queryProvider = queryProvider;
         this.referenceUpdated = referenceUpdated;
+        this.updateFactory = updateFactory;
         this.qtCherryPickPatch = qtCherryPickPatch;
+        this.qtUpdateFactory = qtUpdateFactory;
     }
 
     public static class MergeConflictException extends Exception {
@@ -307,7 +321,7 @@ public class QtUtil {
         return results;
     }
 
-    private ObjectId pickChangestoStagingRef(Repository git,
+    private ObjectId pickChangesToStagingRef(Repository git,
                                              final Project.NameKey projectKey,
                                              List<ChangeData> changes,
                                              ObjectId tipObj)
@@ -338,53 +352,101 @@ public class QtUtil {
                                      final Branch.NameKey stagingBranchKey,
                                      final Branch.NameKey destBranchShortKey)
                                      throws MergeConflictException {
-        try {
-            ObjectId oldStageRefObjId = git.resolve(stagingBranchKey.get());
-            ObjectId branchObjId = git.resolve(destBranchShortKey.get());
+         InternalChangeQuery query = null;
+         List<ChangeData> changes_integrating = null;
+         List<ChangeData> changes_staged = null;
+         ObjectId oldStageRefObjId = null;
+         ObjectId branchObjId = null;
+         ObjectId newStageRefObjId = null;
+         ObjectId newObjId = null;
+         String branchName = null;
 
-            InternalChangeQuery query = queryProvider.get();
-            List<ChangeData> changes_integrating = query.byBranchStatus(destBranchShortKey, Change.Status.INTEGRATING);
+         try {
+             branchName = stagingBranchKey.get();
+             oldStageRefObjId = git.resolve(branchName);
+             branchObjId = git.resolve(destBranchShortKey.get());
 
-            query = queryProvider.get();
-            List<ChangeData> changes_staged = query.byBranchStatus(destBranchShortKey, Change.Status.STAGED);
+             query = queryProvider.get();
+             List<ChangeData> unsorted_list = query.byBranchStatus(destBranchShortKey, Change.Status.INTEGRATING);
+             changes_integrating = arrangeOrderLikeInRef(git, oldStageRefObjId, branchObjId, unsorted_list);
 
-            List<ChangeData> changes_allowed = new ArrayList<ChangeData>();
-            changes_allowed.addAll(changes_integrating);
-            changes_allowed.addAll(changes_staged);
-            List<ChangeData> changes = arrangeOrderLikeInRef(git, oldStageRefObjId, branchObjId, changes_allowed);
+             query = queryProvider.get();
+             unsorted_list = query.byBranchStatus(destBranchShortKey, Change.Status.STAGED);
+             changes_staged = arrangeOrderLikeInRef(git, oldStageRefObjId, branchObjId, unsorted_list);
+         } catch (OrmException e) {
+             logger.atSevere().log("qtcodereview: rebuild staging ref %s failed. Failed to access database %s",
+                                    stagingBranchKey, e);
+             throw new MergeConflictException("fatal: Failed to access database");
+         } catch (IOException e) {
+             logger.atSevere().log("qtcodereview: rebuild staging ref %s db failed. IOException %s",
+                                    stagingBranchKey, e);
+             throw new MergeConflictException("fatal: IOException");
+         }
 
-            logger.atInfo().log("qtcodereview: rebuild reset %s back to %s", stagingBranchKey, destBranchShortKey);
-            Result result = QtUtil.createStagingBranch(git, destBranchShortKey);
-            if (result == null) throw new NoSuchRefException("Cannot create staging ref: " + stagingBranchKey.get());
-            logger.atInfo().log("qtcodereview: rebuild reset result %s",result);
+         try {
+             logger.atInfo().log("qtcodereview: rebuild staging ref reset %s back to %s",
+                                 stagingBranchKey, destBranchShortKey);
+             Result result = QtUtil.createStagingBranch(git, destBranchShortKey);
+             if (result == null) throw new NoSuchRefException("Cannot create staging ref: " + branchName);
+             logger.atInfo().log("qtcodereview: rebuild staging ref reset result %s", result);
+             newStageRefObjId = git.resolve(branchName);
+         } catch (NoSuchRefException e) {
+             logger.atSevere().log("qtcodereview: rebuild staging ref reset %s failed. No such ref %s",
+                                    stagingBranchKey, e);
+             throw new MergeConflictException("fatal: NoSuchRefException");
+         } catch (IOException e) {
+             logger.atSevere().log("qtcodereview: rebuild staging ref reset %s failed. IOException %s",
+                                    stagingBranchKey, e);
+             throw new MergeConflictException("fatal: IOException");
+         }
 
-            ObjectId newId = pickChangestoStagingRef(git,
-                                                     projectKey,
-                                                     changes,
-                                                     git.resolve(stagingBranchKey.get()));
+         try {
+             newObjId = pickChangesToStagingRef(git, projectKey, changes_integrating, newStageRefObjId);
+             newStageRefObjId = newObjId;
+         } catch(Exception e) {
+             logger.atSevere().log("qtcodereview: rebuild staging ref %s. failed to cherry pick integrating changes %s",
+                                   stagingBranchKey, e);
+             newObjId = null;
+         }
 
-            RefUpdate refUpdate = git.updateRef(stagingBranchKey.get());
-            refUpdate.setNewObjectId(newId);
-            refUpdate.update();
+         if (newObjId != null) {
+             try {
+                 newObjId = pickChangesToStagingRef(git, projectKey, changes_staged, newObjId);
+                 newStageRefObjId = newObjId;
+             } catch(Exception e) {
+                 newObjId = null;
+                 logger.atInfo().log("qtcodereview: rebuild staging ref %s merge conflict", stagingBranchKey);
+                 String message = "Merge conflict in staging branch. Status changed back to new. Please stage again.";
+                 QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.NEW, message, null, null, null);
+                 try (BatchUpdate u = updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
+                     for (ChangeData item: changes_staged) {
+                         Change change = item.change();
+                         logger.atInfo().log("qtcodereview: staging ref rebuild merge conflict. Change %s back to NEW", change);
+                         u.addOp(change.getId(), op);
+                     }
+                     u.execute();
+                 } catch (OrmException ex) {
+                     logger.atSevere().log("qtcodereview: staging ref rebuild. Failed to access database %s", ex);
+                 } catch (UpdateException | RestApiException ex) {
+                     logger.atSevere().log("qtcodereview: staging ref rebuild. Failed to update change status %s", ex);
+                 }
+             }
+         }
 
-            // send ref updated event only if it changed
-            if (!newId.equals(oldStageRefObjId)) {
-                referenceUpdated.fire(projectKey, stagingBranchKey.get(), oldStageRefObjId, newId, user.state());
-            }
+         try {
+             RefUpdate refUpdate = git.updateRef(branchName);
+             refUpdate.setNewObjectId(newStageRefObjId);
+             refUpdate.update();
 
-        } catch (OrmException e) {
-            logger.atSevere().log("qtcodereview: rebuild %s failed. Failed to access database %s", stagingBranchKey, e);
-            throw new MergeConflictException("fatal: Failed to access database");
-        } catch (IOException e) {
-            logger.atSevere().log("qtcodereview: rebuild %s failed. IOException %s", stagingBranchKey, e);
-            throw new MergeConflictException("fatal: IOException");
-        } catch (NoSuchRefException e) {
-            logger.atSevere().log("qtcodereview: rebuild %s failed. No such ref %s", stagingBranchKey, e);
-            throw new MergeConflictException("fatal: NoSuchRefException");
-        } catch(IntegrationException e) {
-            logger.atSevere().log("qtcodereview: rebuild %s failed. IntegrationException %s", stagingBranchKey, e);
-            throw new MergeConflictException("fatal: IntegrationException");
-        }
+             // send ref updated event only if it changed
+             if (!newStageRefObjId.equals(oldStageRefObjId)) {
+                 referenceUpdated.fire(projectKey, branchName, oldStageRefObjId,
+                                       newStageRefObjId, user.state());
+             }
+         } catch (IOException e) {
+             logger.atSevere().log("qtcodereview: rebuild %s failed to update ref %s", stagingBranchKey, e);
+             throw new MergeConflictException("fatal: IOException");
+         }
     }
 
     /**

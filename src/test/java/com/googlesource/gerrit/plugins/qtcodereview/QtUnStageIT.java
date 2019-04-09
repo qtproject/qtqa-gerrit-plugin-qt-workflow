@@ -212,6 +212,29 @@ public class QtUnStageIT extends QtCodeReviewIT {
     }
 
     @Test
+    public void multiChange_UnStage_MergeConflict() throws Exception {
+        RevCommit initialHead = getRemoteHead();
+        PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "thesamefile", "content1");
+        // c2 depends on c1
+        PushOneCommit.Result c2 = pushCommit("master", "commitdependingon1", "thesamefile", "conflict");
+        testRepo.reset(initialHead);
+        PushOneCommit.Result c3 = pushCommit("master", "commitmsg3", "file3", "content3");
+
+        approve(c1.getChangeId());
+        QtStage(c1);
+        approve(c2.getChangeId());
+        QtStage(c2);
+        approve(c3.getChangeId());
+        QtStage(c3);
+
+        RevCommit stagingHead = qtUnStageExpectCommit(c1, initialHead);
+        Change change = c2.getChange().change();
+        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        change = c3.getChange().change();
+        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+    }
+
+    @Test
     public void errorUnStage_No_Permission() throws Exception {
         PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
         approve(c.getChangeId());
