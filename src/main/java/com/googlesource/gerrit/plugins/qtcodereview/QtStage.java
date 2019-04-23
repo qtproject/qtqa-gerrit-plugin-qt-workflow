@@ -144,16 +144,16 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
         if (change.getStatus() != Change.Status.NEW) {
             logger.atSevere().log("qtcodereview: stage: change %s status wrong: %s",
                                   change, change.getStatus());
-            throw new ResourceConflictException("change is " + change.getStatus());
+            throw new ResourceConflictException("Change is " + change.getStatus());
         } else if (!ProjectUtil.branchExists(repoManager, change.getDest())) {
             logger.atSevere().log("qtcodereview: stage: change %s destination branch \"%s\" not found",
                                   change, change.getDest().get());
-            throw new ResourceConflictException(String.format("destination branch \"%s\" not found.",
-                                                               change.getDest().get()));
+            throw new ResourceConflictException(String.format("Destination branch \"%s\" not found.",
+                                                              change.getDest().get()));
         } else if (!rsrc.getPatchSet().getId().equals(change.currentPatchSetId())) {
             logger.atSevere().log("qtcodereview: stage: change %s revision %s is not current revision",
                                   change, rsrc.getPatchSet().getRevision().get());
-            throw new ResourceConflictException(String.format("revision %s is not current revision",
+            throw new ResourceConflictException(String.format("Revision %s is not current.",
                                                               rsrc.getPatchSet().getRevision().get()));
         }
 
@@ -192,11 +192,11 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
             referenceUpdated.fire(projectKey, stagingBranchKey.get(), destId, commit.toObjectId(), submitter.state());
 
         } catch (IntegrationException e) {
-            logger.atInfo().log("qtcodereview: stage merge error  %s", e);
-            throw new ResourceConflictException("merge error " + e);
+            logger.atInfo().log("qtcodereview: stage merge error %s", e);
+            throw new ResourceConflictException(e.getMessage());
         } catch (NoSuchRefException e) {
-            logger.atSevere().log("qtcodereview: stage error  %s", e);
-            throw new ResourceConflictException("resource error " + e);
+            logger.atSevere().log("qtcodereview: stage error %s", e);
+            throw new ResourceConflictException(e.getMessage());
         } finally {
             if (git != null) {
                 git.close();
@@ -208,11 +208,8 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
           case STAGED:
               logger.atInfo().log("qtcodereview: changeToStaging %s added to %s", change, stagingBranchKey);
               return change; // this doesn't return data to client, if needed use ChangeJson to convert it
-          case NEW:
-              throw new RestApiException("change unexpectedly had status " + change.getStatus() + " after submit attempt");
-          case ABANDONED:
           default:
-              throw new ResourceConflictException("change is " + change.getStatus());
+              throw new ResourceConflictException("Change is unexpectedly " + change.getStatus());
         }
 
     }

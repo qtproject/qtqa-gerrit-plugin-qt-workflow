@@ -176,7 +176,7 @@ public class QtCherryPickPatch {
             logger.atInfo().log("qtcodereview: cherrypick done %s", changeData.getId());
             return cherryPickCommit;
         } catch (Exception e) {
-            throw new IntegrationException("Cherry pick failed: " + e.getMessage());
+            throw new IntegrationException("Reason: " + e.getMessage());
         }
     }
 

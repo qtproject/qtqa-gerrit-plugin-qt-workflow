@@ -152,7 +152,7 @@ public class QtStageIT extends QtCodeReviewIT {
         deny(project, "refs/heads/master", Permission.ABANDON, REGISTERED_USERS);
 
         RestResponse response = qtStageExpectFail(c, initialHead, initialHead, HttpStatus.SC_CONFLICT);
-        assertThat(response.getEntityContent()).contains("change is DEFERRED");
+        assertThat(response.getEntityContent()).contains("Change is DEFERRED");
     }
 
     @Test
@@ -180,7 +180,7 @@ public class QtStageIT extends QtCodeReviewIT {
 
         RestResponse response = call_REST_API_Stage(c1.getChangeId(), c1.getCommit().getName());
         response.assertStatus(HttpStatus.SC_CONFLICT);
-        assertThat(response.getEntityContent()).contains("is not current revision");
+        assertThat(response.getEntityContent()).contains("is not current");
     }
 
     @Test
