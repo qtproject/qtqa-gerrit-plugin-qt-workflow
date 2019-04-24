@@ -116,7 +116,7 @@
             });
 
             // Customize change view
-            plugin.on('showchange', function(changeInfo, revisionInfo) {
+            plugin.on('labelchange', function(changeInfo) {
                 plugin.ca = plugin.changeActions();
 
                 // always hide the rebase button
