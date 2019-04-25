@@ -313,9 +313,11 @@ class QtCommandBuildApprove extends SshCommand {
         try {
             if (passed) {
                 MergedSender mcm = mergedSenderFactory.create(projectKey, changeId);
+                mcm.setFrom(user.getAccountId());
                 mcm.send();
             } else {
                 RevertedSender rcm = revertedSenderFactory.create(projectKey, changeId);
+                rcm.setFrom(user.getAccountId());
                 rcm.send();
             }
         } catch (Exception e) {
