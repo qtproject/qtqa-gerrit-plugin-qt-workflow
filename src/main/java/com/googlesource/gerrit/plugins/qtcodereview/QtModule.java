@@ -23,6 +23,7 @@ public class QtModule extends FactoryModule  {
     @Override
     protected void configure() {
 
+        factory(QtBuildFailedSender.Factory.class);
         factory(QtChangeUpdateOp.Factory.class);
         DynamicSet.bind(binder(), ChangeMessageModifier.class).to(QtChangeMessageModifier.class);
 

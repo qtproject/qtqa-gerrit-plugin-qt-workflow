@@ -48,6 +48,8 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     protected static final String R_PUSH = "refs/for/";
 
     protected static final String CONTENT_DATA = "hereisjustsomecontentforthecommits";
+    protected static final String BUILD_PASS_MESSAGE = "thebuildpassed";
+    protected static final String BUILD_FAIL_MESSAGE = "thebuildfailed";
 
     @Before
     public void ReduceLogging() throws Exception {
@@ -132,7 +134,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         commandStr += " --branch " + branch;
         commandStr += " --build-id "+ buildId;
         commandStr += " --result pass";
-        commandStr += " --message thebuildpassed";
+        commandStr += " --message " + BUILD_PASS_MESSAGE;
         String resultStr = adminSshSession.exec(commandStr);
         assertThat(adminSshSession.getError()).isNull();
     }
@@ -144,7 +146,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         commandStr += " --branch " + branch;
         commandStr += " --build-id "+ buildId;
         commandStr += " --result fail";
-        commandStr += " --message thebuildfailed";
+        commandStr += " --message " + BUILD_FAIL_MESSAGE;
         String resultStr = adminSshSession.exec(commandStr);
         assertThat(adminSshSession.getError()).isNull();
     }

@@ -18,7 +18,6 @@ import com.google.gerrit.server.extensions.events.ChangeMerged;
 import com.google.gerrit.server.extensions.events.GitReferenceUpdated;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.mail.send.MergedSender;
-import com.google.gerrit.server.mail.send.RevertedSender;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.permissions.ProjectPermission;
@@ -50,6 +49,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.sql.Timestamp;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map.Entry;
 
@@ -79,7 +79,7 @@ class QtCommandBuildApprove extends SshCommand {
     private MergedSender.Factory mergedSenderFactory;
 
     @Inject
-    private RevertedSender.Factory revertedSenderFactory;
+    QtBuildFailedSender.Factory qtBuildFailedSenderFactory;
 
     @Inject
     private BatchUpdate.Factory updateFactory;
@@ -264,14 +264,14 @@ class QtCommandBuildApprove extends SshCommand {
             Change change = cd.change();
             if (passed) {
                 sendMergeEvent(cd);
+                sendMergedEmail(change.getId());
                 logger.atInfo().log("qtcodereview: staging-approve     change %s merged into %s",
                                     change, destBranchKey);
             } else {
+                sendBuildFailedEmail(change.getId());
                 logger.atInfo().log("qtcodereview: staging-approve     change %s rejected for %s",
                                     change, destBranchKey);
             }
-
-            sendResultEmail(change.getId(), passed);
         }
     }
 
@@ -309,19 +309,24 @@ class QtCommandBuildApprove extends SshCommand {
         }
     }
 
-    private void sendResultEmail(Change.Id changeId, Boolean passed) {
+    private void sendMergedEmail(Change.Id changeId) {
         try {
-            if (passed) {
-                MergedSender mcm = mergedSenderFactory.create(projectKey, changeId);
-                mcm.setFrom(user.getAccountId());
-                mcm.send();
-            } else {
-                RevertedSender rcm = revertedSenderFactory.create(projectKey, changeId);
-                rcm.setFrom(user.getAccountId());
-                rcm.send();
-            }
+            MergedSender mcm = mergedSenderFactory.create(projectKey, changeId);
+            mcm.setFrom(user.getAccountId());
+            mcm.send();
         } catch (Exception e) {
-            logger.atWarning().log("qtcodereview: staging-approve Cannot email notification for %s %s", changeId, e);
+            logger.atWarning().log("qtcodereview: staging-approve Merged notification not sent for %s %s", changeId, e);
+        }
+    }
+
+    private void sendBuildFailedEmail(Change.Id changeId) {
+        try {
+            QtBuildFailedSender cm = qtBuildFailedSenderFactory.create(projectKey, changeId);
+            cm.setFrom(user.getAccountId());
+            cm.setChangeMessage(message, TimeUtil.nowTs());
+            cm.send();
+        } catch (Exception e) {
+            logger.atWarning().log("qtcodereview: staging-approve Build Failed not sent notification for %s %s", changeId, e);
         }
     }
 
