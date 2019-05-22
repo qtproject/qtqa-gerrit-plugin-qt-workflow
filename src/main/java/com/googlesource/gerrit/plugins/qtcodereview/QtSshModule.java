@@ -16,5 +16,6 @@ class QtSshModule extends PluginCommandModule {
         command(QtCommandNewBuild.class);
         command(QtCommandListStaging.class);
         command(QtCommandRebuildStaging.class);
+        command(QtCommandStage.class);
     }
 }
