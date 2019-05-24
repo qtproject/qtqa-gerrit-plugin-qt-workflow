@@ -47,25 +47,19 @@
             // Customize header
             plugin.hook('header-title',  {replace: true} ).onAttached(element => {
                 const css_str = '<style> \
-                                    #qt-header ul { \
-                                        width: 100%; \
-                                        margin: 0; \
-                                        text-align: left; \
-                                        padding: 0.5em 0 .1em 0; \
-                                    } \
-                                    #qt-header li { \
-                                        display: inline; \
-                                        padding: 0.3em; \
-                                    } \
-                                    #qt-header img { \
-                                        vertical-align: top; \
-                                    } \
-                                  </style>';
+                                  .titleText::before {\
+                                  background-image: url("/static/logo_qt.png");\
+                                  background-size: 40px 30px;\
+                                  background-repeat: no-repeat;\
+                                  content: "";\
+                                  display: inline-block;\
+                                  height: 36px;\
+                                  vertical-align: text-top;\
+                                  width: 46px;\
+                                }\
+                                </style>';
                 const html_str = '<div id="qt-header"> \
-                                    <ul> \
-                                      <li><img src="/static/logo_qt.png"/></li> \
-                                      <li><img src="/static/logo_open_gov.png"/></li> \
-                                    </ul> \
+                                    <div class="titleText">Code Review</div> \
                                   </div>';
                 var elem = htmlToElement(css_str);
                 element.appendChild(elem);
