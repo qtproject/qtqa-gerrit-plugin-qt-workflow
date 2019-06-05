@@ -32,7 +32,8 @@ import java.util.Map;
 public class QtChangeUpdateOp implements BatchUpdateOp {
 
     public interface Factory {
-        QtChangeUpdateOp create(Change.Status newStatus,
+        QtChangeUpdateOp create(@Assisted("newStatus") Change.Status newStatus,
+                                @Assisted("oldStatus") Change.Status oldStatus,
                                 @Assisted("defaultMessage") String defaultMessage,
                                 @Assisted("inputMessage") String inputMessage,
                                 @Assisted("tag") String tag,
@@ -42,6 +43,7 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
     private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
     private final Change.Status newStatus;
+    private final Change.Status oldStatus;
     private final String defaultMessage;
     private final String inputMessage;
     private final String tag;
@@ -58,7 +60,8 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
     QtChangeUpdateOp(ChangeMessagesUtil cmUtil,
                      ApprovalsUtil approvalsUtil,
                      LabelNormalizer labelNormalizer,
-                     @Nullable @Assisted Change.Status newStatus,
+                     @Nullable @Assisted("newStatus") Change.Status newStatus,
+                     @Nullable @Assisted("oldStatus") Change.Status oldStatus,
                      @Nullable @Assisted("defaultMessage") String defaultMessage,
                      @Nullable @Assisted("inputMessage") String inputMessage,
                      @Nullable @Assisted("tag") String tag,
@@ -67,6 +70,7 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
         this.approvalsUtil = approvalsUtil;
         this.labelNormalizer = labelNormalizer;
         this.newStatus = newStatus;
+        this.oldStatus = oldStatus;
         this.defaultMessage = defaultMessage;
         this.inputMessage = inputMessage;
         this.tag = tag;
@@ -84,7 +88,7 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
         PatchSet.Id psId = change.currentPatchSetId();
         ChangeUpdate update = ctx.getUpdate(psId);
 
-        if (newStatus != null) {
+        if (newStatus != null && (oldStatus == null || change.getStatus() == oldStatus)) {
             change.setStatus(newStatus);
             update.fixStatus(newStatus);
             updated = true;

@@ -79,6 +79,7 @@ public class QtAbandon extends RetryingRestModifyView<ChangeResource, AbandonInp
         }
 
         QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.ABANDONED,
+                                                     null,
                                                      "Abandoned",
                                                      input.message,
                                                      ChangeMessagesUtil.TAG_ABANDON,

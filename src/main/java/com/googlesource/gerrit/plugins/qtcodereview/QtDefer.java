@@ -90,7 +90,7 @@ class QtDefer extends RetryingRestModifyView<ChangeResource, AbandonInput, Chang
             throw new ResourceConflictException("change is " + ChangeUtil.status(change));
         }
 
-        QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.DEFERRED, "Deferred", input.message, null, null);
+        QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.DEFERRED, null, "Deferred", input.message, null, null);
         try (BatchUpdate u =  updateFactory.create(dbProvider.get(), change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
             u.addOp(rsrc.getId(), op).execute();
         }

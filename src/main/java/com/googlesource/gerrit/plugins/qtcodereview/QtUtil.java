@@ -417,7 +417,7 @@ public class QtUtil {
                  newObjId = null;
                  logger.atInfo().log("qtcodereview: rebuild staging ref %s merge conflict", stagingBranchKey);
                  String message = "Merge conflict in staging branch. Status changed back to new. Please stage again.";
-                 QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.NEW, message, null, null, null);
+                 QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.NEW, Change.Status.STAGED, message, null, null, null);
                  try (BatchUpdate u = updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
                      for (ChangeData item: changes_staged) {
                          Change change = item.change();

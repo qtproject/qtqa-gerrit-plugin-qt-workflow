@@ -159,6 +159,7 @@ public class QtCherryPickPatch {
             if (!patchSetNotChanged && !mergeCommit) {
                 Change.Id changeId = insertPatchSet(bu, git, changeData.notes(), cherryPickCommit);
                 bu.addOp(changeData.getId(), qtUpdateFactory.create(newStatus,
+                                                                    null,
                                                                     defaultMessage,
                                                                     inputMessage,
                                                                     tag,
@@ -166,6 +167,7 @@ public class QtCherryPickPatch {
                 logger.atInfo().log("qtcodereview: cherrypick new patch %s for %s", cherryPickCommit.toObjectId(), changeId);
             } else {
                 bu.addOp(changeData.getId(), qtUpdateFactory.create(newStatus,
+                                                                    null,
                                                                     defaultMessage,
                                                                     inputMessage,
                                                                     tag,

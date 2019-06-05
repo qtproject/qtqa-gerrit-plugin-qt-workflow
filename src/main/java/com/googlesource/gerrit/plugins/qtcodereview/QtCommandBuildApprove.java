@@ -247,7 +247,7 @@ class QtCommandBuildApprove extends SshCommand {
                                Boolean passed)
                                throws UpdateException, RestApiException, OrmException {
         // do the db update
-        QtChangeUpdateOp op = qtUpdateFactory.create(status, changeMessage, null, tag, null);
+        QtChangeUpdateOp op = qtUpdateFactory.create(status, oldStatus, changeMessage, null, tag, null);
         try (BatchUpdate u =  updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
             for (Entry<ChangeData,RevCommit> item : list) {
                 Change change = item.getKey().change();

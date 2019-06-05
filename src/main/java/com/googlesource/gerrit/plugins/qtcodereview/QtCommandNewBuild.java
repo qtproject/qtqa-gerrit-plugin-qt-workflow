@@ -128,7 +128,7 @@ class QtCommandNewBuild extends SshCommand {
                     throw die("No changes in staging branch. Not creating a build reference");
                 }
 
-                QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.INTEGRATING, message, null, null, null);
+                QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.INTEGRATING, Change.Status.STAGED, message, null, null, null);
                 try (BatchUpdate u =  updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
                     for (Entry<ChangeData, RevCommit> item: openChanges) {
                         Change change = item.getKey().change();
