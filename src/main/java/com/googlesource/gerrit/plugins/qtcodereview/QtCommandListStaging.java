@@ -89,8 +89,12 @@ class QtCommandListStaging extends SshCommand {
 
             for (Entry<ChangeData, RevCommit> item : open) {
                 final Change change = item.getKey().change();
-                final RevCommit commit = item.getValue();
-                stdout.println(commit.name() + " " + change.currentPatchSetId() + " " + change.getSubject());
+                final Change.Status status = change.getStatus();
+
+                if (status == Change.Status.STAGED || status == Change.Status.INTEGRATING) {
+                    final RevCommit commit = item.getValue();
+                    stdout.println(commit.name() + " " + change.currentPatchSetId() + " " + change.getSubject());
+                }
             }
 
             logger.atInfo().log("qtcodereview: staging-ls done");
