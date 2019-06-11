@@ -246,13 +246,16 @@
             },
 
             _handleConfirmTap(e) {
+                this.$.dialog.disabled = true;
                 e.preventDefault();
                 this.plugin.restApi().post(this.get('api_url'), {})
                     .then((ok_resp) => {
+                        this.$.dialog.disabled = false;
                         this.plugin.custom_popup_promise.close();
                         this.plugin.custom_popup_promise = null;
                         window.location.reload(true);
                     }).catch((failed_resp) => {
+                        this.$.dialog.disabled = false;
                         this.set('errorMessage', 'FAILED: ' + failed_resp);
                     });
             },
