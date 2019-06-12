@@ -132,9 +132,14 @@ class QtCommandNewBuild extends SshCommand {
                 try (BatchUpdate u =  updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
                     for (Entry<ChangeData, RevCommit> item: openChanges) {
                         Change change = item.getKey().change();
-                        logger.atInfo().log("qtcodereview: staging-new-build     inserted change %s (%s) into build %s for %s",
-                                            change, item.getValue().toString(), build, destinationKey);
-                        u.addOp(change.getId(), op);
+                        if (change.getStatus() == Change.Status.STAGED) {
+                            logger.atInfo().log("qtcodereview: staging-new-build     inserted change %s (%s) into build %s for %s",
+                                                change, item.getValue().toString(), build, destinationKey);
+                            u.addOp(change.getId(), op);
+                        } else {
+                            logger.atInfo().log("qtcodereview: staging-new-build     change %s (%s) is included in build %s for %s",
+                                                change, item.getValue().toString(), build, destinationKey);
+                        }
                     }
                     u.execute();
                 }
