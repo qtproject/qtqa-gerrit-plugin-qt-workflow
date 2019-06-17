@@ -50,8 +50,10 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map.Entry;
+import java.util.Map;
 
 
 /**
@@ -246,20 +248,25 @@ class QtCommandBuildApprove extends SshCommand {
                                String tag,
                                Boolean passed)
                                throws UpdateException, RestApiException, OrmException {
+
+        List<Entry<ChangeData,RevCommit>> emailingList = new ArrayList<Map.Entry<ChangeData, RevCommit>>();
+
         // do the db update
         QtChangeUpdateOp op = qtUpdateFactory.create(status, oldStatus, changeMessage, null, tag, null);
         try (BatchUpdate u =  updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
             for (Entry<ChangeData,RevCommit> item : list) {
                 Change change = item.getKey().change();
-                if (oldStatus == null || change.getStatus() == oldStatus) {
+                if ((oldStatus == null || change.getStatus() == oldStatus)
+                    && change.getStatus() != Change.Status.MERGED) {
                     u.addOp(change.getId(), op);
+                    emailingList.add(item);
                 }
             }
             u.execute();
         }
 
         // do rest
-        for (Entry<ChangeData,RevCommit> item : list) {
+        for (Entry<ChangeData,RevCommit> item : emailingList) {
             ChangeData cd = item.getKey();
             Change change = cd.change();
             if (passed) {
