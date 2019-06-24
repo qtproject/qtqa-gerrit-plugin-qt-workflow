@@ -39,6 +39,7 @@ import com.google.inject.Singleton;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.List;
 import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.lib.ObjectId;
@@ -110,8 +111,8 @@ public class QtCherryPickPatch {
                 return commitToCherryPick;
             }
 
-            Timestamp now = TimeUtil.nowTs();
-            PersonIdent committerIdent = commitToCherryPick.getCommitterIdent();
+            // Copy the committer, but change the date to now.
+            PersonIdent committerIdent = new PersonIdent(commitToCherryPick.getCommitterIdent(), new Date());
 
             commitToCherryPick.setPatchsetId(changeData.currentPatchSet().getId());
             commitToCherryPick.setNotes(changeData.notes());
@@ -136,7 +137,6 @@ public class QtCherryPickPatch {
                 cherryPickCommit = revWalk.parseCommit(commit);
             } else {
                 String commitMessage = mergeUtil.createCommitMessageOnSubmit(commitToCherryPick, baseCommit);
-                commitMessage += " "; // This ensures unique SHA1 is generated, otherwise old is reused
                 cherryPickCommit = mergeUtil.createCherryPickFromCommit(oi,
                                                                         git.getConfig(),
                                                                         baseCommit,
@@ -154,7 +154,8 @@ public class QtCherryPickPatch {
                 logger.atInfo().log("qtcodereview: new patch %s -> %s", commitToCherryPick, cherryPickCommit);
                 oi.flush();
             }
-            BatchUpdate bu = batchUpdateFactory.create(dbProvider.get(), project, identifiedUser, now);
+            Timestamp commitTimestamp = new Timestamp(committerIdent.getWhen().getTime());
+            BatchUpdate bu = batchUpdateFactory.create(dbProvider.get(), project, identifiedUser, commitTimestamp);
             bu.setRepository(git, revWalk, oi);
             if (!patchSetNotChanged && !mergeCommit) {
                 Change.Id changeId = insertPatchSet(bu, git, changeData.notes(), cherryPickCommit);
