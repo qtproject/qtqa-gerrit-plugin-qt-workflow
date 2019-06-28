@@ -122,7 +122,7 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
         String stagingRef = R_STAGING + branch;
         String branchRef = R_HEADS + branch;
         RevCommit initialHead = getRemoteHead(project, branchRef);
-        RevCommit oldStagingHead = getRemoteHead(project, stagingRef);
+        RevCommit oldStagingHead = getRemoteRefHead(project, stagingRef);
 
         String commandStr;
         commandStr ="gerrit-plugin-qt-workflow staging-rebuild";
@@ -134,7 +134,7 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
         RevCommit updatedHead = getRemoteHead(project, branchRef);
         assertThat(updatedHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
-        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
 
         if (expectedStagingHead==null && expectedContent != null) {
             assertCherryPick(stagingHead, expectedContent.getCommit(), getCurrentPatchSHA(expectedContent));
@@ -157,8 +157,8 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
                                               throws Exception {
         String stagingRef = R_STAGING + branch;
         String branchRef = R_HEADS + branch;
-        RevCommit initialHead = getRemoteHead(project, branchRef);
-        RevCommit oldStagingHead = getRemoteHead(project, stagingRef);
+        RevCommit initialHead = getRemoteRefHead(project, branchRef);
+        RevCommit oldStagingHead = getRemoteRefHead(project, stagingRef);
 
         String commandStr;
         commandStr ="gerrit-plugin-qt-workflow staging-rebuild";
@@ -167,10 +167,10 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
         String resultStr = adminSshSession.exec(commandStr);
         assertThat(adminSshSession.getError()).isNotNull();
 
-        RevCommit updatedHead = getRemoteHead(project, branchRef);
+        RevCommit updatedHead = getRemoteRefHead(project, branchRef);
         if (updatedHead != null) assertThat(updatedHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
-        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
         if (stagingHead != null) assertThat(stagingHead.getId()).isEqualTo(oldStagingHead.getId()); // staging is not updated
 
         return adminSshSession.getError();

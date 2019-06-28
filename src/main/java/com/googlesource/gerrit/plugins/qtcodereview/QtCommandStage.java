@@ -16,7 +16,6 @@ import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.sshd.SshCommand;
 import com.google.gerrit.sshd.CommandMetaData;
 import com.google.gerrit.sshd.commands.PatchSetParser;
-import com.google.gwtorm.server.OrmException;
 import com.google.inject.Inject;
 import java.util.HashSet;
 import java.util.Set;
@@ -46,8 +45,6 @@ class QtCommandStage extends SshCommand {
             patchSets.add(ps);
         } catch (UnloggedFailure e) {
             throw new IllegalArgumentException(e.getMessage(), e);
-        } catch (OrmException e) {
-            throw new IllegalArgumentException("database error", e);
         }
     }
 

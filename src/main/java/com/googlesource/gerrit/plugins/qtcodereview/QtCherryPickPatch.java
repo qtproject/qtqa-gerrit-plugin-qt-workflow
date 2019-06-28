@@ -13,9 +13,9 @@ import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.reviewdb.client.Project;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.IdentifiedUser;
+import com.google.gerrit.server.change.NotifyResolver;
 import com.google.gerrit.server.change.PatchSetInserter;
 import com.google.gerrit.server.git.CodeReviewCommit;
 import com.google.gerrit.server.git.CodeReviewCommit.CodeReviewRevWalk;
@@ -32,7 +32,6 @@ import com.google.gerrit.server.submit.MergeIdenticalTreeException;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
-import com.google.gwtorm.server.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
@@ -54,7 +53,6 @@ public class QtCherryPickPatch {
 
     private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
-    private final Provider<ReviewDb> dbProvider;
     private final BatchUpdate.Factory batchUpdateFactory;
     private final GitRepositoryManager gitManager;
     private final Provider<IdentifiedUser> user;
@@ -64,15 +62,13 @@ public class QtCherryPickPatch {
     private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
     @Inject
-    QtCherryPickPatch(Provider<ReviewDb> dbProvider,
-                      BatchUpdate.Factory batchUpdateFactory,
+    QtCherryPickPatch(BatchUpdate.Factory batchUpdateFactory,
                       GitRepositoryManager gitManager,
                       Provider<IdentifiedUser> user,
                       PatchSetInserter.Factory patchSetInserterFactory,
                       MergeUtil.Factory mergeUtilFactory,
                       ProjectCache projectCache,
                       QtChangeUpdateOp.Factory qtUpdateFactory) {
-        this.dbProvider = dbProvider;
         this.batchUpdateFactory = batchUpdateFactory;
         this.gitManager = gitManager;
         this.user = user;
@@ -155,7 +151,7 @@ public class QtCherryPickPatch {
                 oi.flush();
             }
             Timestamp commitTimestamp = new Timestamp(committerIdent.getWhen().getTime());
-            BatchUpdate bu = batchUpdateFactory.create(dbProvider.get(), project, identifiedUser, commitTimestamp);
+            BatchUpdate bu = batchUpdateFactory.create(project, identifiedUser, commitTimestamp);
             bu.setRepository(git, revWalk, oi);
             if (!patchSetNotChanged && !mergeCommit) {
                 Change.Id changeId = insertPatchSet(bu, git, changeData.notes(), cherryPickCommit);
@@ -187,13 +183,13 @@ public class QtCherryPickPatch {
                                      Repository git,
                                      ChangeNotes destNotes,
                                      CodeReviewCommit cherryPickCommit)
-                                     throws IOException, OrmException, BadRequestException, ConfigInvalidException {
+                                     throws IOException, BadRequestException, ConfigInvalidException {
         Change destChange = destNotes.getChange();
         PatchSet.Id psId = ChangeUtil.nextPatchSetId(git, destChange.currentPatchSetId());
         PatchSetInserter inserter = patchSetInserterFactory.create(destNotes, psId, cherryPickCommit);
-        inserter.setNotify(NotifyHandling.NONE)
-                .setAllowClosed(true);
+        inserter.setAllowClosed(true);
                 // .setCopyApprovals(true) doesn't work, so copying done in QtChangeUpdateOp
+        bu.setNotify(NotifyResolver.Result.none());
         bu.addOp(destChange.getId(), inserter);
         return destChange.getId();
     }

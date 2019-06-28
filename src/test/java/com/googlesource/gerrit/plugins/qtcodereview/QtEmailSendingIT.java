@@ -50,7 +50,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
         QtApproveBuild("master", "test_build_01");
 
         FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "merged").get(0);
-        Address expectedTo = new Address(user.fullName, user.email);
+        Address expectedTo = new Address(user.fullName(), user.email());
         assertThat(m.rcpt()).containsExactly(expectedTo);
         assertThat(((EmailHeader.AddressList) m.headers().get("To")).getAddressList())
           .containsExactly(expectedTo);
@@ -67,7 +67,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
         QtFailBuild("master", "test_build_02");
 
         FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "comment").get(0);
-        Address expectedTo = new Address(user.fullName, user.email);
+        Address expectedTo = new Address(user.fullName(), user.email());
         assertThat(m.rcpt()).containsExactly(expectedTo);
         assertThat(((EmailHeader.AddressList) m.headers().get("To")).getAddressList())
             .containsExactly(expectedTo);
@@ -85,7 +85,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
         QtApproveBuild("master", "test_build_03");
 
         FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "merged").get(0);
-        Address expectedTo = new Address(user.fullName, user.email);
+        Address expectedTo = new Address(user.fullName(), user.email());
         assertThat(m.rcpt()).containsExactly(expectedTo);
         assertThat(((EmailHeader.AddressList) m.headers().get("To")).getAddressList())
             .containsExactly(expectedTo);
@@ -102,7 +102,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
         QtFailBuild("master", "test_build_04");
 
         FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "comment").get(0);
-        Address expectedTo = new Address(user.fullName, user.email);
+        Address expectedTo = new Address(user.fullName(), user.email());
         assertThat(m.rcpt()).containsExactly(expectedTo);
         assertThat(((EmailHeader.AddressList) m.headers().get("To")).getAddressList())
             .containsExactly(expectedTo);

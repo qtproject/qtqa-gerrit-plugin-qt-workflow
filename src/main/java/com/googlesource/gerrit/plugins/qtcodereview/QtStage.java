@@ -8,6 +8,7 @@ import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.FluentLogger;
+import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.common.data.ParameterizedString;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.AuthException;
@@ -20,7 +21,6 @@ import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.Project;
 import com.google.gerrit.reviewdb.client.RevId;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.CurrentUser;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.ProjectUtil;
@@ -41,8 +41,6 @@ import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.submit.IntegrationException;
 import com.google.gerrit.server.submit.MergeOp;
 import com.google.gerrit.server.update.UpdateException;
-import com.google.gwtorm.server.OrmException;
-import com.google.gwtorm.server.OrmRuntimeException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
@@ -70,7 +68,6 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
         }
     }
 
-    private final Provider<ReviewDb> dbProvider;
     private final GitRepositoryManager repoManager;
     private final PermissionBackend permissionBackend;
     private final ChangeData.Factory changeDataFactory;
@@ -89,8 +86,7 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
     private Branch.NameKey stagingBranchKey;
 
     @Inject
-    QtStage(Provider<ReviewDb> dbProvider,
-            GitRepositoryManager repoManager,
+    QtStage(GitRepositoryManager repoManager,
             PermissionBackend permissionBackend,
             ChangeData.Factory changeDataFactory,
             AccountResolver accountResolver,
@@ -100,7 +96,6 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
             QtCherryPickPatch qtCherryPickPatch,
             QtUtil qtUtil) {
 
-        this.dbProvider = dbProvider;
         this.repoManager = repoManager;
         this.permissionBackend = permissionBackend;
         this.changeDataFactory = changeDataFactory;
@@ -118,7 +113,7 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
 
     @Override
     public Output apply(RevisionResource rsrc, SubmitInput input)
-      throws RestApiException, RepositoryNotFoundException, IOException, OrmException,
+      throws RestApiException, RepositoryNotFoundException, IOException,
           PermissionBackendException, UpdateException, ConfigInvalidException {
 
         logger.atInfo().log("qtcodereview: submit %s to staging", rsrc.getChange().toString());
@@ -137,7 +132,7 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
     }
 
     private Change changeToStaging(RevisionResource rsrc, IdentifiedUser submitter, SubmitInput input)
-        throws OrmException, RestApiException, IOException, UpdateException, ConfigInvalidException,
+        throws RestApiException, IOException, UpdateException, ConfigInvalidException,
             PermissionBackendException {
         logger.atInfo().log("qtcodereview: changeToStaging starts");
 
@@ -175,7 +170,7 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
             sourceId = git.resolve(rsrc.getPatchSet().getRevision().get());
             if (sourceId == null) throw new NoSuchRefException("Invalid Revision: " + rsrc.getPatchSet().getRevision().get());
 
-            changeData = changeDataFactory.create(dbProvider.get(), change);
+            changeData = changeDataFactory.create(change);
             MergeOp.checkSubmitRule(changeData, false);
 
             CodeReviewCommit commit = qtCherryPickPatch.cherryPickPatch(changeData,
@@ -229,26 +224,21 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
             }
         } catch (IOException e) {
             logger.atSevere().withCause(e).log("Error checking if change is submittable");
-            throw new OrmRuntimeException("Could not determine problems for the change", e);
+            throw new StorageException("Could not determine problems for the change", e);
         }
 
-        ReviewDb db = dbProvider.get();
-        ChangeData cd = changeDataFactory.create(db, resource.getNotes());
+        ChangeData cd = changeDataFactory.create(resource.getNotes());
         try {
             MergeOp.checkSubmitRule(cd, false);
         } catch (ResourceConflictException e) {
             return null; // stage not visible
-        } catch (OrmException e) {
-            logger.atSevere().withCause(e).log("Error checking if change is submittable");
-            throw new OrmRuntimeException("Could not determine problems for the change", e);
         }
-
         Boolean enabled;
-        try {
-            enabled = cd.isMergeable();
-        } catch (OrmException e) {
-            throw new OrmRuntimeException("Could not determine mergeability", e);
-        }
+        // try {
+        enabled = cd.isMergeable();
+        // } catch (OrmException e) {
+        //     throw new OrmRuntimeException("Could not determine mergeability", e);
+        // }
 
         RevId revId = resource.getPatchSet().getRevision();
         Map<String, String> params =

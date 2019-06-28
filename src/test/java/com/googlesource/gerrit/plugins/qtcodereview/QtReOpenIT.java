@@ -94,7 +94,7 @@ public class QtReOpenIT extends QtCodeReviewIT {
         RevCommit masterHead = getRemoteHead(project, masterRef);
         assertThat(masterHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
-        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
         if (stagingHead != null) assertThat(stagingHead.getId()).isEqualTo(initialHead.getId()); // staging is not updated
 
         assertRefUpdatedEvents(masterRef);   // no events

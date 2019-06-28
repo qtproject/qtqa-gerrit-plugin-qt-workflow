@@ -10,7 +10,6 @@ import com.google.gerrit.extensions.annotations.RequiresCapability;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.Project;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.update.BatchUpdate;
@@ -18,7 +17,6 @@ import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.gerrit.sshd.SshCommand;
 import com.google.gerrit.sshd.CommandMetaData;
-import com.google.gwtorm.server.OrmException;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -31,9 +29,6 @@ import org.kohsuke.args4j.Option;
 @RequiresCapability(GlobalCapability.ADMINISTRATE_SERVER)
 @CommandMetaData(name="change-status", description="Modify change status for admins. NOTE: This only affects change attribure. No real git merge or revert will be performed.")
 class QtCommandAdminChangeStatus extends SshCommand {
-
-    @Inject
-    private Provider<ReviewDb> dbProvider;
 
     @Inject
     Provider<InternalChangeQuery> queryProvider;
@@ -84,7 +79,7 @@ class QtCommandAdminChangeStatus extends SshCommand {
 
             Project.NameKey projectKey = QtUtil.getProjectKey(project);
             QtChangeUpdateOp op = qtUpdateFactory.create(to, null, null, null, null, null);
-            try (BatchUpdate u =  updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
+            try (BatchUpdate u =  updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
                 Change c = change.change();
                 if (c.getStatus() == from) {
                     u.addOp(c.getId(), op);
@@ -96,9 +91,6 @@ class QtCommandAdminChangeStatus extends SshCommand {
             logger.atInfo().log("qtcodereview: admin change-status done");
         } catch(NumberFormatException e) {
             throw die("change-id not numeric");
-        } catch(OrmException e) {
-            logger.atSevere().log("qtcodereview: change-status error %s", e.getMessage());
-            throw die("Database query failed");
         } catch (UpdateException | RestApiException e) {
             logger.atSevere().log("qtcodereview: change-status error %s", e.getMessage());
             throw die("Database update failed");

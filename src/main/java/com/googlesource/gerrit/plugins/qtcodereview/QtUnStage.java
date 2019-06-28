@@ -17,7 +17,6 @@ import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.Project;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.server.CurrentUser;
 import com.google.gerrit.server.IdentifiedUser;
@@ -34,7 +33,6 @@ import com.google.gerrit.server.query.change.InternalChangeQuery;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
-import com.google.gwtorm.server.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import java.io.IOException;
@@ -55,7 +53,6 @@ class QtUnStage implements RestModifyView<RevisionResource, SubmitInput>, UiActi
         }
     }
 
-    private final Provider<ReviewDb> dbProvider;
     private final GitRepositoryManager repoManager;
     private final PermissionBackend permissionBackend;
     private final BatchUpdate.Factory updateFactory;
@@ -72,7 +69,6 @@ class QtUnStage implements RestModifyView<RevisionResource, SubmitInput>, UiActi
 
     @Inject
     QtUnStage(
-        Provider<ReviewDb> dbProvider,
         GitRepositoryManager repoManager,
         PermissionBackend permissionBackend,
         BatchUpdate.Factory updateFactory,
@@ -80,7 +76,6 @@ class QtUnStage implements RestModifyView<RevisionResource, SubmitInput>, UiActi
         ProjectCache projectCache,
         QtUtil qtUtil,
         QtChangeUpdateOp.Factory qtUpdateFactory) {
-      this.dbProvider = dbProvider;
       this.repoManager = repoManager;
       this.permissionBackend = permissionBackend;
       this.updateFactory = updateFactory;
@@ -92,7 +87,7 @@ class QtUnStage implements RestModifyView<RevisionResource, SubmitInput>, UiActi
 
   @Override
   public Output apply(RevisionResource rsrc, SubmitInput input)
-        throws RestApiException, IOException, OrmException, UpdateException,
+        throws RestApiException, IOException, UpdateException,
             PermissionBackendException, ConfigInvalidException {
 
         logger.atInfo().log("qtcodereview: unstage %s", rsrc.getChange().toString());
@@ -143,7 +138,7 @@ class QtUnStage implements RestModifyView<RevisionResource, SubmitInput>, UiActi
             }
 
             QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.NEW, Change.Status.STAGED, "Unstaged", null, null, null);
-            BatchUpdate u =  updateFactory.create(dbProvider.get(), projectKey, submitter, TimeUtil.nowTs());
+            BatchUpdate u =  updateFactory.create(projectKey, submitter, TimeUtil.nowTs());
             u.addOp(rsrc.getChange().getId(), op).execute();
 
             qtUtil.rebuildStagingBranch(git, submitter, projectKey, stagingBranchKey, destBranchShortKey);

@@ -9,7 +9,6 @@ import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.Project;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
@@ -36,9 +35,6 @@ class QtCommandRebuildStaging extends SshCommand {
 
     @Inject
     private GitRepositoryManager gitManager;
-
-    @Inject
-    private ReviewDb db;
 
     @Inject
     private BatchUpdate.Factory updateFactory;

@@ -96,7 +96,7 @@ public class QtStageIT extends QtCodeReviewIT {
         gApi.changes().id(c1.getChangeId()).current().submit();
 
         // merge feature branch into master
-        PushOneCommit mm = pushFactory.create(db, admin.getIdent(), testRepo);
+        PushOneCommit mm = pushFactory.create(admin.newIdent(), testRepo);
         mm.setParents(ImmutableList.of(c1.getCommit(), f2.getCommit()));
         PushOneCommit.Result m = mm.to("refs/for/master");
         m.assertOkStatus();
@@ -237,7 +237,7 @@ public class QtStageIT extends QtCodeReviewIT {
         String branchRef = R_HEADS + branch;
         RevCommit originalCommit = c.getCommit();
         RevCommit initialHead = getRemoteHead(project, branchRef);
-        RevCommit oldStagingHead = getRemoteHead(project, stagingRef);
+        RevCommit oldStagingHead = getRemoteRefHead(project, stagingRef);
         if (oldStagingHead==null) oldStagingHead = initialHead;
 
         RestResponse response = call_REST_API_Stage(c.getChangeId(), originalCommit.getName());
@@ -246,7 +246,7 @@ public class QtStageIT extends QtCodeReviewIT {
         RevCommit branchHead = getRemoteHead(project, branchRef);
         assertThat(branchHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
-        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
 
         if (merge) {
             assertThat(stagingHead.getParentCount()).isEqualTo(2);
@@ -282,7 +282,7 @@ public class QtStageIT extends QtCodeReviewIT {
         RevCommit branchHead = getRemoteHead(project, branchRef);
         assertThat(branchHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
-        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
         if (stagingHead != null) assertThat(stagingHead.getId()).isEqualTo(oldStagingHead.getId()); // staging is not updated
 
         assertRefUpdatedEvents(branchRef); // no events

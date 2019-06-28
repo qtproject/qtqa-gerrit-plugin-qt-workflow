@@ -9,10 +9,13 @@ import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS
 import static com.google.gerrit.server.project.testing.Util.category;
 import static com.google.gerrit.server.project.testing.Util.value;
 
+import com.google.inject.Inject;
+
 import com.google.gerrit.acceptance.LightweightPluginDaemonTest;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.request.RequestScopeOperations;
 
 import com.google.gerrit.extensions.api.projects.ProjectInput;
 import com.google.gerrit.extensions.client.SubmitType;
@@ -33,6 +36,8 @@ import org.junit.Test;
 
 @UseSsh
 public class QtCommitFooterIT extends LightweightPluginDaemonTest {
+
+    @Inject private RequestScopeOperations requestScopeOperations;
 
     @Override
     protected void updateProjectInput(ProjectInput in) {
@@ -59,7 +64,7 @@ public class QtCommitFooterIT extends LightweightPluginDaemonTest {
         }
 
         PushOneCommit.Result change = createChange();
-        setApiUser(user);
+        requestScopeOperations.setApiUser(user.id());
         ReviewInput input = new ReviewInput();
         input.label("Code-Review", 2);
         input.label(verified.getName(), 1);
@@ -67,7 +72,7 @@ public class QtCommitFooterIT extends LightweightPluginDaemonTest {
         input.label(changelog.getName(), 1);
         gApi.changes().id(change.getChangeId()).current().review(input);
 
-        setApiUser(admin);
+        requestScopeOperations.setApiUser(admin.id());
         gApi.changes().id(change.getChangeId()).current().submit();
 
         ChangeInfo cf = gApi.changes().id(change.getChangeId()).get(ALL_REVISIONS, COMMIT_FOOTERS);

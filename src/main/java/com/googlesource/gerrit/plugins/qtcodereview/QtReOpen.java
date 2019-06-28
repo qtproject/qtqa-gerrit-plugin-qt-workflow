@@ -13,7 +13,6 @@ import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.PatchSetUtil;
 import com.google.gerrit.server.change.ChangeJson;
@@ -26,7 +25,6 @@ import com.google.gerrit.server.update.RetryHelper;
 import com.google.gerrit.server.update.RetryingRestModifyView;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
-import com.google.gwtorm.server.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
@@ -39,21 +37,18 @@ class QtReOpen extends RetryingRestModifyView<ChangeResource, RestoreInput, Chan
 
     private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
-    private final Provider<ReviewDb> dbProvider;
     private final ChangeJson.Factory json;
     private final PatchSetUtil psUtil;
     private final ProjectCache projectCache;
     private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
     @Inject
-    QtReOpen(Provider<ReviewDb> dbProvider,
-             ChangeJson.Factory json,
+    QtReOpen(ChangeJson.Factory json,
              PatchSetUtil psUtil,
              RetryHelper retryHelper,
              ProjectCache projectCache,
              QtChangeUpdateOp.Factory qtUpdateFactory) {
       super(retryHelper);
-      this.dbProvider = dbProvider;
       this.json = json;
       this.psUtil = psUtil;
       this.projectCache = projectCache;
@@ -66,7 +61,7 @@ class QtReOpen extends RetryingRestModifyView<ChangeResource, RestoreInput, Chan
                                    ChangeResource rsrc,
                                    RestoreInput input)
                                    throws RestApiException, UpdateException,
-                                          OrmException, PermissionBackendException,
+                                          PermissionBackendException,
                                           IOException {
         Change change = rsrc.getChange();
         logger.atInfo().log("qtcodereview: reopen %s", change);
@@ -76,7 +71,7 @@ class QtReOpen extends RetryingRestModifyView<ChangeResource, RestoreInput, Chan
 
         // Use same permission as Restore. Note that Abandon permission grants the
         // Restore if the user also has push permission on the change’s destination ref.
-        rsrc.permissions().database(dbProvider).check(ChangePermission.RESTORE);
+        rsrc.permissions().check(ChangePermission.RESTORE);
         projectCache.checkedGet(rsrc.getProject()).checkStatePermitsWrite();
 
         if (change.getStatus() != Change.Status.DEFERRED) {
@@ -85,7 +80,7 @@ class QtReOpen extends RetryingRestModifyView<ChangeResource, RestoreInput, Chan
         }
 
         QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.NEW, Change.Status.DEFERRED, "Reopened", input.message, null, null);
-        try (BatchUpdate u =  updateFactory.create(dbProvider.get(), change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
+        try (BatchUpdate u =  updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
             u.addOp(rsrc.getId(), op).execute();
         }
 
@@ -119,12 +114,12 @@ class QtReOpen extends RetryingRestModifyView<ChangeResource, RestoreInput, Chan
             if (psUtil.isPatchSetLocked(rsrc.getNotes())) {
                 return description;
             }
-        } catch (OrmException | IOException e) {
+        } catch (IOException e) {
             logger.atSevere().withCause(e).log("Failed to check if the current patch set of change %s is locked", change.getId());
             return description;
         }
 
-        boolean visible = rsrc.permissions().database(dbProvider).testOrFalse(ChangePermission.RESTORE);
+        boolean visible = rsrc.permissions().testOrFalse(ChangePermission.RESTORE);
         return description.setVisible(visible);
     }
 

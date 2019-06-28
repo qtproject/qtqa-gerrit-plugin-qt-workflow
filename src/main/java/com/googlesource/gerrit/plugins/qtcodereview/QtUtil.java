@@ -24,7 +24,6 @@ import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.reviewdb.client.Project;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.extensions.events.GitReferenceUpdated;
 import com.google.gerrit.server.project.NoSuchRefException;
@@ -34,7 +33,6 @@ import com.google.gerrit.server.submit.IntegrationException;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
-import com.google.gwtorm.server.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
@@ -77,7 +75,6 @@ public class QtUtil {
     public static final String R_STAGING = "refs/staging/";
     public static final String R_BUILDS = "refs/builds/";
 
-    private final Provider<ReviewDb> dbProvider;
     private final Provider<InternalChangeQuery> queryProvider;
     private final GitReferenceUpdated referenceUpdated;
     private final BatchUpdate.Factory updateFactory;
@@ -85,13 +82,11 @@ public class QtUtil {
     private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
     @Inject
-    QtUtil(Provider<ReviewDb> dbProvider,
-           Provider<InternalChangeQuery> queryProvider,
+    QtUtil(Provider<InternalChangeQuery> queryProvider,
            GitReferenceUpdated referenceUpdated,
            BatchUpdate.Factory updateFactory,
            QtCherryPickPatch qtCherryPickPatch,
            QtChangeUpdateOp.Factory qtUpdateFactory) {
-        this.dbProvider = dbProvider;
         this.queryProvider = queryProvider;
         this.referenceUpdated = referenceUpdated;
         this.updateFactory = updateFactory;
@@ -280,8 +275,7 @@ public class QtUtil {
         return changeId;
     }
 
-    private ChangeData findChangeFromList(String changeId, List<ChangeData> changes)
-                                          throws OrmException {
+    private ChangeData findChangeFromList(String changeId, List<ChangeData> changes) {
         for (ChangeData item : changes) {
             if (item.change().getKey().get().equals(changeId)) return item;
         }
@@ -292,7 +286,7 @@ public class QtUtil {
                                                    ObjectId refObj,
                                                    ObjectId tipObj,
                                                    List<ChangeData> changeList)
-                                                   throws MissingObjectException, OrmException,
+                                                   throws MissingObjectException,
                                                           IOException {
         List<ChangeData> results = new ArrayList<ChangeData>();
         if (refObj.equals(tipObj)) return results;
@@ -325,7 +319,7 @@ public class QtUtil {
                                              final Project.NameKey projectKey,
                                              List<ChangeData> changes,
                                              ObjectId tipObj)
-                                             throws OrmException, IOException, IntegrationException {
+                                             throws IOException, IntegrationException {
         ObjectId newId = tipObj;
         for (ChangeData item : changes) {
             Change change = item.change();
@@ -373,10 +367,6 @@ public class QtUtil {
              query = queryProvider.get();
              unsorted_list = query.byBranchStatus(destBranchShortKey, Change.Status.STAGED);
              changes_staged = arrangeOrderLikeInRef(git, oldStageRefObjId, branchObjId, unsorted_list);
-         } catch (OrmException e) {
-             logger.atSevere().log("qtcodereview: rebuild staging ref %s failed. Failed to access database %s",
-                                    stagingBranchKey, e);
-             throw new MergeConflictException("fatal: Failed to access database");
          } catch (IOException e) {
              logger.atSevere().log("qtcodereview: rebuild staging ref %s db failed. IOException %s",
                                     stagingBranchKey, e);
@@ -418,15 +408,13 @@ public class QtUtil {
                  logger.atInfo().log("qtcodereview: rebuild staging ref %s merge conflict", stagingBranchKey);
                  String message = "Merge conflict in staging branch. Status changed back to new. Please stage again.";
                  QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.NEW, Change.Status.STAGED, message, null, null, null);
-                 try (BatchUpdate u = updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
+                 try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
                      for (ChangeData item: changes_staged) {
                          Change change = item.change();
                          logger.atInfo().log("qtcodereview: staging ref rebuild merge conflict. Change %s back to NEW", change);
                          u.addOp(change.getId(), op);
                      }
                      u.execute();
-                 } catch (OrmException ex) {
-                     logger.atSevere().log("qtcodereview: staging ref rebuild. Failed to access database %s", ex);
                  } catch (UpdateException | RestApiException ex) {
                      logger.atSevere().log("qtcodereview: staging ref rebuild. Failed to update change status %s", ex);
                  }
@@ -458,13 +446,11 @@ public class QtUtil {
      * @return List of not merged changes.
      * @throws IOException Thrown by Repository or RevWalk if repository is not
      *         accessible.
-     * @throws OrmException Thrown if ReviewDb is not accessible.
      */
     public List<Map.Entry<ChangeData,RevCommit>> listChangesNotMerged(Repository git,
                                                                       final Branch.NameKey branch,
                                                                       final Branch.NameKey destination)
-                                                                      throws IOException, OrmException,
-                                                                             BranchNotFoundException {
+                                                                      throws IOException, BranchNotFoundException {
 
         List<Map.Entry<ChangeData, RevCommit>> result = new ArrayList<Map.Entry<ChangeData, RevCommit>>();
         RevWalk revWalk = new RevWalk(git);

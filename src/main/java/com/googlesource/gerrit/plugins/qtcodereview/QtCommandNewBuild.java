@@ -11,7 +11,6 @@ import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.reviewdb.client.Project;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.InternalUser;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.permissions.PermissionBackend;
@@ -26,8 +25,6 @@ import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.gerrit.sshd.SshCommand;
 import com.google.gerrit.sshd.CommandMetaData;
-
-import com.google.gwtorm.server.OrmException;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -51,9 +48,6 @@ class QtCommandNewBuild extends SshCommand {
 
     @Inject
     private GitRepositoryManager gitManager;
-
-    @Inject
-    private Provider<ReviewDb> dbProvider;
 
     @Inject
     private BatchUpdate.Factory updateFactory;
@@ -129,7 +123,7 @@ class QtCommandNewBuild extends SshCommand {
                 }
 
                 QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.INTEGRATING, Change.Status.STAGED, message, null, null, null);
-                try (BatchUpdate u =  updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
+                try (BatchUpdate u =  updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
                     for (Entry<ChangeData, RevCommit> item: openChanges) {
                         Change change = item.getKey().change();
                         if (change.getStatus() == Change.Status.STAGED) {
@@ -158,9 +152,6 @@ class QtCommandNewBuild extends SshCommand {
         } catch (IOException e) {
             logger.atSevere().log("qtcodereview: staging-new-build Failed to access repository %s", e);
             throw die("Failed to access repository");
-        } catch (OrmException e) {
-            logger.atSevere().log("qtcodereview: staging-new-build Failed to access database %s", e);
-            throw die("Failed to access database");
         } catch (QtUtil.BranchNotFoundException e) {
             logger.atSevere().log("qtcodereview: staging-new-build Failed to access build or staging ref %s", e);
             throw die("Failed to access build or staging ref");

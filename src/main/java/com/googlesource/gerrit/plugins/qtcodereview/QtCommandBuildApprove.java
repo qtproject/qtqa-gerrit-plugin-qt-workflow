@@ -11,7 +11,6 @@ import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.reviewdb.client.Project;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.extensions.events.ChangeMerged;
@@ -30,8 +29,6 @@ import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.gerrit.sshd.SshCommand;
 import com.google.gerrit.sshd.CommandMetaData;
-
-import com.google.gwtorm.server.OrmException;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -73,9 +70,6 @@ class QtCommandBuildApprove extends SshCommand {
 
     @Inject
     private GitRepositoryManager gitManager;
-
-    @Inject
-    private Provider<ReviewDb> dbProvider;
 
     @Inject
     private MergedSender.Factory mergedSenderFactory;
@@ -187,8 +181,6 @@ class QtCommandBuildApprove extends SshCommand {
             throw die("project not found");
         } catch (IOException e) {
             throw die(e.getMessage());
-        } catch (OrmException e) {
-            throw die("Failed to access database");
         } catch (QtUtil.BranchNotFoundException e) {
             throw die("invalid branch " + e.getMessage());
         } catch (NoSuchRefException e) {
@@ -206,8 +198,7 @@ class QtCommandBuildApprove extends SshCommand {
     }
 
     private void approveBuildChanges() throws QtUtil.MergeConflictException, NoSuchRefException,
-                                              IOException, UpdateException, RestApiException,
-                                              OrmException {
+                                              IOException, UpdateException, RestApiException {
         if (message == null) message = String.format("Change merged into branch %s", destBranchKey);
 
         ObjectId oldId = git.resolve(destBranchKey.get());
@@ -228,7 +219,7 @@ class QtCommandBuildApprove extends SshCommand {
     }
 
     private void rejectBuildChanges() throws QtUtil.MergeConflictException, UpdateException,
-                                             RestApiException, OrmException {
+                                             RestApiException {
         if (message == null) message = String.format("Change rejected for branch %s", destBranchKey);
 
         updateChanges(affectedChanges, Change.Status.NEW, Change.Status.INTEGRATING,
@@ -247,13 +238,13 @@ class QtCommandBuildApprove extends SshCommand {
                                String changeMessage,
                                String tag,
                                Boolean passed)
-                               throws UpdateException, RestApiException, OrmException {
+                               throws UpdateException, RestApiException {
 
         List<Entry<ChangeData,RevCommit>> emailingList = new ArrayList<Map.Entry<ChangeData, RevCommit>>();
 
         // do the db update
         QtChangeUpdateOp op = qtUpdateFactory.create(status, oldStatus, changeMessage, null, tag, null);
-        try (BatchUpdate u =  updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
+        try (BatchUpdate u =  updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
             for (Entry<ChangeData,RevCommit> item : list) {
                 Change change = item.getKey().change();
                 if ((oldStatus == null || change.getStatus() == oldStatus)
@@ -282,17 +273,15 @@ class QtCommandBuildApprove extends SshCommand {
         }
     }
 
-    private void sendMergeEvent(ChangeData changeData) throws OrmException {
+    private void sendMergeEvent(ChangeData changeData) {
         Timestamp ts = TimeUtil.nowTs();
 
-        try {
-            PatchSet ps = changeData.currentPatchSet();
-            changeMerged.fire(changeData.change(), ps, user.asIdentifiedUser().state(),
-                              ps.getRevision().get(), ts);
-        } catch ( OrmException e)  {
-            logger.atInfo().log("qtcodereview: staging-approve sending merge event failed for %s",
-                                changeData.change());
-        }
+        PatchSet ps = changeData.currentPatchSet();
+        changeMerged.fire(changeData.change(), ps, user.asIdentifiedUser().state(),
+                            ps.getRevision().get(), ts);
+
+            // logger.atInfo().log("qtcodereview: staging-approve sending merge event failed for %s",
+            //                     changeData.change());
     }
 
     private void readMessageParameter() throws UnloggedFailure {

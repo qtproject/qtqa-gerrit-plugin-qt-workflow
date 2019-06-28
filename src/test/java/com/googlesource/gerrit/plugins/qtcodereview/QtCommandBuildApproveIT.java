@@ -229,7 +229,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         String branchRef = R_HEADS + branch;
         String buildRef = R_BUILDS + buildId;
 
-        RevCommit stagingHeadOld = getRemoteHead(project, stagingRef);
+        RevCommit stagingHeadOld = getRemoteRefHead(project, stagingRef);
         RevCommit initialHead = getRemoteHead(project, branchRef);
         String commandStr;
 
@@ -254,7 +254,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
             assertThat(updatedHead).isEqualTo(expectedHead); // master is updated
         }
 
-        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
         assertThat(stagingHead).isEqualTo(stagingHeadOld); // staging remains the same
 
         assertRefUpdatedEvents(branchRef, initialHead, expectedHead);
@@ -277,7 +277,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         String stagingRef = R_STAGING + branch;
         String branchRef = R_HEADS + branch;
         String buildRef = R_BUILDS + buildId;
-        RevCommit stagingHeadOld = getRemoteHead(project, stagingRef);
+        RevCommit stagingHeadOld = getRemoteRefHead(project, stagingRef);
         RevCommit initialHead = getRemoteHead(project, branchRef);
         String commandStr;
 
@@ -293,7 +293,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         RevCommit updatedHead = getRemoteHead(project, branchRef);
         assertThat(updatedHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
-        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
 
         if (c != null && expectedStagingHead == null) {
              assertCherryPick(stagingHead, c.getCommit(), getCurrentPatchSHA(c));
@@ -321,8 +321,8 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
                                             throws Exception {
         String stagingRef = R_STAGING + branch;
         String branchRef = R_HEADS + branch;
-        RevCommit initialHead = getRemoteHead(project, branchRef);
-        RevCommit stagingHeadOld = getRemoteHead(project, stagingRef);
+        RevCommit initialHead = getRemoteRefHead(project, branchRef);
+        RevCommit stagingHeadOld = getRemoteRefHead(project, stagingRef);
         String commandStr;
 
         commandStr ="gerrit-plugin-qt-workflow staging-approve";
@@ -333,10 +333,10 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         commandStr += " --message " + MERGED_MSG;
         String resultStr = adminSshSession.exec(commandStr);
 
-        RevCommit updatedHead = getRemoteHead(project, branchRef);
+        RevCommit updatedHead = getRemoteRefHead(project, branchRef);
         if (updatedHead != null) assertThat(updatedHead).isEqualTo(initialHead); // master is not updated
 
-        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
         if (stagingHead != null) assertThat(stagingHead).isEqualTo(stagingHeadOld); // staging is not updated
 
         return adminSshSession.getError();

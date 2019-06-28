@@ -12,7 +12,6 @@ import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.PatchSetUtil;
@@ -25,7 +24,6 @@ import com.google.gerrit.server.update.RetryHelper;
 import com.google.gerrit.server.update.RetryingRestModifyView;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
-import com.google.gwtorm.server.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
@@ -40,19 +38,16 @@ public class QtAbandon extends RetryingRestModifyView<ChangeResource, AbandonInp
                                implements UiAction<ChangeResource> {
     private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
-    private final Provider<ReviewDb> dbProvider;
     private final ChangeJson.Factory json;
     private final PatchSetUtil psUtil;
     private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
     @Inject
-    QtAbandon(Provider<ReviewDb> dbProvider,
-              ChangeJson.Factory json,
+    QtAbandon(ChangeJson.Factory json,
               RetryHelper retryHelper,
               PatchSetUtil psUtil,
               QtChangeUpdateOp.Factory qtUpdateFactory) {
         super(retryHelper);
-        this.dbProvider = dbProvider;
         this.json = json;
         this.psUtil = psUtil;
         this.qtUpdateFactory = qtUpdateFactory;
@@ -63,7 +58,7 @@ public class QtAbandon extends RetryingRestModifyView<ChangeResource, AbandonInp
                                    ChangeResource rsrc,
                                    AbandonInput input)
                                    throws RestApiException, UpdateException,
-                                          OrmException, PermissionBackendException,
+                                          PermissionBackendException,
                                           IOException {
         Change change = rsrc.getChange();
         logger.atInfo().log("qtcodereview: abandon %s", change);
@@ -71,7 +66,7 @@ public class QtAbandon extends RetryingRestModifyView<ChangeResource, AbandonInp
         // Not allowed to abandon if the current patch set is locked.
         psUtil.checkPatchSetNotLocked(rsrc.getNotes());
 
-        rsrc.permissions().database(dbProvider).check(ChangePermission.ABANDON);
+        rsrc.permissions().check(ChangePermission.ABANDON);
 
         if (change.getStatus() != Change.Status.DEFERRED) {
             logger.atSevere().log("qtcodereview: qtabandon: change %s status wrong %s", change, change.getStatus());
@@ -84,7 +79,7 @@ public class QtAbandon extends RetryingRestModifyView<ChangeResource, AbandonInp
                                                      input.message,
                                                      ChangeMessagesUtil.TAG_ABANDON,
                                                      null);
-        try (BatchUpdate u =  updateFactory.create(dbProvider.get(), change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
+        try (BatchUpdate u =  updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
             u.addOp(rsrc.getId(), op).execute();
         }
 
@@ -110,7 +105,7 @@ public class QtAbandon extends RetryingRestModifyView<ChangeResource, AbandonInp
             if (psUtil.isPatchSetLocked(rsrc.getNotes())) {
                 return description;
             }
-        } catch (OrmException | IOException e) {
+        } catch (IOException e) {
             logger.atSevere().withCause(e).log("Failed to check if the current patch set of change %s is locked", change.getId());
             return description;
         }

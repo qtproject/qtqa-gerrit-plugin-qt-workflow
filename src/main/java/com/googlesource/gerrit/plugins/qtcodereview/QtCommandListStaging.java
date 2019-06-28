@@ -9,7 +9,6 @@ import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.Project;
-import com.google.gerrit.reviewdb.server.ReviewDb;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
@@ -20,8 +19,6 @@ import com.google.gerrit.sshd.CommandMetaData;
 
 import com.google.inject.Inject;
 import com.google.inject.Provider;
-
-import com.google.gwtorm.server.OrmException;
 
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.Repository;
@@ -41,9 +38,6 @@ class QtCommandListStaging extends SshCommand {
 
     @Inject
     private GitRepositoryManager gitManager;
-
-    @Inject
-    private ReviewDb db;
 
     @Inject
     private  QtUtil qtUtil;
@@ -111,9 +105,6 @@ class QtCommandListStaging extends SshCommand {
         } catch (IOException e) {
             logger.atSevere().log("qtcodereview: staging-ls IOException %s", e);
             throw die(e.getMessage());
-        } catch (OrmException e) {
-            logger.atSevere().log("qtcodereview: staging-ls cannot access Gerrit database %s", e);
-           throw die("cannot access Gerrit database");
         } finally {
             stdout.flush();
             if (git != null) {

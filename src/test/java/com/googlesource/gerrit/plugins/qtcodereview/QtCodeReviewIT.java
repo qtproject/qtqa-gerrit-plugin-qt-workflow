@@ -17,7 +17,10 @@ import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.extensions.common.ApprovalInfo;
 import com.google.gerrit.extensions.common.ChangeInfo;
 import com.google.gerrit.reviewdb.client.Change;
+import com.google.gerrit.reviewdb.client.Project;
 
+import org.eclipse.jgit.lib.Constants;
+import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.eclipse.jgit.revwalk.RevWalk;
@@ -166,8 +169,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     protected PushOneCommit.Result amendCommit(String changeId) throws Exception {
         String branch = "master";
         String pushRef = R_PUSH + branch;
-        PushOneCommit push = pushFactory.create(db,
-                                                user.getIdent(),
+        PushOneCommit push = pushFactory.create(user.newIdent(),
                                                 testRepo,
                                                 PushOneCommit.SUBJECT,
                                                 PushOneCommit.FILE_NAME,
@@ -177,7 +179,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     }
 
     protected PushOneCommit.Result createUserChange(String ref, String message, String file, String content) throws Exception {
-        PushOneCommit push = pushFactory.create(db, user.getIdent(), testRepo, message, file, content);
+        PushOneCommit push = pushFactory.create(user.newIdent(), testRepo, message, file, content);
         PushOneCommit.Result result = push.to(ref);
         result.assertOkStatus();
         return result;
@@ -200,7 +202,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         Integer vote = 0;
         if (c.labels.get(label) != null && c.labels.get(label).all != null) {
             for (ApprovalInfo approval : c.labels.get(label).all) {
-                if (approval._accountId == user.id.get()) {
+                if (approval._accountId == user.id().get()) {
                     vote = approval.value;
                     break;
                 }
@@ -227,6 +229,20 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
             return refStr;
         }
     }
+
+    private RevCommit getRefHead(Repository repo, String name) throws Exception {
+        try (RevWalk rw = new RevWalk(repo)) {
+            Ref r = repo.exactRef(name);
+            return r != null ? rw.parseCommit(r.getObjectId()) : null;
+        }
+    }
+
+    protected RevCommit getRemoteRefHead(Project.NameKey project, String branch) throws Exception {
+        try (Repository repo = repoManager.openRepository(project)) {
+            return getRefHead(repo, branch.startsWith(Constants.R_REFS) ? branch : "refs/heads/" + branch);
+        }
+    }
+
 
     protected String getCurrentPatchSHA(PushOneCommit.Result c) throws Exception {
         return c.getChange().currentPatchSet().getRevision().get();

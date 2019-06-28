@@ -145,7 +145,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
         gApi.changes().id(c1.getChangeId()).current().submit();
 
         // merge feature branch into master
-        PushOneCommit mm = pushFactory.create(db, admin.getIdent(), testRepo);
+        PushOneCommit mm = pushFactory.create(admin.newIdent(), testRepo);
         mm.setParents(ImmutableList.of(c1.getCommit(), f2.getCommit()));
         PushOneCommit.Result m = mm.to("refs/for/master");
         m.assertOkStatus();
@@ -193,7 +193,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
         QtStage(c2);
 
         // merge feature branch and stage it on top
-        PushOneCommit mm = pushFactory.create(db, admin.getIdent(), testRepo);
+        PushOneCommit mm = pushFactory.create(admin.newIdent(), testRepo);
         mm.setParents(ImmutableList.of(c1.getCommit(), f2.getCommit()));
         PushOneCommit.Result m = mm.to("refs/for/master");
         m.assertOkStatus();
@@ -321,7 +321,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
         RevCommit originalCommit = c.getCommit();
         String changeId = c.getChangeId();
         RevCommit initialHead = getRemoteHead(project, branchRef);
-        RevCommit oldStagingHead = getRemoteHead(project, stagingRef);
+        RevCommit oldStagingHead = getRemoteRefHead(project, stagingRef);
 
         RestResponse response = call_REST_API_UnStage(changeId, getCurrentPatchId(c));
         response.assertOK();
@@ -329,7 +329,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
         RevCommit masterHead = getRemoteHead(project, branchRef);
         assertThat(masterHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
-        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
         assertThat(stagingHead).isNotEqualTo(oldStagingHead);
 
         if (merge) {
@@ -367,7 +367,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
         String branchRef = R_HEADS + branch;
 
         RevCommit initialHead = getRemoteHead(project, branchRef);
-        RevCommit oldStagingHead = getRemoteHead(project, stagingRef);
+        RevCommit oldStagingHead = getRemoteRefHead(project, stagingRef);
 
         RestResponse response = call_REST_API_UnStage(c.getChangeId(), getCurrentPatchId(c));
         response.assertStatus(expectedStatus);
@@ -375,7 +375,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
         RevCommit masterHead = getRemoteHead(project, branchRef);
         assertThat(masterHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
-        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
         if (stagingHead != null) assertThat(stagingHead.getId()).isEqualTo(oldStagingHead.getId()); // staging is not updated
 
         assertRefUpdatedEvents(branchRef); // no events

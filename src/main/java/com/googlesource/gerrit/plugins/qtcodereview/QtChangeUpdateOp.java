@@ -22,7 +22,6 @@ import com.google.gerrit.server.change.LabelNormalizer;
 import com.google.gerrit.server.notedb.ChangeUpdate;
 import com.google.gerrit.server.update.BatchUpdateOp;
 import com.google.gerrit.server.update.ChangeContext;
-import com.google.gwtorm.server.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.assistedinject.Assisted;
 import java.io.IOException;
@@ -82,7 +81,7 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
     }
 
     @Override
-    public boolean updateChange(ChangeContext ctx) throws OrmException, IOException, ResourceConflictException {
+    public boolean updateChange(ChangeContext ctx) throws IOException, ResourceConflictException {
         boolean updated = false;
         change = ctx.getChange();
         PatchSet.Id psId = change.currentPatchSetId();
@@ -114,7 +113,7 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
         }
 
         if (defaultMessage != null) {
-            cmUtil.addChangeMessage(ctx.getDb(), update, newMessage(ctx));
+            cmUtil.addChangeMessage(update, newMessage(ctx));
             updated = true;
         }
 
@@ -132,11 +131,10 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
     }
 
     private LabelNormalizer.Result approve(ChangeContext ctx, ChangeUpdate update)
-                                           throws OrmException, IOException {
+                                           throws IOException {
         PatchSet.Id psId = update.getPatchSetId();
         Map<PatchSetApproval.Key, PatchSetApproval> byKey = new HashMap<>();
-        for (PatchSetApproval psa : approvalsUtil.byPatchSet(ctx.getDb(),
-                                                             ctx.getNotes(),
+        for (PatchSetApproval psa : approvalsUtil.byPatchSet(ctx.getNotes(),
                                                              psId,
                                                              ctx.getRevWalk(),
                                                              ctx.getRepoView().getConfig())) {
@@ -155,11 +153,10 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
     private void saveApprovals(LabelNormalizer.Result normalized,
                                ChangeContext ctx,
                                ChangeUpdate update,
-                               boolean includeUnchanged)
-                               throws OrmException {
+                               boolean includeUnchanged) {
         PatchSet.Id psId = update.getPatchSetId();
-        ctx.getDb().patchSetApprovals().upsert(convertPatchSet(normalized.getNormalized(), psId));
-        ctx.getDb().patchSetApprovals().upsert(zero(convertPatchSet(normalized.deleted(), psId)));
+        // FIXME, can this simply be removed? ctx.patchSetApprovals().upsert(convertPatchSet(normalized.getNormalized(), psId));
+        // FIXME, can this simply be removed? ctx.patchSetApprovals().upsert(zero(convertPatchSet(normalized.deleted(), psId)));
         for (PatchSetApproval psa : normalized.updated()) {
             update.putApprovalFor(psa.getAccountId(), psa.getLabel(), psa.getValue());
         }

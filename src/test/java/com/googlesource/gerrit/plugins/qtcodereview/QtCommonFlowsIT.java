@@ -90,7 +90,7 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         gApi.changes().id(c1.getChangeId()).current().submit();
 
         // merge feature branch into master
-        PushOneCommit mm = pushFactory.create(db, admin.getIdent(), testRepo);
+        PushOneCommit mm = pushFactory.create(admin.newIdent(), testRepo);
         mm.setParents(ImmutableList.of(c1.getCommit(), f2.getCommit()));
         PushOneCommit.Result m = mm.to("refs/for/master");
         m.assertOkStatus();
