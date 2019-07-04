@@ -71,10 +71,8 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         QtNewBuild("master", "test-build-101");
 
         RevCommit updatedHead = qtApproveBuild("master", "test-build-101", c3, null);
-        Change change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
+        assertStatusMerged(c1.getChange().change());
+        assertStatusMerged(c2.getChange().change());
     }
 
     @Test
@@ -108,10 +106,8 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         QtNewBuild("master", "test-build-201");
 
         RevCommit updatedHead = qtFailBuild("master", "test-build-201", c3, initialHead);
-        Change change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c1.getChange().change());
+        assertStatusNew(c2.getChange().change());
     }
 
     @Test
@@ -228,9 +224,8 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         RevCommit stagingHead = getRemoteHead(project, stagingRef);
         assertThat(stagingHead).isEqualTo(branchHead); // staging is updated to branch head
 
-        Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
-        change = d.getChange().change();
+        assertStatusNew(c.getChange().change());
+        Change change = d.getChange().change();
         assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
     }
 
@@ -283,11 +278,12 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
         RevCommit buildHead = getRemoteHead(project, buildRef);
         assertThat(buildHead.getId()).isNotNull(); // build ref is still there
+        assertReviewedByFooter(buildHead, true);
 
         RevCommit updatedHead = getRemoteHead(project, branchRef);
         if (expectedContent != null && expectedHead == null) {
             RevCommit commit = expectedContent.getCommit();
-            assertCherryPick(updatedHead, commit, getCurrentPatchSHA(expectedContent));
+            assertCherryPick(updatedHead, commit, null);
             expectedHead = updatedHead;
         } else {
             assertThat(updatedHead).isEqualTo(expectedHead); // master is updated
@@ -299,8 +295,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         assertRefUpdatedEvents(branchRef, initialHead, expectedHead);
         resetEvents();
 
-        Change change = expectedContent.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
+        assertStatusMerged(expectedContent.getChange().change());
 
         ArrayList<ChangeMessage> messages = new ArrayList(expectedContent.getChange().messages());
         assertThat(messages.get(messages.size()-1).getMessage()).isEqualTo(MERGED_MSG); // check last message
@@ -335,7 +330,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         RevCommit stagingHead = getRemoteHead(project, stagingRef);
 
         if (c != null && expectedStagingHead == null) {
-             assertCherryPick(stagingHead, c.getCommit(), getCurrentPatchSHA(c));
+             assertCherryPick(stagingHead, c.getCommit(), null);
              expectedStagingHead = stagingHead;
         }
         assertThat(stagingHead).isEqualTo(expectedStagingHead); // staging is rebuild
@@ -345,8 +340,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
         assertRefUpdatedEvents(stagingRef, stagingHeadOld, stagingHead); // staging is rebuild
 
-        Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c.getChange().change());
 
         ArrayList<ChangeMessage> messages = new ArrayList(c.getChange().messages());
         assertThat(messages.get(messages.size()-1).getMessage()).isEqualTo(FAILED_MSG); // check last message

@@ -60,8 +60,7 @@ public class QtReOpenIT extends QtCodeReviewIT {
         String url = "/changes/" + changeId + "/gerrit-plugin-qt-workflow~reopen";
         RestResponse response = adminRestSession.post(url, restoreInput);
         response.assertOK();
-        Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c.getChange().change());
     }
 
     @Test
@@ -100,8 +99,7 @@ public class QtReOpenIT extends QtCodeReviewIT {
         assertRefUpdatedEvents(masterRef);   // no events
         assertRefUpdatedEvents(stagingRef); // no events
 
-        Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c.getChange().change());
 
         return masterHead;
     }

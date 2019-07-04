@@ -73,8 +73,8 @@ public class QtStageIT extends QtCodeReviewIT {
         approve(c3.getChangeId());
 
         stagingHead = qtStage(c1);
-        stagingHead = qtStage(c2);
-        stagingHead = qtStage(c3);
+        stagingHead = qtStage(c2, stagingHead);
+        stagingHead = qtStage(c3, stagingHead);
     }
 
     @Test
@@ -158,7 +158,7 @@ public class QtStageIT extends QtCodeReviewIT {
         // no changes in this commit
         c = pushCommit("master", "no content", "afile", "");
         approve(c.getChangeId());
-        stagingHead = qtStage(c);
+        stagingHead = qtStage(c, stagingHead);
         assertApproval(c.getChangeId(), admin);
     }
 
@@ -254,23 +254,26 @@ public class QtStageIT extends QtCodeReviewIT {
         RestResponse response = qtStageExpectFail(c2, initialHead, stagingHead1, HttpStatus.SC_CONFLICT);
         assertThat(response.getEntityContent()).contains("merge conflict");
 
-        Change change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c2.getChange().change());
     }
 
     private RevCommit qtStage(PushOneCommit.Result c) throws Exception {
-        return qtStage(c, false, false);
+        return qtStage(c, false, false, null);
+    }
+
+    private RevCommit qtStage(PushOneCommit.Result c, RevCommit base) throws Exception {
+        return qtStage(c, false, false, base);
     }
 
     private RevCommit qtStageExpectMergeFastForward(PushOneCommit.Result c) throws Exception {
-        return qtStage(c, true, true);
+        return qtStage(c, true, true, null);
     }
 
     private RevCommit qtStageExpectMergeOfMerge(PushOneCommit.Result c) throws Exception {
-        return qtStage(c, true, false);
+        return qtStage(c, true, false, null);
     }
 
-    private RevCommit qtStage(PushOneCommit.Result c, boolean merge, boolean fastForward) throws Exception {
+    private RevCommit qtStage(PushOneCommit.Result c, boolean merge, boolean fastForward, RevCommit base) throws Exception {
         String branch = getBranchNameFromRef(c.getChange().change().getDest().get());
         String stagingRef = R_STAGING + branch;
         String branchRef = R_HEADS + branch;
@@ -286,6 +289,7 @@ public class QtStageIT extends QtCodeReviewIT {
         assertThat(branchHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
         RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        assertReviewedByFooter(stagingHead, true);
 
         if (fastForward) {
             assertThat(stagingHead).isEqualTo(originalCommit);
@@ -293,14 +297,13 @@ public class QtStageIT extends QtCodeReviewIT {
             assertThat(stagingHead.getParentCount()).isEqualTo(2);
             assertThat(stagingHead.getParent(1)).isEqualTo(originalCommit);
         } else {
-            assertCherryPick(stagingHead, originalCommit, getCurrentPatchSHA(c));
+            assertCherryPick(stagingHead, originalCommit, base);
         }
         assertThat(stagingHead.getParent(0)).isEqualTo(oldStagingHead);
         assertRefUpdatedEvents(stagingRef, oldStagingHead, stagingHead);
         resetEvents();
 
-        Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusStaged(c.getChange().change());
 
         ArrayList<ChangeMessage> messages = new ArrayList(c.getChange().messages());
         assertThat(messages.get(messages.size()-1).getMessage()).isEqualTo(STAGED_MSG); // check last message

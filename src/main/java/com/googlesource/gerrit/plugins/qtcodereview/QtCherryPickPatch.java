@@ -5,7 +5,6 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
-import com.google.gerrit.extensions.api.changes.NotifyHandling;
 import com.google.gerrit.extensions.restapi.BadRequestException;
 import com.google.gerrit.extensions.restapi.MergeConflictException;
 import com.google.gerrit.extensions.restapi.MethodNotAllowedException;
@@ -14,14 +13,11 @@ import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.reviewdb.client.Project;
 import com.google.gerrit.reviewdb.server.ReviewDb;
-import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.IdentifiedUser;
-import com.google.gerrit.server.change.PatchSetInserter;
 import com.google.gerrit.server.git.CodeReviewCommit;
 import com.google.gerrit.server.git.CodeReviewCommit.CodeReviewRevWalk;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.git.MergeUtil;
-import com.google.gerrit.server.notedb.ChangeNotes;
 import com.google.gerrit.server.project.NoSuchProjectException;
 import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.project.ProjectCache;
@@ -36,12 +32,10 @@ import com.google.gwtorm.server.OrmException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
-import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectInserter;
 import org.eclipse.jgit.lib.ObjectReader;
@@ -58,7 +52,6 @@ public class QtCherryPickPatch {
     private final BatchUpdate.Factory batchUpdateFactory;
     private final GitRepositoryManager gitManager;
     private final Provider<IdentifiedUser> user;
-    private final PatchSetInserter.Factory patchSetInserterFactory;
     private final MergeUtil.Factory mergeUtilFactory;
     private final ProjectCache projectCache;
     private final QtChangeUpdateOp.Factory qtUpdateFactory;
@@ -68,7 +61,6 @@ public class QtCherryPickPatch {
                       BatchUpdate.Factory batchUpdateFactory,
                       GitRepositoryManager gitManager,
                       Provider<IdentifiedUser> user,
-                      PatchSetInserter.Factory patchSetInserterFactory,
                       MergeUtil.Factory mergeUtilFactory,
                       ProjectCache projectCache,
                       QtChangeUpdateOp.Factory qtUpdateFactory) {
@@ -76,7 +68,6 @@ public class QtCherryPickPatch {
         this.batchUpdateFactory = batchUpdateFactory;
         this.gitManager = gitManager;
         this.user = user;
-        this.patchSetInserterFactory = patchSetInserterFactory;
         this.mergeUtilFactory = mergeUtilFactory;
         this.projectCache = projectCache;
         this.qtUpdateFactory = qtUpdateFactory;
@@ -118,7 +109,6 @@ public class QtCherryPickPatch {
             commitToCherryPick.setNotes(changeData.notes());
 
             CodeReviewCommit cherryPickCommit;
-            boolean mergeCommit = false;
 
             ProjectState projectState = projectCache.checkedGet(project);
             if (projectState == null) throw new NoSuchProjectException(project);
@@ -127,7 +117,6 @@ public class QtCherryPickPatch {
             if (commitToCherryPick.getParentCount() > 1) {
                 // Merge commit cannot be cherrypicked
                 logger.atInfo().log("qtcodereview: merge commit detected %s", commitToCherryPick);
-                mergeCommit = true;
 
                 if (commitToCherryPick.getParent(0).equals(baseCommit)) {
                     // allow fast forward, when parent index 0 is correct
@@ -159,29 +148,17 @@ public class QtCherryPickPatch {
 
             boolean patchSetNotChanged = cherryPickCommit.equals(commitToCherryPick);
             if (!patchSetNotChanged) {
-                logger.atInfo().log("qtcodereview: new patch %s -> %s", commitToCherryPick, cherryPickCommit);
+                logger.atInfo().log("qtcodereview: %s cherrypicked as %s", commitToCherryPick, cherryPickCommit);
                 oi.flush();
             }
             Timestamp commitTimestamp = new Timestamp(committerIdent.getWhen().getTime());
             BatchUpdate bu = batchUpdateFactory.create(dbProvider.get(), project, identifiedUser, commitTimestamp);
-            bu.setRepository(git, revWalk, oi);
-            if (!patchSetNotChanged && !mergeCommit) {
-                Change.Id changeId = insertPatchSet(bu, git, changeData.notes(), cherryPickCommit);
-                bu.addOp(changeData.getId(), qtUpdateFactory.create(newStatus,
-                                                                    null,
-                                                                    defaultMessage,
-                                                                    inputMessage,
-                                                                    tag,
-                                                                    commitToCherryPick));
-                logger.atInfo().log("qtcodereview: cherrypick new patch %s for %s", cherryPickCommit.toObjectId(), changeId);
-            } else {
-                bu.addOp(changeData.getId(), qtUpdateFactory.create(newStatus,
-                                                                    null,
-                                                                    defaultMessage,
-                                                                    inputMessage,
-                                                                    tag,
-                                                                    null));
-            }
+            bu.addOp(changeData.getId(), qtUpdateFactory.create(newStatus,
+                                                                null,
+                                                                defaultMessage,
+                                                                inputMessage,
+                                                                tag,
+                                                                null));
 
             bu.execute();
             logger.atInfo().log("qtcodereview: cherrypick done %s", changeData.getId());
@@ -189,21 +166,6 @@ public class QtCherryPickPatch {
         } catch (Exception e) {
             throw new IntegrationException("Reason: " + e.getMessage());
         }
-    }
-
-    private Change.Id insertPatchSet(BatchUpdate bu,
-                                     Repository git,
-                                     ChangeNotes destNotes,
-                                     CodeReviewCommit cherryPickCommit)
-                                     throws IOException, OrmException, BadRequestException, ConfigInvalidException {
-        Change destChange = destNotes.getChange();
-        PatchSet.Id psId = ChangeUtil.nextPatchSetId(git, destChange.currentPatchSetId());
-        PatchSetInserter inserter = patchSetInserterFactory.create(destNotes, psId, cherryPickCommit);
-        inserter.setNotify(NotifyHandling.NONE)
-                .setAllowClosed(true);
-                // .setCopyApprovals(true) doesn't work, so copying done in QtChangeUpdateOp
-        bu.addOp(destChange.getId(), inserter);
-        return destChange.getId();
     }
 
 }

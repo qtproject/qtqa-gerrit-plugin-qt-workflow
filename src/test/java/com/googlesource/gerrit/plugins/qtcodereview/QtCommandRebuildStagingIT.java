@@ -51,8 +51,9 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
         QtStage(c1);
         QtStage(c2);
         QtStage(c3);
+        RevCommit stagingExpected = getRemoteHead(project, R_STAGING + "master");
 
-        RevCommit stagingHead = qtRebuildStaging("master", c3, null);
+        RevCommit stagingHead = qtRebuildStaging("master", null, stagingExpected);
     }
 
     @Test
@@ -71,8 +72,9 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
         QtStage(c2);
         QtNewBuild("master", "test-build-250");
         QtStage(c3);
+        RevCommit stagingExpected = getRemoteHead(project, R_STAGING + "master");
 
-        RevCommit stagingHead = qtRebuildStaging("master", c3, null);
+        RevCommit stagingHead = qtRebuildStaging("master", null, stagingExpected);
     }
 
     @Test
@@ -135,9 +137,10 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
         assertThat(updatedHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
         RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        assertReviewedByFooter(stagingHead, true);
 
-        if (expectedStagingHead==null && expectedContent != null) {
-            assertCherryPick(stagingHead, expectedContent.getCommit(), getCurrentPatchSHA(expectedContent));
+        if (expectedStagingHead == null && expectedContent != null) {
+            assertCherryPick(stagingHead, expectedContent.getCommit(), null);
             expectedStagingHead = stagingHead;
         } else {
             assertThat(stagingHead).isEqualTo(expectedStagingHead); // staging is updated

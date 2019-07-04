@@ -121,7 +121,7 @@ public class QtStage implements RestModifyView<RevisionResource, SubmitInput>,
       throws RestApiException, RepositoryNotFoundException, IOException, OrmException,
           PermissionBackendException, UpdateException, ConfigInvalidException {
 
-        logger.atInfo().log("qtcodereview: submit %s to staging", rsrc.getChange().toString());
+        logger.atInfo().log("qtcodereview: stage %s", rsrc.getChange().toString());
 
         IdentifiedUser submitter = rsrc.getUser().asIdentifiedUser();
         change = rsrc.getChange();
