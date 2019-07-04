@@ -318,6 +318,7 @@ public class QtUtil {
                 ChangeData change = findChangeFromList(changeId, changeList);
                 if (change != null) results.add(0, change);
 
+                // It can always be trusted that parent in index 0 is the correct one
                 commit = revWalk.parseCommit(commit.getParent(0));
             }
         } while (commit != null && !commit.equals(tipObj) && count < 100);
@@ -536,7 +537,7 @@ public class QtUtil {
 
         final CommitBuilder mergeCommit = new CommitBuilder();
         mergeCommit.setTreeId(merger.getResultTreeId());
-        mergeCommit.setParentIds(mergeTip, toMerge);
+        mergeCommit.setParentIds(mergeTip, toMerge); // important: mergeTip must be parent index 0
         mergeCommit.setAuthor(toMerge.getAuthorIdent());
         mergeCommit.setCommitter(committerIdent);
         mergeCommit.setMessage(message);

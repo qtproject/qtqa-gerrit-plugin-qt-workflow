@@ -101,7 +101,42 @@ public class QtStageIT extends QtCodeReviewIT {
         PushOneCommit.Result m = mm.to("refs/for/master");
         m.assertOkStatus();
         approve(m.getChangeId());
-        RevCommit stagingHead = qtStageExpectMerge(m);
+        RevCommit stagingHead = qtStageExpectMergeFastForward(m);
+
+        // check that all commits are in staging ref
+        String gitLog = getRemoteLog("refs/staging/master").toString();
+        assertThat(gitLog).contains(initialHead.getId().name());
+        assertThat(gitLog).contains(c1.getCommit().getId().name());
+        assertThat(gitLog).contains(f1.getCommit().getId().name());
+        assertThat(gitLog).contains(f2.getCommit().getId().name());
+        assertThat(gitLog).contains(m.getCommit().getId().name());
+    }
+
+    @Test
+    public void mergeCommit_Stage_ExpectMergeOfMerge() throws Exception {
+        RevCommit initialHead = getRemoteHead();
+
+        // make changes on feature branch
+        PushOneCommit.Result f1 = pushCommit("feature", "commitmsg1", "file1", "content1");
+        PushOneCommit.Result f2 = pushCommit("feature", "commitmsg2", "file2", "content2");
+        approve(f1.getChangeId());
+        gApi.changes().id(f1.getChangeId()).current().submit();
+        approve(f2.getChangeId());
+        gApi.changes().id(f2.getChangeId()).current().submit();
+
+        // make a change on master branch
+        testRepo.reset(initialHead);
+        PushOneCommit.Result c1 = pushCommit("master", "commitmsg3", "file3", "content3");
+        approve(c1.getChangeId());
+        gApi.changes().id(c1.getChangeId()).current().submit();
+
+        // merge feature branch into master
+        PushOneCommit mm = pushFactory.create(db, admin.getIdent(), testRepo);
+        mm.setParents(ImmutableList.of(f2.getCommit(), c1.getCommit()));
+        PushOneCommit.Result m = mm.to("refs/for/master");
+        m.assertOkStatus();
+        approve(m.getChangeId());
+        RevCommit stagingHead = qtStageExpectMergeOfMerge(m);
 
         // check that all commits are in staging ref
         String gitLog = getRemoteLog("refs/staging/master").toString();
@@ -224,14 +259,18 @@ public class QtStageIT extends QtCodeReviewIT {
     }
 
     private RevCommit qtStage(PushOneCommit.Result c) throws Exception {
-        return qtStage(c, false);
+        return qtStage(c, false, false);
     }
 
-    private RevCommit qtStageExpectMerge(PushOneCommit.Result c) throws Exception {
-        return qtStage(c, true);
+    private RevCommit qtStageExpectMergeFastForward(PushOneCommit.Result c) throws Exception {
+        return qtStage(c, true, true);
     }
 
-    private RevCommit qtStage(PushOneCommit.Result c, boolean merge) throws Exception {
+    private RevCommit qtStageExpectMergeOfMerge(PushOneCommit.Result c) throws Exception {
+        return qtStage(c, true, false);
+    }
+
+    private RevCommit qtStage(PushOneCommit.Result c, boolean merge, boolean fastForward) throws Exception {
         String branch = getBranchNameFromRef(c.getChange().change().getDest().get());
         String stagingRef = R_STAGING + branch;
         String branchRef = R_HEADS + branch;
@@ -248,7 +287,9 @@ public class QtStageIT extends QtCodeReviewIT {
 
         RevCommit stagingHead = getRemoteHead(project, stagingRef);
 
-        if (merge) {
+        if (fastForward) {
+            assertThat(stagingHead).isEqualTo(originalCommit);
+        } else if (merge) {
             assertThat(stagingHead.getParentCount()).isEqualTo(2);
             assertThat(stagingHead.getParent(1)).isEqualTo(originalCommit);
         } else {

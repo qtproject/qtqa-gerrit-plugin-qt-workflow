@@ -128,13 +128,21 @@ public class QtCherryPickPatch {
                 // Merge commit cannot be cherrypicked
                 logger.atInfo().log("qtcodereview: merge commit detected %s", commitToCherryPick);
                 mergeCommit = true;
-                RevCommit commit = QtUtil.merge(committerIdent,
-                                                git, oi,
-                                                revWalk,
-                                                commitToCherryPick,
-                                                baseCommit,
-                                                true /* merge always */);
-                cherryPickCommit = revWalk.parseCommit(commit);
+
+                if (commitToCherryPick.getParent(0).equals(baseCommit)) {
+                    // allow fast forward, when parent index 0 is correct
+                    logger.atInfo().log("qtcodereview: merge commit fast forwarded");
+                    cherryPickCommit = commitToCherryPick;
+                } else {
+                    logger.atInfo().log("qtcodereview: merge of merge created");
+                    RevCommit commit = QtUtil.merge(committerIdent,
+                                                    git, oi,
+                                                    revWalk,
+                                                    commitToCherryPick,
+                                                    baseCommit,
+                                                    true);
+                    cherryPickCommit = revWalk.parseCommit(commit);
+                }
             } else {
                 String commitMessage = mergeUtil.createCommitMessageOnSubmit(commitToCherryPick, baseCommit);
                 cherryPickCommit = mergeUtil.createCherryPickFromCommit(oi,

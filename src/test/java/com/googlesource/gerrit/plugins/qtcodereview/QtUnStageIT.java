@@ -169,7 +169,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
     }
 
     @Test
-    public void multiChange_UnStage_Before_MergeCommit() throws Exception {
+    public void multiChange_UnStage_Before_MergeCommit_ExpectFastForward() throws Exception {
         RevCommit initialHead = getRemoteHead();
 
         // make changes on feature branch
@@ -197,10 +197,54 @@ public class QtUnStageIT extends QtCodeReviewIT {
         mm.setParents(ImmutableList.of(c1.getCommit(), f2.getCommit()));
         PushOneCommit.Result m = mm.to("refs/for/master");
         m.assertOkStatus();
+        RevCommit originalMergeCommit = m.getCommit();
         approve(m.getChangeId());
         QtStage(m);
 
-        RevCommit stagingHead = qtUnStageExpectMerge(c2, m);
+        RevCommit stagingHead = qtUnStageExpectMergeFastForward(c2, originalMergeCommit);
+        String gitLog = getRemoteLog("refs/staging/master").toString();
+        assertThat(gitLog).contains(initialHead.getId().name());
+        assertThat(gitLog).contains(c1.getCommit().getId().name());
+        assertThat(gitLog).contains(stagingHead.getId().name());
+        assertThat(gitLog).contains(f1.getCommit().getId().name());
+        assertThat(gitLog).contains(f2.getCommit().getId().name());
+        assertThat(gitLog).contains(m.getCommit().getId().name());
+        assertThat(gitLog).doesNotContain(c2.getCommit().getId().name());
+    }
+
+    @Test
+    public void multiChange_UnStage_Before_MergeCommit_ExpectMergeOfMerge() throws Exception {
+        RevCommit initialHead = getRemoteHead();
+
+        // make changes on feature branch
+        PushOneCommit.Result f1 = pushCommit("feature", "commitmsg1", "file1", "content1");
+        PushOneCommit.Result f2 = pushCommit("feature", "commitmsg2", "file2", "content2");
+        approve(f1.getChangeId());
+        gApi.changes().id(f1.getChangeId()).current().submit();
+        approve(f2.getChangeId());
+        gApi.changes().id(f2.getChangeId()).current().submit();
+
+        // make a change on master branch
+        testRepo.reset(initialHead);
+        PushOneCommit.Result c1 = pushCommit("master", "commitmsg3", "file3", "content3");
+        approve(c1.getChangeId());
+        gApi.changes().id(c1.getChangeId()).current().submit();
+
+        // Stage a change
+        testRepo.reset(initialHead);
+        PushOneCommit.Result c2 = pushCommit("master", "commitmsg4", "file4", "content4");
+        approve(c2.getChangeId());
+        QtStage(c2);
+
+        // merge feature branch and stage it on top
+        PushOneCommit mm = pushFactory.create(db, admin.getIdent(), testRepo);
+        mm.setParents(ImmutableList.of(f2.getCommit(),c1.getCommit()));
+        PushOneCommit.Result m = mm.to("refs/for/master");
+        m.assertOkStatus();
+        approve(m.getChangeId());
+        QtStage(m);
+
+        RevCommit stagingHead = qtUnStageExpectMergeOfMerge(c2, m);
         String gitLog = getRemoteLog("refs/staging/master").toString();
         assertThat(gitLog).contains(initialHead.getId().name());
         assertThat(gitLog).contains(c1.getCommit().getId().name());
@@ -295,25 +339,32 @@ public class QtUnStageIT extends QtCodeReviewIT {
     private RevCommit qtUnStageExpectCherryPick(PushOneCommit.Result c,
                                                 PushOneCommit.Result expectedContent)
                                                 throws Exception {
-        return qtUnStage(c, null, expectedContent, false);
+        return qtUnStage(c, null, expectedContent, false, false);
     }
 
     private RevCommit qtUnStageExpectCommit(PushOneCommit.Result c,
                                            RevCommit expectedStagingHead)
                                            throws Exception {
-        return qtUnStage(c, expectedStagingHead, null, false);
+        return qtUnStage(c, expectedStagingHead, null, false, false);
     }
 
-    private RevCommit qtUnStageExpectMerge(PushOneCommit.Result c,
-                                           PushOneCommit.Result expectedContent)
-                                           throws Exception {
-        return qtUnStage(c, null, expectedContent, true);
+    private RevCommit qtUnStageExpectMergeFastForward(PushOneCommit.Result c,
+                                                      RevCommit expectedStagingHead)
+                                                      throws Exception {
+        return qtUnStage(c, expectedStagingHead, null, true, true);
+    }
+
+    private RevCommit qtUnStageExpectMergeOfMerge(PushOneCommit.Result c,
+                                                  PushOneCommit.Result expectedContent)
+                                                  throws Exception {
+        return qtUnStage(c, null, expectedContent, true, false);
     }
 
     private RevCommit qtUnStage(PushOneCommit.Result c,
                                 RevCommit expectedStagingHead,
                                 PushOneCommit.Result expectedContent,
-                                boolean merge)
+                                boolean merge,
+                                boolean fastForward)
                                 throws Exception {
         String branch = getBranchNameFromRef(c.getChange().change().getDest().get());
         String stagingRef = R_STAGING + branch;
@@ -332,7 +383,9 @@ public class QtUnStageIT extends QtCodeReviewIT {
         RevCommit stagingHead = getRemoteHead(project, stagingRef);
         assertThat(stagingHead).isNotEqualTo(oldStagingHead);
 
-        if (merge) {
+        if (fastForward) {
+            assertThat(stagingHead).isEqualTo(expectedStagingHead);
+        } else if (merge) {
             assertThat(stagingHead.getParentCount()).isEqualTo(2);
             assertThat(stagingHead.getParent(1)).isEqualTo(expectedContent.getCommit());
             expectedStagingHead = stagingHead;
