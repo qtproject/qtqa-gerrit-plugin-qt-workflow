@@ -309,7 +309,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         Change change = c.getChange().change();
         assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
 
-        ArrayList<ChangeMessage> messages = new ArrayList(c.getChange().messages());
+        ArrayList<ChangeMessage> messages = new ArrayList<ChangeMessage>(c.getChange().messages());
         assertThat(messages.get(messages.size()-1).getMessage()).isEqualTo(FAILED_MSG); // check last message
 
         return updatedHead;
