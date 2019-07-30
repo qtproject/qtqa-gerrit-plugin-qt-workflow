@@ -83,7 +83,7 @@ class QtCommandAdminChangeStatus extends SshCommand {
             ChangeData change = list.get(0);
 
             Project.NameKey projectKey = QtUtil.getProjectKey(project);
-            QtChangeUpdateOp op = qtUpdateFactory.create(to, null, null, null, null, null);
+            QtChangeUpdateOp op = qtUpdateFactory.create(to, null, null, null, QtUtil.TAG_ADMINCHANGE, null);
             try (BatchUpdate u =  updateFactory.create(dbProvider.get(), projectKey, user, TimeUtil.nowTs())) {
                 Change c = change.change();
                 if (c.getStatus() == from) {

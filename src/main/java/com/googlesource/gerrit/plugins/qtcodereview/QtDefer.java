@@ -27,6 +27,7 @@ import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.server.ReviewDb;
+import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.PatchSetUtil;
 import com.google.gerrit.server.change.ChangeJson;
@@ -90,7 +91,7 @@ class QtDefer extends RetryingRestModifyView<ChangeResource, AbandonInput, Chang
             throw new ResourceConflictException("change is " + ChangeUtil.status(change));
         }
 
-        QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.DEFERRED, null, "Deferred", input.message, null, null);
+        QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.DEFERRED, null, "Deferred", input.message, ChangeMessagesUtil.TAG_ABANDON, null);
         try (BatchUpdate u =  updateFactory.create(dbProvider.get(), change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
             u.addOp(rsrc.getId(), op).execute();
         }
