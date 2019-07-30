@@ -4,17 +4,18 @@
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
-import com.google.gerrit.sshd.SshCommand;
 import com.google.gerrit.sshd.CommandMetaData;
+import com.google.gerrit.sshd.SshCommand;
 
-@CommandMetaData(name="ping", description="Ping the SSH Command interface")
+@CommandMetaData(name = "ping", description = "Ping the SSH Command interface")
 class QtCommandPing extends SshCommand {
-    @Override
-    protected void run() {
-        stdout.print(String.format("Pong\n  username=%s\n  name=%s\n  email=%s\n",
-                                    user.asIdentifiedUser().getUserName(),
-                                    user.asIdentifiedUser().getName(),
-                                    user.asIdentifiedUser().getNameEmail()));
-    }
+  @Override
+  protected void run() {
+    stdout.print(
+        String.format(
+            "Pong\n  username=%s\n  name=%s\n  email=%s\n",
+            user.asIdentifiedUser().getUserName(),
+            user.asIdentifiedUser().getName(),
+            user.asIdentifiedUser().getNameEmail()));
+  }
 }
-

@@ -1,6 +1,7 @@
 //
 // Copyright (C) 2019 The Qt Company
-// Modified from https://gerrit.googlesource.com/gerrit/+/refs/heads/stable-2.16/java/com/google/gerrit/server/restapi/change/Abandon.java
+// Modified from
+// https://gerrit.googlesource.com/gerrit/+/refs/heads/stable-2.16/java/com/google/gerrit/server/restapi/change/Abandon.java
 //
 // Copyright (C) 2012 The Android Open Source Project
 //
@@ -18,7 +19,6 @@
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
-import com.google.common.base.Strings;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.api.changes.AbandonInput;
 import com.google.gerrit.extensions.common.ChangeInfo;
@@ -39,87 +39,89 @@ import com.google.gerrit.server.update.RetryingRestModifyView;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
-import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import java.io.IOException;
 
-
 @Singleton
 class QtDefer extends RetryingRestModifyView<ChangeResource, AbandonInput, ChangeInfo>
-              implements UiAction<ChangeResource> {
+    implements UiAction<ChangeResource> {
 
-    private static final FluentLogger logger = FluentLogger.forEnclosingClass();
+  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
-    private final ChangeJson.Factory json;
-    private final PatchSetUtil psUtil;
-    private final QtChangeUpdateOp.Factory qtUpdateFactory;
+  private final ChangeJson.Factory json;
+  private final PatchSetUtil psUtil;
+  private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
-    @Inject
-    QtDefer(ChangeJson.Factory json,
-            RetryHelper retryHelper,
-            PatchSetUtil psUtil,
-            QtChangeUpdateOp.Factory qtUpdateFactory) {
-        super(retryHelper);
-        this.json = json;
-        this.psUtil = psUtil;
-        this.qtUpdateFactory = qtUpdateFactory;
+  @Inject
+  QtDefer(
+      ChangeJson.Factory json,
+      RetryHelper retryHelper,
+      PatchSetUtil psUtil,
+      QtChangeUpdateOp.Factory qtUpdateFactory) {
+    super(retryHelper);
+    this.json = json;
+    this.psUtil = psUtil;
+    this.qtUpdateFactory = qtUpdateFactory;
+  }
+
+  @Override
+  protected ChangeInfo applyImpl(
+      BatchUpdate.Factory updateFactory, ChangeResource rsrc, AbandonInput input)
+      throws RestApiException, UpdateException, PermissionBackendException, IOException {
+    Change change = rsrc.getChange();
+    logger.atInfo().log("qtcodereview: defer %s", rsrc.getChange().toString());
+
+    // Not allowed to defer if the current patch set is locked.
+    psUtil.checkPatchSetNotLocked(rsrc.getNotes());
+
+    // Defer uses same permission as abandon
+    rsrc.permissions().check(ChangePermission.ABANDON);
+
+    if (change.getStatus() != Change.Status.NEW && change.getStatus() != Change.Status.ABANDONED) {
+      logger.atSevere().log(
+          "qtcodereview: defer: change %s status wrong %s", change, change.getStatus());
+      throw new ResourceConflictException("change is " + ChangeUtil.status(change));
     }
 
-    @Override
-    protected ChangeInfo applyImpl(BatchUpdate.Factory updateFactory,
-                                   ChangeResource rsrc,
-                                   AbandonInput input)
-                                   throws RestApiException, UpdateException,
-                                          PermissionBackendException,
-                                          IOException {
-        Change change = rsrc.getChange();
-        logger.atInfo().log("qtcodereview: defer %s", rsrc.getChange().toString());
-
-        // Not allowed to defer if the current patch set is locked.
-        psUtil.checkPatchSetNotLocked(rsrc.getNotes());
-
-        // Defer uses same permission as abandon
-        rsrc.permissions().check(ChangePermission.ABANDON);
-
-        if (change.getStatus() != Change.Status.NEW && change.getStatus() != Change.Status.ABANDONED) {
-            logger.atSevere().log("qtcodereview: defer: change %s status wrong %s", change, change.getStatus());
-            throw new ResourceConflictException("change is " + ChangeUtil.status(change));
-        }
-
-
-        QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.DEFERRED, null, "Deferred", input.message, ChangeMessagesUtil.TAG_ABANDON, null);
-        try (BatchUpdate u =  updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
-            u.addOp(rsrc.getId(), op).execute();
-        }
-
-        change = op.getChange();
-        logger.atInfo().log("qtcodereview: deferred %s", change);
-
-        return json.noOptions().format(change);
+    QtChangeUpdateOp op =
+        qtUpdateFactory.create(
+            Change.Status.DEFERRED,
+            null,
+            "Deferred",
+            input.message,
+            ChangeMessagesUtil.TAG_ABANDON,
+            null);
+    try (BatchUpdate u =
+        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
+      u.addOp(rsrc.getId(), op).execute();
     }
 
-    @Override
-    public UiAction.Description getDescription(ChangeResource rsrc) {
-        UiAction.Description description = new UiAction.Description()
-                                                       .setLabel("Defer")
-                                                       .setTitle("Defer the change")
-                                                       .setVisible(false);
+    change = op.getChange();
+    logger.atInfo().log("qtcodereview: deferred %s", change);
 
-        Change change = rsrc.getChange();
-        if (change.getStatus() != Change.Status.NEW && change.getStatus() != Change.Status.ABANDONED) {
-            return description;
-        }
+    return json.noOptions().format(change);
+  }
 
-        try {
-            if (psUtil.isPatchSetLocked(rsrc.getNotes())) {
-                return description;
-            }
-        } catch (IOException e) {
-            logger.atSevere().withCause(e).log("Failed to check if the current patch set of change %s is locked", change.getId());
-            return description;
-        }
+  @Override
+  public UiAction.Description getDescription(ChangeResource rsrc) {
+    UiAction.Description description =
+        new UiAction.Description().setLabel("Defer").setTitle("Defer the change").setVisible(false);
 
-        return description.setVisible(rsrc.permissions().testOrFalse(ChangePermission.ABANDON));
+    Change change = rsrc.getChange();
+    if (change.getStatus() != Change.Status.NEW && change.getStatus() != Change.Status.ABANDONED) {
+      return description;
     }
 
+    try {
+      if (psUtil.isPatchSetLocked(rsrc.getNotes())) {
+        return description;
+      }
+    } catch (IOException e) {
+      logger.atSevere().withCause(e).log(
+          "Failed to check if the current patch set of change %s is locked", change.getId());
+      return description;
+    }
+
+    return description.setVisible(rsrc.permissions().testOrFalse(ChangePermission.ABANDON));
+  }
 }

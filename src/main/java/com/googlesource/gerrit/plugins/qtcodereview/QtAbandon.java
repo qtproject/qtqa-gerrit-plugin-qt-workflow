@@ -4,7 +4,6 @@
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
-import com.google.common.base.Strings;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.api.changes.AbandonInput;
 import com.google.gerrit.extensions.common.ChangeInfo;
@@ -25,91 +24,93 @@ import com.google.gerrit.server.update.RetryingRestModifyView;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
-import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import java.io.IOException;
-
 
 // Standard Abandon is not allowed if already in a closed state
 // This class handles transition from DEFERRED to ABANDONED
 
 @Singleton
 public class QtAbandon extends RetryingRestModifyView<ChangeResource, AbandonInput, ChangeInfo>
-                               implements UiAction<ChangeResource> {
-    private static final FluentLogger logger = FluentLogger.forEnclosingClass();
+    implements UiAction<ChangeResource> {
+  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
-    private final ChangeJson.Factory json;
-    private final PatchSetUtil psUtil;
-    private final QtChangeUpdateOp.Factory qtUpdateFactory;
+  private final ChangeJson.Factory json;
+  private final PatchSetUtil psUtil;
+  private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
-    @Inject
-    QtAbandon(ChangeJson.Factory json,
-              RetryHelper retryHelper,
-              PatchSetUtil psUtil,
-              QtChangeUpdateOp.Factory qtUpdateFactory) {
-        super(retryHelper);
-        this.json = json;
-        this.psUtil = psUtil;
-        this.qtUpdateFactory = qtUpdateFactory;
+  @Inject
+  QtAbandon(
+      ChangeJson.Factory json,
+      RetryHelper retryHelper,
+      PatchSetUtil psUtil,
+      QtChangeUpdateOp.Factory qtUpdateFactory) {
+    super(retryHelper);
+    this.json = json;
+    this.psUtil = psUtil;
+    this.qtUpdateFactory = qtUpdateFactory;
+  }
+
+  @Override
+  protected ChangeInfo applyImpl(
+      BatchUpdate.Factory updateFactory, ChangeResource rsrc, AbandonInput input)
+      throws RestApiException, UpdateException, PermissionBackendException, IOException {
+    Change change = rsrc.getChange();
+    logger.atInfo().log("qtcodereview: abandon %s", change);
+
+    // Not allowed to abandon if the current patch set is locked.
+    psUtil.checkPatchSetNotLocked(rsrc.getNotes());
+
+    rsrc.permissions().check(ChangePermission.ABANDON);
+
+    if (change.getStatus() != Change.Status.DEFERRED) {
+      logger.atSevere().log(
+          "qtcodereview: qtabandon: change %s status wrong %s", change, change.getStatus());
+      throw new ResourceConflictException("change is " + ChangeUtil.status(change));
     }
 
-    @Override
-    protected ChangeInfo applyImpl(BatchUpdate.Factory updateFactory,
-                                   ChangeResource rsrc,
-                                   AbandonInput input)
-                                   throws RestApiException, UpdateException,
-                                          PermissionBackendException,
-                                          IOException {
-        Change change = rsrc.getChange();
-        logger.atInfo().log("qtcodereview: abandon %s", change);
-
-        // Not allowed to abandon if the current patch set is locked.
-        psUtil.checkPatchSetNotLocked(rsrc.getNotes());
-
-        rsrc.permissions().check(ChangePermission.ABANDON);
-
-        if (change.getStatus() != Change.Status.DEFERRED) {
-            logger.atSevere().log("qtcodereview: qtabandon: change %s status wrong %s", change, change.getStatus());
-            throw new ResourceConflictException("change is " + ChangeUtil.status(change));
-        }
-
-        QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.ABANDONED,
-                                                     null,
-                                                     "Abandoned",
-                                                     input.message,
-                                                     ChangeMessagesUtil.TAG_ABANDON,
-                                                     null);
-        try (BatchUpdate u =  updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
-            u.addOp(rsrc.getId(), op).execute();
-        }
-
-        logger.atInfo().log("qtcodereview: abandoned %s", change);
-
-        change = op.getChange();
-        return json.noOptions().format(change);
+    QtChangeUpdateOp op =
+        qtUpdateFactory.create(
+            Change.Status.ABANDONED,
+            null,
+            "Abandoned",
+            input.message,
+            ChangeMessagesUtil.TAG_ABANDON,
+            null);
+    try (BatchUpdate u =
+        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
+      u.addOp(rsrc.getId(), op).execute();
     }
 
-    @Override
-    public UiAction.Description getDescription(ChangeResource rsrc) {
-    UiAction.Description description = new UiAction.Description()
-                                                   .setLabel("Abandon")
-                                                   .setTitle("Abandon the change")
-                                                   .setVisible(false)
-                                                   .setEnabled(false);
-        Change change = rsrc.getChange();
-        if (change.getStatus() != Change.Status.DEFERRED) {
-            return description;
-        }
+    logger.atInfo().log("qtcodereview: abandoned %s", change);
 
-        try {
-            if (psUtil.isPatchSetLocked(rsrc.getNotes())) {
-                return description;
-            }
-        } catch (IOException e) {
-            logger.atSevere().withCause(e).log("Failed to check if the current patch set of change %s is locked", change.getId());
-            return description;
-        }
+    change = op.getChange();
+    return json.noOptions().format(change);
+  }
 
-        return description.setVisible(rsrc.permissions().testOrFalse(ChangePermission.ABANDON));
+  @Override
+  public UiAction.Description getDescription(ChangeResource rsrc) {
+    UiAction.Description description =
+        new UiAction.Description()
+            .setLabel("Abandon")
+            .setTitle("Abandon the change")
+            .setVisible(false)
+            .setEnabled(false);
+    Change change = rsrc.getChange();
+    if (change.getStatus() != Change.Status.DEFERRED) {
+      return description;
     }
+
+    try {
+      if (psUtil.isPatchSetLocked(rsrc.getNotes())) {
+        return description;
+      }
+    } catch (IOException e) {
+      logger.atSevere().withCause(e).log(
+          "Failed to check if the current patch set of change %s is locked", change.getId());
+      return description;
+    }
+
+    return description.setVisible(rsrc.permissions().testOrFalse(ChangePermission.ABANDON));
+  }
 }
