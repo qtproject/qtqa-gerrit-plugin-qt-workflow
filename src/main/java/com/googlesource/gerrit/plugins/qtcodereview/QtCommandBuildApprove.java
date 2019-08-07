@@ -212,7 +212,13 @@ class QtCommandBuildApprove extends SshCommand {
 
         ObjectId oldId = git.resolve(destBranchKey.get());
 
-        QtUtil.mergeBranches(user.asIdentifiedUser(), git, buildBranchKey, destBranchKey);
+        Result result = QtUtil.mergeBranches(user.asIdentifiedUser(), git, buildBranchKey, destBranchKey);
+
+        if (result != Result.FAST_FORWARD) {
+            message = "Branch update failed, changed back to NEW. Either the destination branch was changed externally, or this is an issue in the Qt plugin.";
+            rejectBuildChanges();
+            return;
+        }
 
         updateChanges(affectedChanges, Change.Status.MERGED, null,
                       message, ChangeMessagesUtil.TAG_MERGED, true);

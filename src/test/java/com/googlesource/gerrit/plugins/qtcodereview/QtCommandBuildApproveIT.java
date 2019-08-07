@@ -196,6 +196,45 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     }
 
     @Test
+    public void errorApproveBuild_FastForwardFail() throws Exception {
+        RevCommit initialHead = getRemoteHead();
+        PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
+        approve(c.getChangeId());
+        QtStage(c);
+        QtNewBuild("master", "test-build-605");
+
+        // direct push that causes fast forward failure
+        testRepo.reset(initialHead);
+        PushOneCommit.Result d = pushCommit("master", "commitmsg2", "file2", "content2");
+        approve(d.getChangeId());
+        gApi.changes().id(d.getChangeId()).current().submit();
+        RevCommit branchHead = getRemoteHead();
+
+
+        String stagingRef = R_STAGING + "master";
+        String branchRef = R_HEADS + "master";
+        String commandStr;
+        commandStr ="gerrit-plugin-qt-workflow staging-approve";
+        commandStr += " --project " + project.get();
+        commandStr += " --branch master";
+        commandStr += " --build-id test-build-605";
+        commandStr += " --result pass";
+        commandStr += " --message " + MERGED_MSG;
+        adminSshSession.exec(commandStr);
+        assertThat(adminSshSession.getError()).isNull();
+
+        RevCommit updatedHead = getRemoteHead(project, branchRef);
+        assertThat(updatedHead).isEqualTo(branchHead); // master is not updated
+        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        assertThat(stagingHead).isEqualTo(branchHead); // staging is updated to branch head
+
+        Change change = c.getChange().change();
+        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        change = d.getChange().change();
+        assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
+    }
+
+    @Test
     public void approveBuild_MultiLineMessage() throws Exception {
         PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
         approve(c.getChangeId());

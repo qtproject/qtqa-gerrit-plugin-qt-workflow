@@ -589,6 +589,9 @@ public class QtUtil {
             RefUpdate refUpdate = git.updateRef(destination.get());
             refUpdate.setNewObjectId(mergeCommit);
             return refUpdate.update();
+        } catch (Exception e) {
+            logger.atWarning().log("qtcodereview: merge failed, %s", e);
+            return null;
         } finally {
             revWalk.dispose();
         }
