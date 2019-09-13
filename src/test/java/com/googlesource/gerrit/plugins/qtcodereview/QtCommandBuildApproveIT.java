@@ -71,10 +71,8 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         QtNewBuild("master", "test-build-101");
 
         RevCommit updatedHead = qtApproveBuild("master", "test-build-101", c3, null);
-        Change change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
+        assertStatusMerged(c1.getChange().change());
+        assertStatusMerged(c2.getChange().change());
     }
 
     @Test
@@ -108,10 +106,8 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         QtNewBuild("master", "test-build-201");
 
         RevCommit updatedHead = qtFailBuild("master", "test-build-201", c3, initialHead);
-        Change change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c1.getChange().change());
+        assertStatusNew(c2.getChange().change());
     }
 
     @Test
@@ -196,6 +192,44 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     }
 
     @Test
+    public void errorApproveBuild_FastForwardFail() throws Exception {
+        RevCommit initialHead = getRemoteHead();
+        PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
+        approve(c.getChangeId());
+        QtStage(c);
+        QtNewBuild("master", "test-build-605");
+
+        // direct push that causes fast forward failure
+        testRepo.reset(initialHead);
+        PushOneCommit.Result d = pushCommit("master", "commitmsg2", "file2", "content2");
+        approve(d.getChangeId());
+        gApi.changes().id(d.getChangeId()).current().submit();
+        RevCommit branchHead = getRemoteHead();
+
+
+        String stagingRef = R_STAGING + "master";
+        String branchRef = R_HEADS + "master";
+        String commandStr;
+        commandStr ="gerrit-plugin-qt-workflow staging-approve";
+        commandStr += " --project " + project.get();
+        commandStr += " --branch master";
+        commandStr += " --build-id test-build-605";
+        commandStr += " --result pass";
+        commandStr += " --message " + MERGED_MSG;
+        adminSshSession.exec(commandStr);
+        assertThat(adminSshSession.getError()).isNull();
+
+        RevCommit updatedHead = getRemoteHead(project, branchRef);
+        assertThat(updatedHead).isEqualTo(branchHead); // master is not updated
+        RevCommit stagingHead = getRemoteHead(project, stagingRef);
+        assertThat(stagingHead).isEqualTo(branchHead); // staging is updated to branch head
+
+        assertStatusNew(c.getChange().change());
+        Change change = d.getChange().change();
+        assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
+    }
+
+    @Test
     public void approveBuild_MultiLineMessage() throws Exception {
         PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
         approve(c.getChangeId());
@@ -244,11 +278,12 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
         RevCommit buildHead = getRemoteHead(project, buildRef);
         assertThat(buildHead.getId()).isNotNull(); // build ref is still there
+        assertReviewedByFooter(buildHead, true);
 
         RevCommit updatedHead = getRemoteHead(project, branchRef);
         if (expectedContent != null && expectedHead == null) {
             RevCommit commit = expectedContent.getCommit();
-            assertCherryPick(updatedHead, commit, getCurrentPatchSHA(expectedContent));
+            assertCherryPick(updatedHead, commit, null);
             expectedHead = updatedHead;
         } else {
             assertThat(updatedHead).isEqualTo(expectedHead); // master is updated
@@ -260,8 +295,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         assertRefUpdatedEvents(branchRef, initialHead, expectedHead);
         resetEvents();
 
-        Change change = expectedContent.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
+        assertStatusMerged(expectedContent.getChange().change());
 
         ArrayList<ChangeMessage> messages = new ArrayList(expectedContent.getChange().messages());
         assertThat(messages.get(messages.size()-1).getMessage()).isEqualTo(MERGED_MSG); // check last message
@@ -296,7 +330,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
         RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
 
         if (c != null && expectedStagingHead == null) {
-             assertCherryPick(stagingHead, c.getCommit(), getCurrentPatchSHA(c));
+             assertCherryPick(stagingHead, c.getCommit(), null);
              expectedStagingHead = stagingHead;
         }
         assertThat(stagingHead).isEqualTo(expectedStagingHead); // staging is rebuild
@@ -306,8 +340,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
         assertRefUpdatedEvents(stagingRef, stagingHeadOld, stagingHead); // staging is rebuild
 
-        Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c.getChange().change());
 
         ArrayList<ChangeMessage> messages = new ArrayList<ChangeMessage>(c.getChange().messages());
         assertThat(messages.get(messages.size()-1).getMessage()).isEqualTo(FAILED_MSG); // check last message

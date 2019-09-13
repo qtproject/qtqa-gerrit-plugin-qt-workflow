@@ -55,17 +55,14 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         c = pushCommit("master", "no content", "afile", "");
         approve(c.getChangeId());
         QtStage(c);
-        Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusStaged(c.getChange().change());
         RevCommit stagingHead = getRemoteHead(project, "refs/staging/master");
 
         QtNewBuild("master", "master-build-000");
-        change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
+        assertStatusIntegrating(c.getChange().change());
 
         QtApproveBuild("master", "master-build-000");
-        change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
+        assertStatusMerged(c.getChange().change());
 
         String gitLog = getRemoteLog("refs/staging/master").toString();
         assertThat(gitLog).contains(stagingHead.getId().name());
@@ -96,16 +93,13 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         m.assertOkStatus();
         approve(m.getChangeId());
         QtStage(m);
-        Change change = m.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusStaged(m.getChange().change());
 
         QtNewBuild("master", "master-build-001");
-        change = m.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
+        assertStatusIntegrating(m.getChange().change());
 
         QtApproveBuild("master", "master-build-001");
-        change = m.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
+        assertStatusMerged(m.getChange().change());
 
         // check that all commits are in staging ref
         String gitLog = getRemoteLog("refs/heads/master").toString();
@@ -134,17 +128,13 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         QtStage(c3);
 
         QtNewBuild("master", "master-build-100");
-        Change change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusIntegrating(c1.getChange().change());
+        assertStatusStaged(c2.getChange().change());
 
         QtNewBuild("5.12", "5.12-build-100");
         QtApproveBuild("5.12", "5.12-build-100");
-        change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
-        change = c3.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
+        assertStatusIntegrating(c1.getChange().change());
+        assertStatusIntegrating(c3.getChange().change());
 
         QtApproveBuild("master", "master-build-100");
         RevCommit branchHeadMaster = getRemoteHead(project, R_HEADS + "master");
@@ -170,17 +160,13 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         QtStage(c3);
 
         QtNewBuild("5.12", "5.12-build-101");
-        Change change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
-        change = c3.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusIntegrating(c1.getChange().change());
+        assertStatusStaged(c3.getChange().change());
 
         QtNewBuild("master", "master-build-101");
         QtFailBuild("master", "master-build-101");
-        change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
+        assertStatusIntegrating(c1.getChange().change());
+        assertStatusIntegrating(c2.getChange().change());
 
         QtFailBuild("5.12", "5.12-build-101");
         RevCommit branchHeadMaster = getRemoteHead(project, R_HEADS + "master");
@@ -202,8 +188,7 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         QtStage(c2);
 
         QtUnStage(c1);
-        Change change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusStaged(c2.getChange().change());
 
         QtUnStage(c2);
         RevCommit stagingHeadMaster = getRemoteHead(project, R_STAGING + "master");
@@ -221,18 +206,15 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         approve(c2.getChangeId());
 
         QtStage(c1);
-        Change change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c2.getChange().change());
 
         QtNewBuild("master", "master-build-401");
         RevCommit build1Head = getRemoteHead(project, R_BUILDS + "master-build-401");
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c2.getChange().change());
 
         QtStage(c2);
         QtApproveBuild("master", "master-build-401");
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusStaged(c2.getChange().change());
 
         QtNewBuild("master", "master-build-402");
         RevCommit build2Head = getRemoteHead(project, R_BUILDS + "master-build-402");
@@ -256,18 +238,15 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         approve(c2.getChangeId());
 
         QtStage(c1);
-        Change change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c2.getChange().change());
 
         QtNewBuild("master", "master-build-401");
         RevCommit build1Head = getRemoteHead(project, R_BUILDS + "master-build-401");
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c2.getChange().change());
 
         QtStage(c2);
         QtApproveBuild("master", "master-build-401");
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusStaged(c2.getChange().change());
 
         QtNewBuild("master", "master-build-402");
         RevCommit build2Head = getRemoteHead(project, R_BUILDS + "master-build-402");
@@ -291,24 +270,20 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         approve(c2.getChangeId());
 
         QtStage(c1);
-        Change change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c2.getChange().change());
 
         QtNewBuild("master", "master-build-401");
         RevCommit build1Head = getRemoteHead(project, R_BUILDS + "master-build-401");
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c2.getChange().change());
 
         QtStage(c2);
         QtFailBuild("master", "master-build-401");
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusStaged(c2.getChange().change());
 
         QtNewBuild("master", "master-build-402");
         RevCommit build2Head = getRemoteHead(project, R_BUILDS + "master-build-402");
         QtApproveBuild("master", "master-build-402");
-        change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c1.getChange().change());;
 
         String gitLog = getRemoteLog("refs/heads/master").toString();
         assertThat(gitLog).doesNotContain(build1Head.getId().name());
@@ -328,23 +303,46 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         approve(c2.getChangeId());
 
         QtStage(c1);
-        Change change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c2.getChange().change());
 
         QtNewBuild("master", "master-build-401");
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c2.getChange().change());
 
         QtStage(c2);
         QtFailBuild("master", "master-build-401");
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusStaged(c2.getChange().change());
 
         QtNewBuild("master", "master-build-402");
         QtFailBuild("master", "master-build-402");
 
         RevCommit updatedHead = getRemoteHead();
         assertThat(updatedHead).isEqualTo(initialHead);
+    }
+
+    @Test
+    public void unStageWhileBuilding() throws Exception {
+        RevCommit initialHead = getRemoteHead();
+        PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "file1", "content1");
+        approve(c1.getChangeId());
+        QtStage(c1);
+        QtNewBuild("master", "master-build-402");
+
+        PushOneCommit.Result c2 = pushCommit("master", "commitmsg2", "file2", "content2");
+        approve(c2.getChangeId());
+        QtStage(c2);
+        RevCommit stagingExpected = getRemoteHead(project, R_STAGING + "master");
+
+        PushOneCommit.Result c3 = pushCommit("master", "commitmsg3", "file3", "content3");
+        approve(c3.getChangeId());
+        QtStage(c3);
+
+        QtUnStage(c3);
+        RevCommit stagingHead = getRemoteHead(project, R_STAGING + "master");
+        assertThat(stagingHead).isEqualTo(stagingExpected);
+
+        assertStatusIntegrating(c1.getChange().change());
+        assertStatusStaged(c2.getChange().change());
+        assertStatusNew(c3.getChange().change());
     }
 
     @Test
@@ -371,14 +369,10 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
         QtStage(c4);
 
         QtUnStage(c3);
-        Change change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
-        change = c3.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
-        change = c4.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusIntegrating(c1.getChange().change());
+        assertStatusNew(c2.getChange().change());
+        assertStatusNew(c3.getChange().change());
+        assertStatusNew(c4.getChange().change());
 
         RevCommit stagingHeadMaster = getRemoteHead(project, R_STAGING + "master");
         assertThat(stagingHeadMaster.getId()).isEqualTo(stagingExpected.getId());

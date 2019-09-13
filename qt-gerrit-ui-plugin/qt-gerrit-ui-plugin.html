@@ -8,33 +8,16 @@
     <script>
         'use strict';
 
-        var BUTTONS = {
-            'gerrit-plugin-qt-workflow~abandon' : {
-                header: 'Abandon the change?',
-                action_name: 'abandon'
-            },
-            'gerrit-plugin-qt-workflow~defer' : {
-                header: 'Defer the change?',
-                action_name: 'defer'
-            },
-            'gerrit-plugin-qt-workflow~reopen' : {
-                header: 'Reopen the change?',
-                action_name: 'reopen'
-            },
-            'gerrit-plugin-qt-workflow~stage' : {
-                header: 'Submit to staging?',
-                action_name: 'stage'
-            },
-            'gerrit-plugin-qt-workflow~unstage' : {
-                header: 'Unstage the change?',
-                action_name: 'unstage'
-            }
-        };
+        var BUTTONS = [
+            'gerrit-plugin-qt-workflow~abandon',
+            'gerrit-plugin-qt-workflow~defer',
+            'gerrit-plugin-qt-workflow~reopen',
+            'gerrit-plugin-qt-workflow~stage',
+            'gerrit-plugin-qt-workflow~unstage'
+        ];
 
         Gerrit.install(plugin => {
 
-            plugin.custom_popup = null;
-            plugin.custom_popup_promise = null;
             plugin.buttons = null;
 
             function htmlToElement(html) {
@@ -126,32 +109,28 @@
 
                 // Remove any existing buttons
                 if (plugin.buttons) {
-                    for (var key in BUTTONS) {
-                        if (BUTTONS.hasOwnProperty(key)) {
-                            if(typeof plugin.buttons[key] !== 'undefined' && plugin.buttons[key] !== null) {
-                                plugin.ca.removeTapListener(plugin.buttons[key], (param) => {} );
-                                plugin.ca.remove(plugin.buttons[key]);
-                                plugin.buttons[key] = null;
-                            }
+                    BUTTONS.forEach((key) => {
+                        if(typeof plugin.buttons[key] !== 'undefined' && plugin.buttons[key] !== null) {
+                            plugin.ca.removeTapListener(plugin.buttons[key], (param) => {} );
+                            plugin.ca.remove(plugin.buttons[key]);
+                            plugin.buttons[key] = null;
                         }
-                    }
+                    });
                 } else plugin.buttons = [];
 
                 // Add buttons based on server response
-                for (var key in BUTTONS) {
-                    if (BUTTONS.hasOwnProperty(key)) {
-                        var action = plugin.ca.getActionDetails(key);
-                        if (action) {
-                            // hide dropdown action
-                            plugin.ca.setActionHidden(action.__type, action.__key, true);
+                BUTTONS.forEach((key) => {
+                    var action = plugin.ca.getActionDetails(key);
+                    if (action) {
+                        // hide dropdown action
+                        plugin.ca.setActionHidden(action.__type, action.__key, true);
 
-                            // add button
-                            plugin.buttons[key] = plugin.ca.add(action.__type, action.label);
-                            plugin.ca.setTitle(plugin.buttons[key], action.title);
-                            plugin.ca.addTapListener(plugin.buttons[key], buttonEventCallback);
-                        }
+                        // add button
+                        plugin.buttons[key] = plugin.ca.add(action.__type, action.label);
+                        plugin.ca.setTitle(plugin.buttons[key], action.title);
+                        plugin.ca.addTapListener(plugin.buttons[key], buttonEventCallback);
                     }
-                }
+                });
 
                 function buttonEventCallback(event) {
                     var button_key = event.type.substring(0, event.type.indexOf('-tap'));
@@ -165,106 +144,22 @@
                         }
                     }
                     if (button_action) {
-                        plugin.popup('qt-gerrit-ui-confirm-dialog').then( (param) => {
-                            plugin.custom_popup_promise = param;
-                            plugin.custom_popup.set('header', BUTTONS[button_index].header);
-                            plugin.custom_popup.set('subject', changeInfo.subject);
-                            plugin.custom_popup.set('action_name', BUTTONS[button_index].action_name);
-                            plugin.custom_popup.set('api_url', button_action.__url);
-                        }).catch( (param) => { console.log('unexpected error: promise failed');});
+                        const buttonEl = this.$$(`[data-action-key="${button_key}"]`);
+                        buttonEl.setAttribute('loading', true);
+                        buttonEl.disabled = true;
+                        plugin.restApi().post(button_action.__url, {})
+                            .then((ok_resp) => {
+                                buttonEl.removeAttribute('loading');
+                                buttonEl.disabled = false;
+                                window.location.reload(true);
+                            }).catch((failed_resp) => {
+                                buttonEl.removeAttribute('loading');
+                                buttonEl.disabled = false;
+                                this.fire('show-alert', {message: 'FAILED: ' + failed_resp});
+                            });
                     } else console.log('unexpected error: no action');
                 }
             });
-        });
-    </script>
-</dom-module>
-
-<dom-module id="qt-gerrit-ui-confirm-dialog">
-    <template>
-        <style include="shared-styles">
-            #dialog {
-                min-width: 40em;
-            }
-            p {
-                margin-bottom: 1em;
-            }
-            @media screen and (max-width: 50em) {
-                #dialog {
-                      min-width: inherit;
-                      width: 100%;
-                }
-            }
-        </style>
-        <gr-dialog
-            id="dialog"
-            confirm-label="Continue"
-            confirm-on-enter
-            on-cancel="_handleCancelTap"
-            on-confirm="_handleConfirmTap">
-            <div class="header" slot="header">[[header]]</div>
-            <div class="main" slot="main">
-                <p>Ready to [[action_name]] &ldquo;<strong>[[subject]]</strong>&rdquo;?</p>
-                <p class="main" style="color: red;font-weight: bold;">[[errorMessage]]</p>
-            </div>
-        </gr-dialog>
-    </template>
-    <script>
-        'use strict';
-
-        var qtgerrituiconfirmdialog = Polymer({
-            is: 'qt-gerrit-ui-confirm-dialog',
-
-            properties: {
-                header: {
-                    type: String,
-                    value: '...wait...'
-                },
-                action_name: {
-                    type: String,
-                    value: ''
-                },
-                api_url: {
-                    type: String,
-                    value: ''
-                },
-                subject: {
-                    type: String,
-                    value: ''
-                },
-                errorMessage: {
-                    type: String,
-                    value: ''
-                }
-            },
-
-            attached: function() {
-                this.plugin.custom_popup = this;
-            },
-
-            resetFocus(e) {
-                this.$.dialog.resetFocus();
-            },
-
-            _handleConfirmTap(e) {
-                this.$.dialog.disabled = true;
-                e.preventDefault();
-                this.plugin.restApi().post(this.get('api_url'), {})
-                    .then((ok_resp) => {
-                        this.$.dialog.disabled = false;
-                        this.plugin.custom_popup_promise.close();
-                        this.plugin.custom_popup_promise = null;
-                        window.location.reload(true);
-                    }).catch((failed_resp) => {
-                        this.$.dialog.disabled = false;
-                        this.set('errorMessage', 'FAILED: ' + failed_resp);
-                    });
-            },
-
-            _handleCancelTap(e) {
-                e.preventDefault();
-                this.plugin.custom_popup_promise.close();
-                this.plugin.custom_popup_promise = null;
-            },
         });
     </script>
 </dom-module>

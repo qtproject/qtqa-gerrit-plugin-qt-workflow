@@ -66,10 +66,8 @@ public class QtCommandNewBuildIT extends QtCodeReviewIT {
         QtStage(c3);
 
         RevCommit buildHead = qtNewBuild("master", "test-build-101", c3, null);
-        Change change = c1.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
-        change = c2.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
+        assertStatusIntegrating(c1.getChange().change());
+        assertStatusIntegrating(c2.getChange().change());
     }
 
 
@@ -184,18 +182,18 @@ public class QtCommandNewBuildIT extends QtCodeReviewIT {
         assertThat(stagingHead.getId()).isNotEqualTo(initialHead.getId()); // staging is not master
 
         if (expectedHead == null) {
-             assertCherryPick(stagingHead, c.getCommit(), getCurrentPatchSHA(c));
+             assertCherryPick(stagingHead, c.getCommit(), null);
              expectedHead = stagingHead;
         }
 
         RevCommit buildHead = getRemoteHead(project, buildRef);
         assertThat(buildHead).isEqualTo(expectedHead); // build ref is updated
         assertRefUpdatedEvents(buildRef, null, expectedHead);
+        assertReviewedByFooter(buildHead, true);
 
         resetEvents();
 
-        Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.INTEGRATING);
+        assertStatusIntegrating(c.getChange().change());
 
         ArrayList<ChangeMessage> messages = new ArrayList(c.getChange().messages());
         assertThat(messages.get(messages.size() - 1).getMessage()).contains(BUILDING_MSG + buildId); // check last message
@@ -226,6 +224,5 @@ public class QtCommandNewBuildIT extends QtCodeReviewIT {
 
         return adminSshSession.getError();
     }
-
 
 }

@@ -160,7 +160,7 @@ public class QtCommandStageIT extends QtCodeReviewIT {
 
         Change change = c.getChange().change();
         if (expectFail) assertThat(change.getStatus()).isNotEqualTo(Change.Status.STAGED);
-        else assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        else assertStatusStaged(change);
 
         return adminSshSession.getError();
     }

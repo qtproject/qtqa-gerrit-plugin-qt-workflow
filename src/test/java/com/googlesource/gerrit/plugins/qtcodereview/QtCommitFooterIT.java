@@ -3,8 +3,8 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.gerrit.extensions.client.ListChangesOption.ALL_REVISIONS;
-import static com.google.gerrit.extensions.client.ListChangesOption.COMMIT_FOOTERS;
+import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_COMMIT;
+import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_REVISION;
 import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS;
 import static com.google.gerrit.server.project.testing.Util.category;
 import static com.google.gerrit.server.project.testing.Util.value;
@@ -75,8 +75,8 @@ public class QtCommitFooterIT extends LightweightPluginDaemonTest {
         requestScopeOperations.setApiUser(admin.id());
         gApi.changes().id(change.getChangeId()).current().submit();
 
-        ChangeInfo cf = gApi.changes().id(change.getChangeId()).get(ALL_REVISIONS, COMMIT_FOOTERS);
-        String commitMsg = cf.revisions.get(cf.currentRevision).commitWithFooters;
+        ChangeInfo cf = gApi.changes().id(change.getChangeId()).get(CURRENT_REVISION, CURRENT_COMMIT);
+        String commitMsg = cf.revisions.get(cf.currentRevision).commit.message;
         assertThat(commitMsg).contains("Reviewed-by");
         assertThat(commitMsg).doesNotContain("Reviewed-on");
         assertThat(commitMsg).doesNotContain("Sanity-Review");

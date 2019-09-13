@@ -14,8 +14,11 @@ import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestAccount;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.common.FooterConstants;
+import com.google.gerrit.extensions.client.ChangeStatus;
 import com.google.gerrit.extensions.common.ApprovalInfo;
 import com.google.gerrit.extensions.common.ChangeInfo;
+import com.google.gerrit.extensions.common.LabelInfo;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.Project;
 
@@ -96,7 +99,10 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         RestResponse response = call_REST_API_Stage(c.getChangeId(), c.getCommit().getName());
         response.assertOK();
         Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusStaged(change);
+        String branch = getBranchNameFromRef(change.getDest().get());
+        RevCommit stagingHead = getRemoteHead(project, R_STAGING + branch);
+        assertReviewedByFooter(stagingHead, true);
         resetEvents();
     }
 
@@ -109,8 +115,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     protected void QtUnStage(PushOneCommit.Result c) throws Exception {
         RestResponse response = call_REST_API_UnStage(c.getChangeId(), getCurrentPatchId(c));
         response.assertOK();
-        Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c.getChange().change());
     }
 
     protected RestResponse call_REST_API_UnStage(String changeId, String revisionId) throws Exception {
@@ -127,6 +132,8 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         commandStr += " --build-id " + buildId;
         String resultStr = adminSshSession.exec(commandStr);
         assertThat(adminSshSession.getError()).isNull();
+        RevCommit buildHead = getRemoteHead(project, R_BUILDS + buildId);
+        assertReviewedByFooter(buildHead, true);
         resetEvents();
     }
 
@@ -140,6 +147,8 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         commandStr += " --message " + BUILD_PASS_MESSAGE;
         String resultStr = adminSshSession.exec(commandStr);
         assertThat(adminSshSession.getError()).isNull();
+        RevCommit branchHead = getRemoteHead(project, R_HEADS + branch);
+        assertReviewedByFooter(branchHead, true);
     }
 
     protected void QtFailBuild(String branch, String buildId)  throws Exception {
@@ -161,8 +170,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
                                               throws Exception {
         String pushRef = R_PUSH + branch;
         PushOneCommit.Result c = createUserChange(pushRef, message, file, content);
-        Change change = c.getChange().change();
-        assertThat(change.getStatus()).isEqualTo(Change.Status.NEW);
+        assertStatusNew(c.getChange().change());
         return c;
     }
 
@@ -185,13 +193,67 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         return result;
     }
 
-    protected void assertCherryPick(RevCommit head, RevCommit source, String cherrypickSHA) {
-        assertThat(head.getName()).isEqualTo(cherrypickSHA);
+    protected void assertCherryPick(RevCommit head, RevCommit source, RevCommit base) {
         assertThat(head).isNotEqualTo(source);
-        assertThat(cherrypickSHA).isNotEqualTo(source.getName());
+        assertThat(head.getName()).isNotEqualTo(source.getName());
         assertThat(head.getShortMessage()).isEqualTo(source.getShortMessage());
         assertThat(head.getFooterLines("Change-Id")).isEqualTo(source.getFooterLines("Change-Id"));
         assertThat(head.getParentCount()).isEqualTo(1);
+
+        if (base != null) assertThat(head.getParent(0)).isEqualTo(base);
+    }
+
+    private void assertStatus(Change change, ChangeStatus status, boolean approved, boolean footer)
+                             throws Exception {
+        ChangeInfo cf;
+
+        if (approved) {
+            cf = gApi.changes().id(change.getChangeId()).get(DETAILED_LABELS, CURRENT_REVISION, CURRENT_COMMIT);
+            Integer vote = getLabelValue(cf, "Code-Review", admin);
+            assertThat(vote).named("label = Code-Review").isEqualTo(2);
+        } else {
+            cf = gApi.changes().id(change.getChangeId()).get(CURRENT_REVISION, CURRENT_COMMIT);
+        }
+
+        assertThat(cf.status).isEqualTo(status);
+        String commitMsg = cf.revisions.get(cf.currentRevision).commit.message;
+
+        if (footer && cf.revisions.get(cf.currentRevision).commit.parents.size() == 1) {
+            assertThat(commitMsg).contains("Reviewed-by");
+        } else {
+            assertThat(commitMsg).doesNotContain("Reviewed-by");
+        }
+    }
+
+    protected void assertStatusNew(Change change) throws Exception {
+        assertStatus(change, ChangeStatus.NEW, false, false);
+    }
+
+    protected void assertStatusStaged(Change change) throws Exception {
+        assertStatus(change, ChangeStatus.STAGED, true, false);
+    }
+
+    protected void assertStatusIntegrating(Change change) throws Exception {
+        assertStatus(change, ChangeStatus.INTEGRATING, true, false);
+    }
+
+    protected void assertStatusMerged(Change change) throws Exception {
+        assertStatus(change, ChangeStatus.MERGED, true, true);
+    }
+
+    private Integer getLabelValue(ChangeInfo c, String label, TestAccount user) {
+        Integer vote = 0;
+        LabelInfo labels = c.labels.get(label);
+
+        if (labels != null && labels.all != null) {
+            for (ApprovalInfo approval : labels.all) {
+                if (approval._accountId == user.id().get()) {
+                    vote = approval.value;
+                    break;
+                }
+            }
+        }
+        return vote;
     }
 
     protected void assertApproval(String changeId, TestAccount user) throws Exception {
@@ -200,17 +262,18 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         String label = "Code-Review";
         int expectedVote = 2;
         Integer vote = 0;
-        if (c.labels.get(label) != null && c.labels.get(label).all != null) {
-            for (ApprovalInfo approval : c.labels.get(label).all) {
-                if (approval._accountId == user.id().get()) {
-                    vote = approval.value;
-                    break;
-                }
-            }
-        }
 
-        String name = "label = " + label;
-        assertThat(vote).named(name).isEqualTo(expectedVote);
+        vote = getLabelValue(c, label, user);
+        assertThat(vote).named("label = " + label).isEqualTo(expectedVote);
+    }
+
+    protected void assertReviewedByFooter(RevCommit commit, boolean exists) {
+
+        // Skip initial commit and merge commits
+        if (commit.getParentCount() != 1) return;
+
+        List<String> changeIds = commit.getFooterLines(FooterConstants.REVIEWED_BY);
+        assertThat(!changeIds.isEmpty()).isEqualTo(exists);
     }
 
     protected void assertRefUpdatedEvents(String refName, RevCommit ... expected) throws Exception {

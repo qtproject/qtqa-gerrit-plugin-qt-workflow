@@ -79,7 +79,7 @@ class QtReOpen extends RetryingRestModifyView<ChangeResource, RestoreInput, Chan
             throw new ResourceConflictException("change is " + ChangeUtil.status(change));
         }
 
-        QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.NEW, Change.Status.DEFERRED, "Reopened", input.message, null, null);
+        QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.NEW, Change.Status.DEFERRED, "Reopened", input.message, QtUtil.TAG_REOPENED, null);
         try (BatchUpdate u =  updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
             u.addOp(rsrc.getId(), op).execute();
         }

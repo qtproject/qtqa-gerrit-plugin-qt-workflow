@@ -113,7 +113,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
     private void QtStageByAdmin(PushOneCommit.Result c) throws Exception {
         RestResponse response = call_REST_API_Stage_By_Admin(c.getChangeId(), c.getCommit().getName());
         response.assertOK();
-        assertThat(c.getChange().change().getStatus()).isEqualTo(Change.Status.STAGED);
+        assertStatusStaged(c.getChange().change());
     }
 
     private RestResponse call_REST_API_Stage_By_Admin(String changeId, String revisionId) throws Exception {

@@ -137,7 +137,7 @@ class QtUnStage implements RestModifyView<RevisionResource, SubmitInput>, UiActi
                 throw new ResourceConflictException("Invalid Revision: " + patchSet);
             }
 
-            QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.NEW, Change.Status.STAGED, "Unstaged", null, null, null);
+            QtChangeUpdateOp op = qtUpdateFactory.create(Change.Status.NEW, Change.Status.STAGED, "Unstaged", null, QtUtil.TAG_CI, null);
             BatchUpdate u =  updateFactory.create(projectKey, submitter, TimeUtil.nowTs());
             u.addOp(rsrc.getChange().getId(), op).execute();
 

@@ -5,6 +5,8 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
+import com.google.gerrit.extensions.api.changes.NotifyHandling;
+import com.google.gerrit.extensions.restapi.BadRequestException;
 import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.reviewdb.client.Branch;
@@ -12,11 +14,15 @@ import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.reviewdb.client.Project;
 import com.google.gerrit.server.ChangeMessagesUtil;
+import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.IdentifiedUser;
+import com.google.gerrit.server.change.PatchSetInserter;
 import com.google.gerrit.server.extensions.events.ChangeMerged;
 import com.google.gerrit.server.extensions.events.GitReferenceUpdated;
+import com.google.gerrit.server.git.CodeReviewCommit;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.mail.send.MergedSender;
+import com.google.gerrit.server.notedb.ChangeNotes;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.permissions.ProjectPermission;
@@ -33,6 +39,7 @@ import com.google.gerrit.sshd.CommandMetaData;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 
+import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.errors.MissingObjectException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.ObjectId;
@@ -79,6 +86,9 @@ class QtCommandBuildApprove extends SshCommand {
 
     @Inject
     private BatchUpdate.Factory updateFactory;
+
+    @Inject
+    private PatchSetInserter.Factory patchSetInserterFactory;
 
     @Inject
     private GitReferenceUpdated referenceUpdated;
@@ -185,7 +195,7 @@ class QtCommandBuildApprove extends SshCommand {
             throw die("invalid branch " + e.getMessage());
         } catch (NoSuchRefException e) {
             throw die("invalid reference " + e.getMessage());
-        } catch (UpdateException | RestApiException e) {
+        } catch (UpdateException | RestApiException | ConfigInvalidException e ) {
             logger.atSevere().log("qtcodereview: staging-napprove failed to update change status %s", e);
             throw die("Failed to update change status");
         } catch (QtUtil.MergeConflictException e) {
@@ -198,12 +208,19 @@ class QtCommandBuildApprove extends SshCommand {
     }
 
     private void approveBuildChanges() throws QtUtil.MergeConflictException, NoSuchRefException,
-                                              IOException, UpdateException, RestApiException {
+                                              IOException, UpdateException, RestApiException,
+                                              ConfigInvalidException {
         if (message == null) message = String.format("Change merged into branch %s", destBranchKey);
 
         ObjectId oldId = git.resolve(destBranchKey.get());
 
-        QtUtil.mergeBranches(user.asIdentifiedUser(), git, buildBranchKey, destBranchKey);
+        Result result = QtUtil.mergeBranches(user.asIdentifiedUser(), git, buildBranchKey, destBranchKey);
+
+        if (result != Result.FAST_FORWARD) {
+            message = "Branch update failed, changed back to NEW. Either the destination branch was changed externally, or this is an issue in the Qt plugin.";
+            rejectBuildChanges();
+            return;
+        }
 
         updateChanges(affectedChanges, Change.Status.MERGED, null,
                       message, ChangeMessagesUtil.TAG_MERGED, true);
@@ -219,7 +236,8 @@ class QtCommandBuildApprove extends SshCommand {
     }
 
     private void rejectBuildChanges() throws QtUtil.MergeConflictException, UpdateException,
-                                             RestApiException {
+                                             RestApiException, IOException,
+                                             ConfigInvalidException {
         if (message == null) message = String.format("Change rejected for branch %s", destBranchKey);
 
         updateChanges(affectedChanges, Change.Status.NEW, Change.Status.INTEGRATING,
@@ -238,7 +256,8 @@ class QtCommandBuildApprove extends SshCommand {
                                String changeMessage,
                                String tag,
                                Boolean passed)
-                               throws UpdateException, RestApiException {
+                               throws UpdateException, RestApiException,
+                                      IOException, ConfigInvalidException {
 
         List<Entry<ChangeData,RevCommit>> emailingList = new ArrayList<Map.Entry<ChangeData, RevCommit>>();
 
@@ -246,10 +265,29 @@ class QtCommandBuildApprove extends SshCommand {
         QtChangeUpdateOp op = qtUpdateFactory.create(status, oldStatus, changeMessage, null, tag, null);
         try (BatchUpdate u =  updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
             for (Entry<ChangeData,RevCommit> item : list) {
-                Change change = item.getKey().change();
+                ChangeData cd = item.getKey();
+                Change change = cd.change();
                 if ((oldStatus == null || change.getStatus() == oldStatus)
                     && change.getStatus() != Change.Status.MERGED) {
-                    u.addOp(change.getId(), op);
+                    if (status == Change.Status.MERGED) {
+                        ObjectId obj = git.resolve(cd.currentPatchSet().getRevision().get());
+                        CodeReviewCommit currCommit = new CodeReviewCommit(obj);
+                        currCommit.setPatchsetId(cd.currentPatchSet().getId());
+                        CodeReviewCommit newCommit = new CodeReviewCommit(item.getValue());
+                        Change.Id changeId = insertPatchSet(u, git, cd.notes(), newCommit);
+                        if (!changeId.equals(cd.getId())) {
+                            logger.atWarning().log("staging-approve wrong changeId for new patchSet %s != %s",
+                                                   changeId, cd.getId());
+                        }
+                        u.addOp(changeId, qtUpdateFactory.create(status,
+                                                                 oldStatus,
+                                                                 changeMessage,
+                                                                 null,
+                                                                 tag,
+                                                                 currCommit));
+                    } else {
+                        u.addOp(change.getId(), op);
+                    }
                     emailingList.add(item);
                 }
             }
@@ -271,6 +309,22 @@ class QtCommandBuildApprove extends SshCommand {
                                     change, destBranchKey);
             }
         }
+
+    }
+
+    private Change.Id insertPatchSet(BatchUpdate bu,
+                                     Repository git,
+                                     ChangeNotes destNotes,
+                                     CodeReviewCommit cherryPickCommit)
+                                     throws IOException, BadRequestException, ConfigInvalidException {
+        Change destChange = destNotes.getChange();
+        PatchSet.Id psId = ChangeUtil.nextPatchSetId(git, destChange.currentPatchSetId());
+        PatchSetInserter inserter = patchSetInserterFactory.create(destNotes, psId, cherryPickCommit);
+        inserter.setSendEmail(false)
+                .setAllowClosed(true);
+                // .setCopyApprovals(true) doesn't work, so copying done in QtChangeUpdateOp
+        bu.addOp(destChange.getId(), inserter);
+        return destChange.getId();
     }
 
     private void sendMergeEvent(ChangeData changeData) {
