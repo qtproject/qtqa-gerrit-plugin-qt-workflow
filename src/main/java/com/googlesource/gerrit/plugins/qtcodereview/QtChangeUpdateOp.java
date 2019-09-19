@@ -105,7 +105,7 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
 
       ChangeUpdate newPsUpdate = ctx.getUpdate(psId);
 
-      saveApprovals(normalized, ctx, newPsUpdate, true);
+      saveApprovals(normalized, newPsUpdate, true);
       submitter = convertPatchSet(psId).apply(submitter);
       updated = true;
     }
@@ -148,20 +148,12 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
 
     LabelNormalizer.Result normalized = labelNormalizer.normalize(ctx.getNotes(), byKey.values());
     update.putApproval(submitter.getLabel(), submitter.getValue());
-    saveApprovals(normalized, ctx, update, false);
+    saveApprovals(normalized, update, false);
     return normalized;
   }
 
   private void saveApprovals(
-      LabelNormalizer.Result normalized,
-      ChangeContext ctx,
-      ChangeUpdate update,
-      boolean includeUnchanged) {
-    PatchSet.Id psId = update.getPatchSetId();
-    // FIXME, can this simply be removed?
-    // ctx.patchSetApprovals().upsert(convertPatchSet(normalized.getNormalized(), psId));
-    // FIXME, can this simply be removed?
-    // ctx.patchSetApprovals().upsert(zero(convertPatchSet(normalized.deleted(), psId)));
+      LabelNormalizer.Result normalized, ChangeUpdate update, boolean includeUnchanged) {
     for (PatchSetApproval psa : normalized.updated()) {
       update.putApprovalFor(psa.getAccountId(), psa.getLabel(), psa.getValue());
     }
