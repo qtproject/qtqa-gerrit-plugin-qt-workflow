@@ -129,6 +129,15 @@
                         plugin.buttons[key] = plugin.ca.add(action.__type, action.label);
                         plugin.ca.setTitle(plugin.buttons[key], action.title);
                         plugin.ca.addTapListener(plugin.buttons[key], buttonEventCallback);
+
+                        // hide submit button when it would be disabled next to the stage button
+                        if (key === 'gerrit-plugin-qt-workflow~stage') {
+                            let submit = plugin.ca.getActionDetails('submit');
+                            if (!submit.enabled) {
+                                plugin.ca.setActionHidden('revision', 'submit', true);
+                            }
+                        }
+
                     }
                 });
 
