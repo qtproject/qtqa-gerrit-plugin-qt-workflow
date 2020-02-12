@@ -236,7 +236,7 @@ class QtCommandBuildApprove extends SshCommand {
     }
 
     updateChanges(
-        affectedChanges, Change.Status.MERGED, null, message, ChangeMessagesUtil.TAG_MERGED, true);
+        affectedChanges, Change.Status.MERGED, Change.Status.INTEGRATING, message, ChangeMessagesUtil.TAG_MERGED, true);
 
     logger.atInfo().log(
         "qtcodereview: staging-approve build %s merged into branch %s", buildBranch, destBranchKey);
@@ -273,7 +273,7 @@ class QtCommandBuildApprove extends SshCommand {
 
   private void updateChanges(
       List<Entry<ChangeData, RevCommit>> list,
-      Change.Status status,
+      Change.Status newStatus,
       Change.Status oldStatus,
       String changeMessage,
       String tag,
@@ -284,14 +284,13 @@ class QtCommandBuildApprove extends SshCommand {
         new ArrayList<Map.Entry<ChangeData, RevCommit>>();
 
     // do the db update
-    QtChangeUpdateOp op = qtUpdateFactory.create(status, oldStatus, changeMessage, null, tag, null);
+    QtChangeUpdateOp op = qtUpdateFactory.create(newStatus, oldStatus, changeMessage, null, tag, null);
     try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
       for (Entry<ChangeData, RevCommit> item : list) {
         ChangeData cd = item.getKey();
         Change change = cd.change();
-        if ((oldStatus == null || change.getStatus() == oldStatus)
-            && change.getStatus() != Change.Status.MERGED) {
-          if (status == Change.Status.MERGED) {
+        if (change.getStatus() == oldStatus) {
+          if (newStatus == Change.Status.MERGED) {
             ObjectId obj = git.resolve(cd.currentPatchSet().getRevision().get());
             CodeReviewCommit currCommit = new CodeReviewCommit(obj);
             currCommit.setPatchsetId(cd.currentPatchSet().getId());
@@ -303,7 +302,7 @@ class QtCommandBuildApprove extends SshCommand {
             }
             u.addOp(
                 changeId,
-                qtUpdateFactory.create(status, oldStatus, changeMessage, null, tag, currCommit));
+                qtUpdateFactory.create(newStatus, oldStatus, changeMessage, null, tag, currCommit));
           } else {
             u.addOp(change.getId(), op);
           }

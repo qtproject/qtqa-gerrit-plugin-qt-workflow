@@ -14,6 +14,7 @@ import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestAccount;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.common.FooterConstants;
+import com.google.gerrit.extensions.api.changes.CherryPickInput;
 import com.google.gerrit.extensions.client.ChangeStatus;
 import com.google.gerrit.extensions.common.ApprovalInfo;
 import com.google.gerrit.extensions.common.ChangeInfo;
@@ -101,6 +102,24 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
         "/changes/" + changeId + "/revisions/" + revisionId + "/gerrit-plugin-qt-workflow~stage";
     RestResponse response = userRestSession.post(url);
     return response;
+  }
+
+  protected ChangeInfo cherryPick(final PushOneCommit.Result c, final String branch) throws Exception {
+    // If the commit message does not specify a Change-Id, a new one is picked for the destination change.
+    final CherryPickInput input = new CherryPickInput();
+    input.message = "CHERRY" + c.getCommit().getFullMessage();
+    input.destination = branch;
+
+    final RestResponse response = call_REST_API_CherryPick(c.getChangeId(), c.getCommit().getName(), input);
+    response.assertOK();
+    return newGson().fromJson(response.getReader(), ChangeInfo.class);
+  }
+
+  protected RestResponse call_REST_API_CherryPick(
+    final String changeId, final String revisionId, final CherryPickInput input)
+        throws Exception {
+    final String url = "/changes/" + changeId + "/revisions/" + revisionId + "/cherrypick";
+    return userRestSession.post(url, input);
   }
 
   protected void QtUnStage(PushOneCommit.Result c) throws Exception {

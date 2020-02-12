@@ -3,12 +3,18 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_REVISION;
 import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS;
 
+import com.google.common.collect.ImmutableList;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.common.data.Permission;
+import com.google.gerrit.extensions.api.changes.Changes;
+import com.google.gerrit.extensions.client.ChangeStatus;
+import com.google.gerrit.extensions.common.ChangeInfo;
+import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
 import com.google.gerrit.reviewdb.client.ChangeMessage;
 import java.io.StringBufferInputStream;
@@ -29,7 +35,10 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
+    createBranch(new Branch.NameKey(project, "feature"));
+
     grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
+    grant(project, "refs/heads/feature", Permission.QT_STAGE, false, REGISTERED_USERS);
     grant(project, "refs/staging/*", Permission.PUSH, false, adminGroupUuid());
     grant(project, "refs/builds/*", Permission.CREATE, false, adminGroupUuid());
   }
@@ -77,6 +86,48 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     QtNewBuild("master", "test-build-200");
 
     RevCommit updatedHead = qtFailBuild("master", "test-build-200", c, initialHead);
+  }
+
+  @Test
+  public void cherryPicked_Stays_Intact_After_Merge_And_Build() throws Exception {
+    // make a change on feature branch
+    final PushOneCommit.Result f1 = pushCommit("feature", "f1-commitmsg", "f1-file", "f1-content");
+    approve(f1.getChangeId());
+    gApi.changes().id(f1.getCommit().getName()).current().submit();
+
+    // cherry pick it to the master branch (now there are two changes with same change-id)
+    final ChangeInfo cp = cherryPick(f1, "master");
+
+    // make another change on feature branch
+    final PushOneCommit.Result f2 = pushCommit("feature", "f2-commitmsg", "f2-file", "f2-content");
+    approve(f2.getChangeId());
+    QtStage(f2);
+    QtNewBuild("feature", "feature-build-000");
+    QtApproveBuild("feature", "feature-build-000");
+
+    // make a change on master branch
+    final PushOneCommit.Result m1 = pushCommit("master", "m1-commitmsg", "m1-file", "m1-content");
+    approve(m1.getChangeId());
+    QtStage(m1);
+    QtNewBuild("master", "master-build-000");
+    QtApproveBuild("master", "master-build-000");
+
+    // merge feature branch into master
+    final PushOneCommit mm = pushFactory.create(admin.newIdent(), testRepo);
+    mm.setParents(ImmutableList.of(f2.getCommit(), m1.getCommit()));
+    final PushOneCommit.Result m = mm.to("refs/for/master");
+    m.assertOkStatus();
+    approve(m.getChangeId());
+    QtStage(m);
+    QtNewBuild("master", "merge-build-000");
+    QtApproveBuild("master", "merge-build-000");
+
+    final Changes changes = gApi.changes();
+    assertThat(changes.id(project.get(), "feature", f1.getChangeId()).get(CURRENT_REVISION).status).isEqualTo(ChangeStatus.MERGED);
+    assertThat(changes.id(project.get(), "feature", f2.getChangeId()).get(CURRENT_REVISION).status).isEqualTo(ChangeStatus.MERGED);
+    assertThat(changes.id(project.get(), "master", m1.getChangeId()).get(CURRENT_REVISION).status).isEqualTo(ChangeStatus.MERGED);
+    assertThat(changes.id(project.get(), "master", m.getChangeId()).get(CURRENT_REVISION).status).isEqualTo(ChangeStatus.MERGED);
+    assertThat(changes.id(project.get(), "master", cp.changeId).get(CURRENT_REVISION).status).isEqualTo(ChangeStatus.NEW);
   }
 
   @Test
