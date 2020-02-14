@@ -40,6 +40,7 @@ import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -512,8 +513,7 @@ public class QtUtil {
       Repository git, final Branch.NameKey branch, final Branch.NameKey destination)
       throws IOException, BranchNotFoundException {
 
-    List<Map.Entry<ChangeData, RevCommit>> result =
-        new ArrayList<Map.Entry<ChangeData, RevCommit>>();
+    Map<Change.Id, Map.Entry<ChangeData, RevCommit>> map = new HashMap<>();
     RevWalk revWalk = new RevWalk(git);
 
     try {
@@ -542,13 +542,13 @@ public class QtUtil {
             logger.atWarning().log(
                 "qtcodereview: commit belongs to multiple changes: %s", commit.name());
           ChangeData cd = changes.get(0);
-          result.add(new AbstractMap.SimpleEntry<ChangeData, RevCommit>(cd, commit));
+          map.put(cd.getId(), new AbstractMap.SimpleEntry<ChangeData, RevCommit>(cd, commit));
         }
       }
     } finally {
       revWalk.dispose();
     }
-    return result;
+    return new ArrayList<Map.Entry<ChangeData, RevCommit>>(map.values());
   }
 
   public static RevCommit merge(
