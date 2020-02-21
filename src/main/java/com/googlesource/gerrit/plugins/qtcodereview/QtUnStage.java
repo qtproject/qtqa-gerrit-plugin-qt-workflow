@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2020 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -149,6 +149,7 @@ class QtUnStage
       qtUtil.rebuildStagingBranch(git, submitter, projectKey, stagingBranchKey, destBranchShortKey);
 
       change = op.getChange();
+      qtUtil.postChangeUnStagedEvent(change);
       logger.atInfo().log("qtcodereview: unstaged %s from %s", change, stagingBranchKey);
 
     } catch (ResourceConflictException e) {

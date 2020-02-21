@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2020 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -205,6 +205,7 @@ public class QtStage
     change = changeData.reloadChange();
     switch (change.getStatus()) {
       case STAGED:
+        qtUtil.postChangeStagedEvent(change);
         logger.atInfo().log(
             "qtcodereview: changeToStaging %s added to %s", change, stagingBranchKey);
         return change; // this doesn't return data to client, if needed use ChangeJson to convert it

@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2020 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -12,10 +12,16 @@ import com.google.gerrit.extensions.config.FactoryModule;
 import com.google.gerrit.extensions.registration.DynamicSet;
 import com.google.gerrit.extensions.restapi.RestApiModule;
 import com.google.gerrit.server.git.ChangeMessageModifier;
+import com.google.gerrit.server.events.EventTypes;
 
 public class QtModule extends FactoryModule {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
+
+  static {
+    EventTypes.register(QtChangeStagedEvent.TYPE, QtChangeStagedEvent.class);
+    EventTypes.register(QtChangeUnStagedEvent.TYPE, QtChangeUnStagedEvent.class);
+  }
 
   @Override
   protected void configure() {

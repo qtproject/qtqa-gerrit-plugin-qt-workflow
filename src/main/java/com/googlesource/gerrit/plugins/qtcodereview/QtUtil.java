@@ -1,6 +1,6 @@
 // Copyright (C) 2011 The Android Open Source Project
 // Copyright (C) 2014 Digia Plc and/or its subsidiary(-ies).
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2020 The Qt Company
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,12 @@
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
+import com.google.common.base.Supplier;
+import com.google.common.base.Suppliers;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.common.FooterConstants;
+import com.google.gerrit.exceptions.StorageException;
+import com.google.gerrit.extensions.registration.DynamicItem;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
@@ -25,7 +29,13 @@ import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.reviewdb.client.Project;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.IdentifiedUser;
+import com.google.gerrit.server.data.ChangeAttribute;
 import com.google.gerrit.server.extensions.events.GitReferenceUpdated;
+import com.google.gerrit.server.events.ChangeEvent;
+import com.google.gerrit.server.events.EventDispatcher;
+import com.google.gerrit.server.events.EventFactory;
+import com.google.gerrit.server.notedb.ChangeNotes;
+import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
@@ -79,6 +89,9 @@ public class QtUtil {
   private final Provider<InternalChangeQuery> queryProvider;
   private final GitReferenceUpdated referenceUpdated;
   private final BatchUpdate.Factory updateFactory;
+  private final ChangeNotes.Factory changeNotesFactory;
+  private final DynamicItem<EventDispatcher> eventDispatcher;
+  private final EventFactory eventFactory;
   private final QtCherryPickPatch qtCherryPickPatch;
   private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
@@ -87,11 +100,17 @@ public class QtUtil {
       Provider<InternalChangeQuery> queryProvider,
       GitReferenceUpdated referenceUpdated,
       BatchUpdate.Factory updateFactory,
+      ChangeNotes.Factory changeNotesFactory,
+      EventFactory eventFactory,
+      DynamicItem<EventDispatcher> eventDispatcher,
       QtCherryPickPatch qtCherryPickPatch,
       QtChangeUpdateOp.Factory qtUpdateFactory) {
     this.queryProvider = queryProvider;
     this.referenceUpdated = referenceUpdated;
     this.updateFactory = updateFactory;
+    this.changeNotesFactory = changeNotesFactory;
+    this.eventDispatcher = eventDispatcher;
+    this.eventFactory = eventFactory;
     this.qtCherryPickPatch = qtCherryPickPatch;
     this.qtUpdateFactory = qtUpdateFactory;
   }
@@ -642,4 +661,38 @@ public class QtUtil {
       revWalk.dispose();
     }
   }
+
+  private Supplier<ChangeAttribute> changeAttributeSupplier(Change change, ChangeNotes notes) {
+    return Suppliers.memoize(
+        () -> {
+          try {
+            return eventFactory.asChangeAttribute(change, notes);
+          } catch (StorageException e) {
+            throw new RuntimeException(e);
+          }
+        });
+  }
+
+  public void postChangeStagedEvent(Change change) {
+    try {
+      ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+      QtChangeStagedEvent event = new QtChangeStagedEvent(change);
+      event.change = changeAttributeSupplier(change, notes);
+      eventDispatcher.get().postEvent(event);
+    } catch (StorageException | PermissionBackendException e) {
+      logger.atWarning().log("qtcodereview: postChangeStagedEvent failed: %s", e);
+    }
+  }
+
+public void postChangeUnStagedEvent(Change change) {
+  try {
+    ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+    QtChangeUnStagedEvent event = new QtChangeUnStagedEvent(change);
+    event.change = changeAttributeSupplier(change, notes);
+    eventDispatcher.get().postEvent(event);
+  } catch (StorageException | PermissionBackendException e) {
+    logger.atWarning().log("qtcodereview: postChangeUnStagedEvent failed: %s", e);
+  }
+}
+
 }
