@@ -218,6 +218,22 @@ public class QtStageIT extends QtCodeReviewIT {
   }
 
   @Test
+  public void errorStage_Parent_Not_Merged() throws Exception {
+    RevCommit initialHead = getRemoteHead();
+
+    // make a change on feature branch without submit
+    final PushOneCommit.Result f1 = pushCommit("feature", "f1-commitmsg", "f1-file", "f1-content");
+
+    // merge feature branch into master
+    final PushOneCommit mm = pushFactory.create(admin.newIdent(), testRepo);
+    mm.setParents(ImmutableList.of(f1.getCommit(), initialHead));
+    final PushOneCommit.Result m = mm.to("refs/for/master");
+    approve(m.getChangeId());
+
+    qtStageExpectFail(m, initialHead, initialHead, HttpStatus.SC_CONFLICT);
+  }
+
+  @Test
   public void errorAmend_Status_Staged() throws Exception {
     RevCommit initialHead = getRemoteHead();
     PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "file1", "content1");

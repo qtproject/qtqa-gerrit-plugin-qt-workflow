@@ -17,8 +17,10 @@ import com.google.gerrit.extensions.restapi.RestModifyView;
 import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.reviewdb.client.Branch;
 import com.google.gerrit.reviewdb.client.Change;
+import com.google.gerrit.reviewdb.client.PatchSet;
 import com.google.gerrit.reviewdb.client.Project;
 import com.google.gerrit.reviewdb.client.RevId;
+import com.google.gerrit.reviewdb.client.Change.Status;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.ProjectUtil;
 import com.google.gerrit.server.account.AccountResolver;
@@ -33,12 +35,16 @@ import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.query.change.ChangeData;
+import com.google.gerrit.server.query.change.InternalChangeQuery;
 import com.google.gerrit.server.submit.IntegrationException;
 import com.google.gerrit.server.submit.MergeOp;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.inject.Inject;
+import com.google.inject.Provider;
 import com.google.inject.Singleton;
+
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
@@ -46,6 +52,8 @@ import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.RefUpdate.Result;
 import org.eclipse.jgit.lib.Repository;
+import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.revwalk.RevWalk;
 
 @Singleton
 public class QtStage
@@ -70,6 +78,7 @@ public class QtStage
   private final GitReferenceUpdated referenceUpdated;
   private final QtCherryPickPatch qtCherryPickPatch;
   private final QtUtil qtUtil;
+  private final Provider<InternalChangeQuery> queryProvider;
 
   private final AccountResolver accountResolver;
   private final String label;
@@ -90,7 +99,8 @@ public class QtStage
       ProjectCache projectCache,
       GitReferenceUpdated referenceUpdated,
       QtCherryPickPatch qtCherryPickPatch,
-      QtUtil qtUtil) {
+      QtUtil qtUtil,
+      Provider<InternalChangeQuery> queryProvider) {
 
     this.repoManager = repoManager;
     this.permissionBackend = permissionBackend;
@@ -105,6 +115,7 @@ public class QtStage
     this.referenceUpdated = referenceUpdated;
     this.qtCherryPickPatch = qtCherryPickPatch;
     this.qtUtil = qtUtil;
+    this.queryProvider = queryProvider;
   }
 
   @Override
@@ -171,6 +182,8 @@ public class QtStage
       if (sourceId == null)
         throw new NoSuchRefException("Invalid Revision: " + rsrc.getPatchSet().getRevision().get());
 
+      checkParents(git, rsrc);
+
       changeData = changeDataFactory.create(change);
       MergeOp.checkSubmitRule(changeData, false);
 
@@ -214,6 +227,36 @@ public class QtStage
     }
   }
 
+  private void checkParents(RevisionResource resource) throws ResourceConflictException {
+    try (final Repository repository = repoManager.openRepository(resource.getProject())) {
+      checkParents(repository, resource);
+    } catch (IOException e) {
+      throw new ResourceConflictException("Can not read repository.", e);
+    }
+  }
+
+  private void checkParents(Repository repository, RevisionResource resource) throws ResourceConflictException {
+    try (final RevWalk rw = new RevWalk(repository)) {
+      final PatchSet ps = resource.getPatchSet();
+      final RevCommit rc = rw.parseCommit(ObjectId.fromString(ps.getRevision().get()));
+      if (rc.getParentCount() < 2) {
+          return;
+      }
+      for (final RevCommit parent : rc.getParents()) {
+        final List<ChangeData> changes =
+                queryProvider.get().enforceVisibility(true).byProjectCommit(resource.getProject(), parent);
+        for (ChangeData cd : changes) {
+          final Change change = cd.change();
+          if (change.getStatus() != Status.MERGED) {
+            throw new ResourceConflictException(String.format("Can not stage: Parent \"%s\" of a merged commit is not merged.", parent.name()));
+          }
+        }
+      }
+    } catch (IOException e) {
+      throw new ResourceConflictException("Can not read repository.", e);
+    }
+  }
+
   @Override
   public UiAction.Description getDescription(RevisionResource resource) {
     Change change = resource.getChange();
@@ -222,6 +265,12 @@ public class QtStage
         || !resource.isCurrent()
         || !resource.permissions().testOrFalse(ChangePermission.QT_STAGE)) {
       return null; // submit not visible
+    }
+    try {
+        checkParents(resource);
+    } catch (ResourceConflictException e) {
+        logger.atWarning().log("Parent(s) check failed. %s", e.getMessage());
+        return null;
     }
     try {
       if (!projectCache.checkedGet(resource.getProject()).statePermitsWrite()) {

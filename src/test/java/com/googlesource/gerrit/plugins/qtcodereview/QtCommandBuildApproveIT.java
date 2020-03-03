@@ -141,9 +141,16 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     final PushOneCommit.Result m1 = pushCommit("master", "m1-commitmsg", "m1-file", "m1-content");
     approve(m1.getChangeId());
 
+    // make another change on master branch
+    final PushOneCommit.Result m2 = pushCommit("master", "m2-commitmsg", "m2-file", "m2-content");
+    approve(m2.getChangeId());
+    QtStage(m2);
+    QtNewBuild("master", "merge-build-001");
+    QtApproveBuild("master", "merge-build-001");
+
     // merge feature branch into master
     final PushOneCommit mm = pushFactory.create(admin.newIdent(), testRepo);
-    mm.setParents(ImmutableList.of(f1.getCommit(), m1.getCommit()));
+    mm.setParents(ImmutableList.of(f1.getCommit(), m2.getCommit()));
     final PushOneCommit.Result m = mm.to("refs/for/master");
     m.assertOkStatus();
     approve(m.getChangeId());
@@ -154,12 +161,13 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     QtStage(m);
 
     // Create build and approve it
-    QtNewBuild("master", "merge-build-000");
-    QtApproveBuild("master", "merge-build-000");
+    QtNewBuild("master", "merge-build-002");
+    QtApproveBuild("master", "merge-build-002");
 
     final Changes changes = gApi.changes();
     assertThat(changes.id(project.get(), "feature", f1.getChangeId()).get(CURRENT_REVISION).status).isEqualTo(ChangeStatus.MERGED);
     assertThat(changes.id(project.get(), "master", m1.getChangeId()).get(CURRENT_REVISION).status).isEqualTo(ChangeStatus.MERGED);
+    assertThat(changes.id(project.get(), "master", m2.getChangeId()).get(CURRENT_REVISION).status).isEqualTo(ChangeStatus.MERGED);
     assertThat(changes.id(project.get(), "master", m.getChangeId()).get(CURRENT_REVISION).status).isEqualTo(ChangeStatus.MERGED);
   }
 
