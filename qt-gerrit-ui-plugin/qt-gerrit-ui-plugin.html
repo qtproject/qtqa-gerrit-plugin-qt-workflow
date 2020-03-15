@@ -105,7 +105,7 @@
             });
 
             // Customize change view
-            plugin.on('labelchange', function(changeInfo) {
+            plugin.on('show-revision-actions', function(actions, changeInfo) {
                 plugin.ca = plugin.changeActions();
 
                 // always hide the rebase button
@@ -132,7 +132,7 @@
 
                 // Add buttons based on server response
                 BUTTONS.forEach((key) => {
-                    var action = plugin.ca.getActionDetails(key);
+                    var action = actions[key];
                     if (action) {
                         // hide dropdown action
                         plugin.ca.setActionHidden(action.__type, action.__key, true);
@@ -146,7 +146,7 @@
                             // use the submit icon for our stage button
                             plugin.ca.setIcon(plugin.buttons[key], 'submit');
                             // hide submit button when it would be disabled next to the stage button
-                            let submit = plugin.ca.getActionDetails('submit');
+                            let submit = actions['submit'];
                             if (!submit.enabled) {
                                 plugin.ca.setActionHidden('revision', 'submit', true);
                             }
@@ -161,7 +161,7 @@
                     var button_index;
                     for (var k in plugin.buttons) {
                         if (plugin.buttons[k] === button_key) {
-                            button_action = plugin.ca.getActionDetails(k);
+                            button_action = actions[k];
                             button_index = k;
                             break;
                         }
