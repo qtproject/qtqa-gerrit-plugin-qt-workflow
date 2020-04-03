@@ -684,15 +684,37 @@ public class QtUtil {
     }
   }
 
-public void postChangeUnStagedEvent(Change change) {
-  try {
-    ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
-    QtChangeUnStagedEvent event = new QtChangeUnStagedEvent(change);
-    event.change = changeAttributeSupplier(change, notes);
-    eventDispatcher.get().postEvent(event);
-  } catch (StorageException | PermissionBackendException e) {
-    logger.atWarning().log("qtcodereview: postChangeUnStagedEvent failed: %s", e);
+  public void postChangeUnStagedEvent(Change change) {
+    try {
+      ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+      QtChangeUnStagedEvent event = new QtChangeUnStagedEvent(change);
+      event.change = changeAttributeSupplier(change, notes);
+      eventDispatcher.get().postEvent(event);
+    } catch (StorageException | PermissionBackendException e) {
+      logger.atWarning().log("qtcodereview: postChangeUnStagedEvent failed: %s", e);
+    }
   }
-}
+
+  public void postChangeIntegrationPassEvent(Change change) {
+    try {
+      ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+      QtChangeIntegrationPassEvent event = new QtChangeIntegrationPassEvent(change);
+      event.change = changeAttributeSupplier(change, notes);
+      eventDispatcher.get().postEvent(event);
+    } catch (StorageException | PermissionBackendException e) {
+      logger.atWarning().log("qtcodereview: postChangeIntegrationPassEvent failed: %s", e);
+    }
+  }
+
+  public void postChangeIntegrationFailEvent(Change change) {
+    try {
+      ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+      QtChangeIntegrationFailEvent event = new QtChangeIntegrationFailEvent(change);
+      event.change = changeAttributeSupplier(change, notes);
+      eventDispatcher.get().postEvent(event);
+    } catch (StorageException | PermissionBackendException e) {
+      logger.atWarning().log("qtcodereview: postChangeIntegrationFailEvent failed: %s", e);
+    }
+  }
 
 }

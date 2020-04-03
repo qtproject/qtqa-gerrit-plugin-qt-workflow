@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2020 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -317,11 +317,13 @@ class QtCommandBuildApprove extends SshCommand {
       ChangeData cd = item.getKey();
       Change change = cd.change();
       if (passed) {
+        qtUtil.postChangeIntegrationPassEvent(change);
         sendMergeEvent(cd);
         sendMergedEmail(change.getId());
         logger.atInfo().log(
             "qtcodereview: staging-approve     change %s merged into %s", change, destBranchKey);
       } else {
+        qtUtil.postChangeIntegrationFailEvent(change);
         sendBuildFailedEmail(change.getId());
         logger.atInfo().log(
             "qtcodereview: staging-approve     change %s rejected for %s", change, destBranchKey);
