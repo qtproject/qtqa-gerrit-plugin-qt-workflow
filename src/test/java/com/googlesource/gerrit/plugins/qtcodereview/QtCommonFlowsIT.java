@@ -9,8 +9,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.common.data.Permission;
-import com.google.gerrit.reviewdb.client.Branch;
+import com.google.gerrit.entities.BranchNameKey;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,12 +25,12 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    createBranch(new Branch.NameKey(project, "5.12"));
+    createBranch(BranchNameKey.create(project, "5.12"));
 
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
-    grant(project, "refs/heads/5.12", Permission.QT_STAGE, false, REGISTERED_USERS);
-    grant(project, "refs/staging/*", Permission.PUSH, false, adminGroupUuid());
-    grant(project, "refs/builds/*", Permission.CREATE, false, adminGroupUuid());
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/5.12").group(REGISTERED_USERS)).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid())).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid())).update();
   }
 
   @Test

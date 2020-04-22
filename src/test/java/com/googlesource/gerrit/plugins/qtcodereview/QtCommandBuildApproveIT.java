@@ -10,13 +10,14 @@ import com.google.common.collect.ImmutableList;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.common.data.Permission;
 import com.google.gerrit.extensions.api.changes.Changes;
 import com.google.gerrit.extensions.client.ChangeStatus;
 import com.google.gerrit.extensions.common.ChangeInfo;
-import com.google.gerrit.reviewdb.client.Branch;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.ChangeMessage;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.ChangeMessage;
 import java.io.StringBufferInputStream;
 import java.util.ArrayList;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -35,12 +36,12 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    createBranch(new Branch.NameKey(project, "feature"));
+    createBranch(BranchNameKey.create(project, "feature"));
 
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
-    grant(project, "refs/heads/feature", Permission.QT_STAGE, false, REGISTERED_USERS);
-    grant(project, "refs/staging/*", Permission.PUSH, false, adminGroupUuid());
-    grant(project, "refs/builds/*", Permission.CREATE, false, adminGroupUuid());
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/feature").group(REGISTERED_USERS)).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid())).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid())).update();
   }
 
   @Test

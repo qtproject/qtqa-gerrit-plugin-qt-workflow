@@ -8,8 +8,9 @@ import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.common.data.Permission;
-import com.google.gerrit.reviewdb.client.ChangeMessage;
+import com.google.gerrit.entities.ChangeMessage;
 import java.util.ArrayList;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.junit.Before;
@@ -26,9 +27,9 @@ public class QtCommandNewBuildIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
-    grant(project, "refs/staging/*", Permission.PUSH, false, adminGroupUuid());
-    grant(project, "refs/builds/*", Permission.CREATE, false, adminGroupUuid());
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid())).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid())).update();
   }
 
   @Test

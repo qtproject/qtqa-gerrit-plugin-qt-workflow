@@ -8,8 +8,9 @@ import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.common.data.Permission;
-import com.google.gerrit.reviewdb.client.Change;
+import com.google.gerrit.entities.Change;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.junit.Before;
 import org.junit.Test;
@@ -23,7 +24,7 @@ public class QtCommandStageIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
   }
 
   @Test
@@ -49,15 +50,15 @@ public class QtCommandStageIT extends QtCodeReviewIT {
 
     String changes;
     changes =
-        String.valueOf(c1.getPatchSetId().getParentKey().get()) + "," + c1.getPatchSetId().getId();
+        String.valueOf(c1.getPatchSetId().changeId().get()) + "," + c1.getPatchSetId().getId();
     changes +=
         " "
-            + String.valueOf(c2.getPatchSetId().getParentKey().get())
+            + String.valueOf(c2.getPatchSetId().changeId().get())
             + ","
             + c2.getPatchSetId().getId();
     changes +=
         " "
-            + String.valueOf(c3.getPatchSetId().getParentKey().get())
+            + String.valueOf(c3.getPatchSetId().changeId().get())
             + ","
             + c3.getPatchSetId().getId();
     String result = qtSshStageCommon(c1, changes, false);
@@ -88,7 +89,7 @@ public class QtCommandStageIT extends QtCodeReviewIT {
   public void error_PatchNotFound() throws Exception {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c.getChangeId());
-    String changes = String.valueOf(c.getPatchSetId().getParentKey().get()) + ",9999";
+    String changes = String.valueOf(c.getPatchSetId().changeId().get()) + ",9999";
     String result = qtSshStageCommon(c, changes, true);
     assertThat(result).contains("no such patch set");
   }
@@ -99,7 +100,7 @@ public class QtCommandStageIT extends QtCodeReviewIT {
     PushOneCommit.Result c2 = amendCommit(c1.getChangeId());
     approve(c2.getChangeId());
 
-    String changes = String.valueOf(c2.getPatchSetId().getParentKey().get()) + ",1";
+    String changes = String.valueOf(c2.getPatchSetId().changeId().get()) + ",1";
     String result = qtSshStageCommon(c2, changes, true);
     assertThat(result).contains("is not current");
   }
@@ -109,9 +110,9 @@ public class QtCommandStageIT extends QtCodeReviewIT {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c.getChangeId());
 
-    grant(project, "refs/heads/master", Permission.ABANDON, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
     QtDefer(c);
-    deny(project, "refs/heads/master", Permission.ABANDON, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
 
     String result = qtSshStageExpectFail(c);
     assertThat(result).contains("Change is DEFERRED");
@@ -119,13 +120,13 @@ public class QtCommandStageIT extends QtCodeReviewIT {
 
   @Test
   public void error_NoPermission() throws Exception {
-    deny(project, "refs/heads/master", Permission.QT_STAGE, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c.getChangeId());
 
     String result = qtSshStageExpectFail(c);
     assertThat(result).contains("not permitted");
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
   }
 
   @Test
@@ -146,7 +147,7 @@ public class QtCommandStageIT extends QtCodeReviewIT {
 
   private String qtSshStageCommon(PushOneCommit.Result c, Boolean expectFail) throws Exception {
     String changes;
-    changes = String.valueOf(c.getPatchSetId().getParentKey().get()) + ",";
+    changes = String.valueOf(c.getPatchSetId().changeId().get()) + ",";
     changes += c.getPatchSetId().getId();
 
     return qtSshStageCommon(c, changes, expectFail);

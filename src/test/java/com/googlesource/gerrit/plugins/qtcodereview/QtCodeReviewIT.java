@@ -3,6 +3,7 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_COMMIT;
 import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_REVISION;
 import static com.google.gerrit.extensions.client.ListChangesOption.DETAILED_LABELS;
@@ -13,14 +14,16 @@ import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestAccount;
 import com.google.gerrit.acceptance.TestPlugin;
+import com.google.gerrit.acceptance.testsuite.project.ProjectOperations;
 import com.google.gerrit.common.FooterConstants;
 import com.google.gerrit.extensions.api.changes.CherryPickInput;
 import com.google.gerrit.extensions.client.ChangeStatus;
 import com.google.gerrit.extensions.common.ApprovalInfo;
 import com.google.gerrit.extensions.common.ChangeInfo;
 import com.google.gerrit.extensions.common.LabelInfo;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.Project;
+import com.google.inject.Inject;
 import java.util.List;
 import org.apache.log4j.ConsoleAppender;
 import org.apache.log4j.Level;
@@ -40,6 +43,7 @@ import org.junit.Test;
     sysModule = "com.googlesource.gerrit.plugins.qtcodereview.QtModule",
     sshModule = "com.googlesource.gerrit.plugins.qtcodereview.QtSshModule")
 public class QtCodeReviewIT extends LightweightPluginDaemonTest {
+  @Inject public ProjectOperations projectOperations;
 
   protected static final String R_HEADS = "refs/heads/";
   protected static final String R_STAGING = "refs/staging/";
@@ -91,7 +95,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     response.assertOK();
     Change change = c.getChange().change();
     assertStatusStaged(change);
-    String branch = getBranchNameFromRef(change.getDest().get());
+    String branch = getBranchNameFromRef(change.getDest().branch());
     RevCommit stagingHead = getRemoteHead(project, R_STAGING + branch);
     assertReviewedByFooter(stagingHead, true);
     resetEvents();
@@ -225,7 +229,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
               .id(change.getChangeId())
               .get(DETAILED_LABELS, CURRENT_REVISION, CURRENT_COMMIT);
       Integer vote = getLabelValue(cf, "Code-Review", admin);
-      assertThat(vote).named("label = Code-Review").isEqualTo(2);
+      assertWithMessage("label = Code-Review").that(vote).isEqualTo(2);
     } else {
       cf = gApi.changes().id(change.getChangeId()).get(CURRENT_REVISION, CURRENT_COMMIT);
     }
@@ -280,7 +284,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     Integer vote = 0;
 
     vote = getLabelValue(c, label, user);
-    assertThat(vote).named("label = " + label).isEqualTo(expectedVote);
+    assertWithMessage("label = " + label).that(vote).isEqualTo(expectedVote);
   }
 
   protected void assertReviewedByFooter(RevCommit commit, boolean exists) {
@@ -324,7 +328,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
   }
 
   protected String getCurrentPatchSHA(PushOneCommit.Result c) throws Exception {
-    return c.getChange().currentPatchSet().getRevision().get();
+    return c.getChange().currentPatchSet().commitId().name();
   }
 
   protected List<RevCommit> getRemoteLog(String ref) throws Exception {
@@ -336,6 +340,15 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
   }
 
   protected String getCurrentPatchId(PushOneCommit.Result c) throws Exception {
-    return String.valueOf(c.getChange().currentPatchSet().getPatchSetId());
+    return String.valueOf(c.getChange().currentPatchSet().number());
+  }
+
+  // Restored from commit edb599b65eb412ed5f4c59372fa06135b0d8864c which inlined the methods.
+  protected RevCommit getRemoteHead(Project.NameKey project, String branch) throws Exception {
+    return projectOperations.project(project).getHead(branch);
+  }
+
+  protected RevCommit getRemoteHead() throws Exception {
+    return getRemoteHead(project, "master");
   }
 }

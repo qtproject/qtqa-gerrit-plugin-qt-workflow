@@ -5,17 +5,17 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate.allowLabel;
 import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS;
 
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.common.data.Permission;
 import com.google.gerrit.mail.Address;
 import com.google.gerrit.mail.EmailHeader;
-import com.google.gerrit.server.project.ProjectConfig;
-import com.google.gerrit.server.project.testing.Util;
 import com.google.gerrit.testing.FakeEmailSender;
 import org.junit.Before;
 import org.junit.Test;
@@ -29,12 +29,13 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
 
   @Before
   public void grantPermissions() throws Exception {
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
-    grant(project, "refs/staging/*", Permission.PUSH, false, adminGroupUuid());
-    grant(project, "refs/builds/*", Permission.CREATE, false, adminGroupUuid());
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid())).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid())).update();
 
-    ProjectConfig cfg = projectCache.get(project).getConfig();
-    Util.allow(cfg, Permission.forLabel("Code-Review"), -2, +2, REGISTERED_USERS, "refs/*");
+    projectOperations.project(project).forUpdate()
+        .add(allowLabel("Sanity-Review").ref("refs/*").group(REGISTERED_USERS).range(-2, 2))
+        .update();
   }
 
   @Test

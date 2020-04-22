@@ -10,9 +10,10 @@ import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.common.data.Permission;
-import com.google.gerrit.reviewdb.client.Branch;
-import com.google.gerrit.reviewdb.client.ChangeMessage;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.ChangeMessage;
 import java.util.ArrayList;
 import org.apache.http.HttpStatus;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -30,10 +31,10 @@ public class QtStageIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    createBranch(new Branch.NameKey(project, "feature"));
+    createBranch(BranchNameKey.create(project, "feature"));
 
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
-    grant(project, "refs/heads/feature", Permission.QT_STAGE, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/feature").group(REGISTERED_USERS)).update();
   }
 
   @Test
@@ -154,7 +155,7 @@ public class QtStageIT extends QtCodeReviewIT {
 
   @Test
   public void errorStage_No_Permission() throws Exception {
-    deny(project, "refs/heads/master", Permission.QT_STAGE, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
 
     RevCommit initialHead = getRemoteHead();
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
@@ -163,7 +164,7 @@ public class QtStageIT extends QtCodeReviewIT {
     RestResponse response = qtStageExpectFail(c, initialHead, initialHead, HttpStatus.SC_FORBIDDEN);
     assertThat(response.getEntityContent()).contains("not permitted");
 
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
   }
 
   @Test
@@ -172,9 +173,9 @@ public class QtStageIT extends QtCodeReviewIT {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c.getChangeId());
 
-    grant(project, "refs/heads/master", Permission.ABANDON, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
     QtDefer(c);
-    deny(project, "refs/heads/master", Permission.ABANDON, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
 
     RestResponse response = qtStageExpectFail(c, initialHead, initialHead, HttpStatus.SC_CONFLICT);
     assertThat(response.getEntityContent()).contains("Change is DEFERRED");
@@ -283,7 +284,7 @@ public class QtStageIT extends QtCodeReviewIT {
 
   private RevCommit qtStage(
       PushOneCommit.Result c, boolean merge, boolean fastForward, RevCommit base) throws Exception {
-    String branch = getBranchNameFromRef(c.getChange().change().getDest().get());
+    String branch = getBranchNameFromRef(c.getChange().change().getDest().branch());
     String stagingRef = R_STAGING + branch;
     String branchRef = R_HEADS + branch;
     RevCommit originalCommit = c.getCommit();
@@ -324,7 +325,7 @@ public class QtStageIT extends QtCodeReviewIT {
   private RestResponse qtStageExpectFail(
       PushOneCommit.Result c, RevCommit initialHead, RevCommit oldStagingHead, int expectedStatus)
       throws Exception {
-    String branch = getBranchNameFromRef(c.getChange().change().getDest().get());
+    String branch = getBranchNameFromRef(c.getChange().change().getDest().branch());
     String stagingRef = R_STAGING + branch;
     String branchRef = R_HEADS + branch;
 

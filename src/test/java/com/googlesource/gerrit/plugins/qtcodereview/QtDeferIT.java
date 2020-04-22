@@ -9,9 +9,10 @@ import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.common.data.Permission;
 import com.google.gerrit.extensions.api.changes.AbandonInput;
-import com.google.gerrit.reviewdb.client.Change;
+import com.google.gerrit.entities.Change;
 import org.apache.http.HttpStatus;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.junit.Before;
@@ -26,7 +27,7 @@ public class QtDeferIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    grant(project, "refs/heads/master", Permission.ABANDON, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
   }
 
   @Test
@@ -55,13 +56,13 @@ public class QtDeferIT extends QtCodeReviewIT {
 
   @Test
   public void errorDefer_No_Permission() throws Exception {
-    deny(project, "refs/heads/master", Permission.ABANDON, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
 
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     RestResponse response = qtDeferExpectFail(c, HttpStatus.SC_FORBIDDEN);
     assertThat(response.getEntityContent()).isEqualTo("abandon not permitted");
 
-    grant(project, "refs/heads/master", Permission.ABANDON, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
   }
 
   @Test

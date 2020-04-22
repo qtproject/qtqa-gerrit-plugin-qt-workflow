@@ -8,6 +8,7 @@ import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.common.data.Permission;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.junit.Before;
@@ -22,9 +23,9 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
-    grant(project, "refs/staging/*", Permission.PUSH, false, adminGroupUuid());
-    grant(project, "refs/builds/*", Permission.CREATE, false, adminGroupUuid());
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid())).update();
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid())).update();
   }
 
   @Test
@@ -74,7 +75,7 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
     approve(c.getChangeId());
     QtStage(c);
 
-    deny(project, "refs/heads/master", Permission.SUBMIT, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.SUBMIT).ref("refs/heads/master").group(REGISTERED_USERS)).update();
 
     String commandStr;
     commandStr = "gerrit-plugin-qt-workflow staging-rebuild";
@@ -83,7 +84,7 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
     String resultStr = userSshSession.exec(commandStr);
     assertThat(userSshSession.getError()).contains("not authorized");
 
-    grant(project, "refs/heads/master", Permission.SUBMIT, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.SUBMIT).ref("refs/heads/master").group(REGISTERED_USERS)).update();
   }
 
   @Test

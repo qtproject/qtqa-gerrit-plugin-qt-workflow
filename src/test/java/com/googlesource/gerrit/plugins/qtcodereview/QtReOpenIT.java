@@ -9,6 +9,7 @@ import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.common.data.Permission;
 import com.google.gerrit.extensions.api.changes.RestoreInput;
 import org.apache.http.HttpStatus;
@@ -25,7 +26,7 @@ public class QtReOpenIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    grant(project, "refs/heads/master", Permission.ABANDON, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
   }
 
   @Test
@@ -59,10 +60,10 @@ public class QtReOpenIT extends QtCodeReviewIT {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     QtDefer(c);
 
-    deny(project, "refs/heads/master", Permission.ABANDON, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
     RestResponse response = qtReOpenExpectFail(c, HttpStatus.SC_FORBIDDEN);
     assertThat(response.getEntityContent()).isEqualTo("restore not permitted");
-    grant(project, "refs/heads/master", Permission.ABANDON, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
   }
 
   @Test

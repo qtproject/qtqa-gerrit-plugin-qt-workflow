@@ -10,9 +10,10 @@ import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.common.data.Permission;
-import com.google.gerrit.reviewdb.client.Branch;
-import com.google.gerrit.reviewdb.client.ChangeMessage;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.ChangeMessage;
 import java.util.ArrayList;
 import org.apache.http.HttpStatus;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -30,8 +31,8 @@ public class QtUnStageIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    createBranch(new Branch.NameKey(project, "feature"));
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
+    createBranch(BranchNameKey.create(project, "feature"));
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
   }
 
   @Test
@@ -284,12 +285,12 @@ public class QtUnStageIT extends QtCodeReviewIT {
     approve(c.getChangeId());
     QtStage(c);
 
-    deny(project, "refs/heads/master", Permission.QT_STAGE, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
 
     RestResponse response = qtUnStageExpectFail(c, HttpStatus.SC_FORBIDDEN);
     assertThat(response.getEntityContent()).contains("not permitted");
 
-    grant(project, "refs/heads/master", Permission.QT_STAGE, false, REGISTERED_USERS);
+    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
   }
 
   @Test
@@ -370,7 +371,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
       boolean merge,
       boolean fastForward)
       throws Exception {
-    String branch = getBranchNameFromRef(c.getChange().change().getDest().get());
+    String branch = getBranchNameFromRef(c.getChange().change().getDest().branch());
     String stagingRef = R_STAGING + branch;
     String branchRef = R_HEADS + branch;
     RevCommit originalCommit = c.getCommit();
@@ -418,7 +419,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
 
   private RestResponse qtUnStageExpectFail(PushOneCommit.Result c, int expectedStatus)
       throws Exception {
-    String branch = getBranchNameFromRef(c.getChange().change().getDest().get());
+    String branch = getBranchNameFromRef(c.getChange().change().getDest().branch());
     String stagingRef = R_STAGING + branch;
     String branchRef = R_HEADS + branch;
 

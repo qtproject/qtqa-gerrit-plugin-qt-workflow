@@ -74,7 +74,16 @@ class QtCommandAdminChangeStatus extends SshCommand {
       Change.Status from = toStatus(fromStr);
       if (from == null) throw die("invalid from status");
 
-      Change.Id id = Change.Id.parse(changeId);
+      Change.Id id;
+      try {
+        id = Change.Id.parse(changeId);
+      } catch (IllegalArgumentException e) {
+        if (e.getMessage().contains("invalid change ID")) {
+          throw new NumberFormatException();
+        } else {
+          throw e;
+        }
+      }
       if (id.get() == 0) throw die("invalid change-id");
 
       InternalChangeQuery query = queryProvider.get();

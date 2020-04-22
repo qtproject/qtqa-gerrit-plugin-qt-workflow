@@ -6,22 +6,23 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_COMMIT;
 import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_REVISION;
 import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS;
-import static com.google.gerrit.server.project.testing.Util.category;
-import static com.google.gerrit.server.project.testing.Util.value;
+import static com.google.gerrit.server.project.testing.TestLabels.label;
+import static com.google.gerrit.server.project.testing.TestLabels.value;
+import static com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate.allowLabel;
 
 import com.google.gerrit.acceptance.LightweightPluginDaemonTest;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.testsuite.project.ProjectOperations;
 import com.google.gerrit.acceptance.testsuite.request.RequestScopeOperations;
 import com.google.gerrit.common.data.LabelType;
-import com.google.gerrit.common.data.Permission;
 import com.google.gerrit.extensions.api.changes.ReviewInput;
 import com.google.gerrit.extensions.api.projects.ProjectInput;
 import com.google.gerrit.extensions.client.SubmitType;
 import com.google.gerrit.extensions.common.ChangeInfo;
-import com.google.gerrit.reviewdb.client.AccountGroup;
-import com.google.gerrit.server.project.testing.Util;
+import com.google.gerrit.entities.AccountGroup;
+import com.google.gerrit.server.project.testing.TestLabels;
 import com.google.inject.Inject;
 import org.junit.Test;
 
@@ -31,7 +32,7 @@ import org.junit.Test;
     sshModule = "com.googlesource.gerrit.plugins.qtcodereview.QtSshModule")
 @UseSsh
 public class QtCommitFooterIT extends LightweightPluginDaemonTest {
-
+  @Inject private ProjectOperations projectOperations;
   @Inject private RequestScopeOperations requestScopeOperations;
 
   @Override
@@ -43,23 +44,26 @@ public class QtCommitFooterIT extends LightweightPluginDaemonTest {
   @Test
   public void removeCommitFooterLines() throws Exception {
     LabelType sanity =
-        category("Sanity-Review", value(1, "Passes"), value(0, "No score"), value(-1, "Failed"));
+        label("Sanity-Review", value(1, "Passes"), value(0, "No score"), value(-1, "Failed"));
     LabelType verified =
-        category("Verified", value(1, "Passes"), value(0, "No score"), value(-1, "Failed"));
+        label("Verified", value(1, "Passes"), value(0, "No score"), value(-1, "Failed"));
     LabelType changelog =
-        category("ChangeLog", value(1, "Passes"), value(0, "No score"), value(-1, "Failed"));
+        label("ChangeLog", value(1, "Passes"), value(0, "No score"), value(-1, "Failed"));
     try (ProjectConfigUpdate u = updateProject(project)) {
       u.getConfig().getLabelSections().put(sanity.getName(), sanity);
       u.getConfig().getLabelSections().put(verified.getName(), verified);
       u.getConfig().getLabelSections().put(changelog.getName(), changelog);
-      AccountGroup.UUID registered = systemGroupBackend.getGroup(REGISTERED_USERS).getUUID();
-      String heads = "refs/heads/*";
-      Util.allow(u.getConfig(), Permission.forLabel("Sanity-Review"), -1, 1, registered, heads);
-      Util.allow(u.getConfig(), Permission.forLabel("Code-Review"), -2, +2, registered, heads);
-      Util.allow(u.getConfig(), Permission.forLabel("Verified"), -1, +1, registered, heads);
-      Util.allow(u.getConfig(), Permission.forLabel("ChangeLog"), -1, +1, registered, heads);
       u.save();
     }
+    AccountGroup.UUID registered = systemGroupBackend.getGroup(REGISTERED_USERS).getUUID();
+    String heads = "refs/heads/*";
+
+    projectOperations.project(project).forUpdate()
+        .add(allowLabel(sanity.getName()).ref(heads).group(registered).range(-1, 1))
+        .add(allowLabel(TestLabels.codeReview().getName()).ref(heads).group(registered).range(-2, 2))
+        .add(allowLabel(verified.getName()).ref(heads).group(registered).range(-1, 1))
+        .add(allowLabel(changelog.getName()).ref(heads).group(registered).range(-1, 1))
+        .update();
 
     PushOneCommit.Result change = createChange();
     requestScopeOperations.setApiUser(user.id());
