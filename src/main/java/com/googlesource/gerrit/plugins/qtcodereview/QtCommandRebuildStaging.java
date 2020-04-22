@@ -6,8 +6,8 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.restapi.AuthException;
-import com.google.gerrit.reviewdb.client.Branch;
-import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
@@ -54,20 +54,20 @@ class QtCommandRebuildStaging extends SshCommand {
   protected void run() throws UnloggedFailure {
     logger.atInfo().log("qtcodereview: staging-rebuild -p %s -b %s", project, branch);
 
-    Branch.NameKey stagingBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, branch);
-    Branch.NameKey destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, branch);
+    BranchNameKey stagingBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, branch);
+    BranchNameKey destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, branch);
 
     try {
-      Project.NameKey projectKey = new Project.NameKey(project);
+      Project.NameKey projectKey = Project.nameKey(project);
       git = gitManager.openRepository(projectKey);
 
       permissionBackend
           .user(user)
           .project(projectKey)
-          .ref(destBranchShortKey.get())
+          .ref(destBranchShortKey.branch())
           .check(RefPermission.UPDATE);
 
-      if (git.resolve(stagingBranchKey.get()) == null) throw die("branch staging ref not found");
+      if (git.resolve(stagingBranchKey.branch()) == null) throw die("branch staging ref not found");
 
       qtUtil.rebuildStagingBranch(
           git, user.asIdentifiedUser(), projectKey, stagingBranchKey, destBranchShortKey);

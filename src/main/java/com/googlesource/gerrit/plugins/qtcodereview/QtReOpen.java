@@ -8,9 +8,10 @@ import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.api.changes.RestoreInput;
 import com.google.gerrit.extensions.common.ChangeInfo;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
+import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.webui.UiAction;
-import com.google.gerrit.reviewdb.client.Change;
+import com.google.gerrit.entities.Change;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.PatchSetUtil;
 import com.google.gerrit.server.change.ChangeJson;
@@ -53,7 +54,7 @@ class QtReOpen extends RetryingRestModifyView<ChangeResource, RestoreInput, Chan
   }
 
   @Override
-  protected ChangeInfo applyImpl(
+  protected Response<ChangeInfo> applyImpl(
       BatchUpdate.Factory updateFactory, ChangeResource rsrc, RestoreInput input)
       throws RestApiException, UpdateException, PermissionBackendException, IOException {
     Change change = rsrc.getChange();
@@ -87,7 +88,7 @@ class QtReOpen extends RetryingRestModifyView<ChangeResource, RestoreInput, Chan
 
     change = op.getChange();
     logger.atInfo().log("qtcodereview: reopened  %s", change);
-    return json.noOptions().format(change);
+    return Response.ok(json.noOptions().format(change));
   }
 
   @Override

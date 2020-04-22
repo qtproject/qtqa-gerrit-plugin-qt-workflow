@@ -7,7 +7,7 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.IdString;
-import com.google.gerrit.reviewdb.client.PatchSet;
+import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.server.change.ChangeResource;
 import com.google.gerrit.server.change.RevisionResource;
 import com.google.gerrit.server.restapi.change.ChangesCollection;
@@ -53,9 +53,9 @@ class QtCommandStage extends SshCommand {
 
     for (PatchSet patchSet : patchSets) {
       try {
-        logger.atInfo().log("qtcodereview: ssh command stage %s", patchSet.getId());
-        ChangeResource c = changes.parse(patchSet.getId().getParentKey());
-        IdString id = IdString.fromDecoded(patchSet.getRevision().get());
+        logger.atInfo().log("qtcodereview: ssh command stage %s", patchSet.id());
+        ChangeResource c = changes.parse(patchSet.id().changeId());
+        IdString id = IdString.fromDecoded(patchSet.commitId().name());
         RevisionResource r = revisions.parse(c, id);
         qtStage.apply(r, new SubmitInput());
       } catch (Exception e) {

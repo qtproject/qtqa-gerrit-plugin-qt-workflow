@@ -5,8 +5,8 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.gerrit.exceptions.EmailException;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.server.account.ProjectWatches.NotifyType;
 import com.google.gerrit.server.mail.send.EmailArguments;
 import com.google.gerrit.server.mail.send.ReplyToChangeSender;

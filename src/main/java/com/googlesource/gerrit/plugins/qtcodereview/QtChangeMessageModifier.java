@@ -4,7 +4,7 @@
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
-import com.google.gerrit.reviewdb.client.Branch;
+import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.server.git.ChangeMessageModifier;
 import com.google.inject.Singleton;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -15,7 +15,7 @@ public class QtChangeMessageModifier implements ChangeMessageModifier {
   // Remove extra commit message footers
   @Override
   public String onSubmit(
-      String commitMessage, RevCommit original, RevCommit mergeTip, Branch.NameKey destination) {
+      String commitMessage, RevCommit original, RevCommit mergeTip, BranchNameKey destination) {
     StringBuilder stringBuilder = new StringBuilder("");
     String[] lines = commitMessage.split("\n");
 

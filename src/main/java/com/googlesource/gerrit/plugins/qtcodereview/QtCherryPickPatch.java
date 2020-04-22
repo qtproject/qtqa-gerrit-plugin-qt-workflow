@@ -5,8 +5,8 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.git.CodeReviewCommit;
 import com.google.gerrit.server.git.CodeReviewCommit.CodeReviewRevWalk;
@@ -100,7 +100,7 @@ public class QtCherryPickPatch {
       PersonIdent committerIdent =
           new PersonIdent(commitToCherryPick.getCommitterIdent(), new Date());
 
-      commitToCherryPick.setPatchsetId(changeData.currentPatchSet().getId());
+      commitToCherryPick.setPatchsetId(changeData.currentPatchSet().id());
       commitToCherryPick.setNotes(changeData.notes());
 
       CodeReviewCommit cherryPickCommit;

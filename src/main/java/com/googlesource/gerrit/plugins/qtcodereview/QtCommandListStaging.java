@@ -6,9 +6,9 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.restapi.AuthException;
-import com.google.gerrit.reviewdb.client.Branch;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
@@ -69,9 +69,9 @@ class QtCommandListStaging extends SshCommand {
 
     final PrintWriter stdout = toPrintWriter(out);
 
-    Project.NameKey projectKey = new Project.NameKey(project);
-    Branch.NameKey aBranchKey = new Branch.NameKey(projectKey, branch);
-    Branch.NameKey destBranchShortKey =
+    Project.NameKey projectKey = Project.nameKey(project);
+    BranchNameKey aBranchKey = BranchNameKey.create(projectKey, branch);
+    BranchNameKey destBranchShortKey =
         QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, destination);
 
     try {
@@ -80,15 +80,15 @@ class QtCommandListStaging extends SshCommand {
       permissionBackend
           .user(user)
           .project(projectKey)
-          .ref(aBranchKey.get())
+          .ref(aBranchKey.branch())
           .check(RefPermission.READ);
       permissionBackend
           .user(user)
           .project(projectKey)
-          .ref(destBranchShortKey.get())
+          .ref(destBranchShortKey.branch())
           .check(RefPermission.READ);
 
-      if (git.resolve(aBranchKey.get()) == null) {
+      if (git.resolve(aBranchKey.branch()) == null) {
         throw die("branch ref not found");
       }
 

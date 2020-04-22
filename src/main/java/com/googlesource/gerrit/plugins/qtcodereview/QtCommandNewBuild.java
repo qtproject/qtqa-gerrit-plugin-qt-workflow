@@ -7,9 +7,9 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.RestApiException;
-import com.google.gerrit.reviewdb.client.Branch;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
@@ -79,26 +79,26 @@ class QtCommandNewBuild extends SshCommand {
         "qtcodereview: staging-new-build -p %s -s %s -i %s", project, stagingBranch, build);
 
     try {
-      Project.NameKey projectKey = new Project.NameKey(project);
+      Project.NameKey projectKey = Project.nameKey(project);
       git = gitManager.openRepository(projectKey);
 
-      Branch.NameKey buildBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_BUILDS, build);
-      Branch.NameKey stagingBranchKey =
+      BranchNameKey buildBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_BUILDS, build);
+      BranchNameKey stagingBranchKey =
           QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, stagingBranch);
-      Branch.NameKey destBranchShortKey =
+      BranchNameKey destBranchShortKey =
           QtUtil.getNameKeyShort(project, QtUtil.R_STAGING, stagingBranch);
-      Branch.NameKey destinationKey = QtUtil.getNameKeyLong(project, QtUtil.R_HEADS, stagingBranch);
+      BranchNameKey destinationKey = QtUtil.getNameKeyLong(project, QtUtil.R_HEADS, stagingBranch);
 
       // Check required permissions
       permissionBackend
           .user(user)
           .project(projectKey)
-          .ref(destinationKey.get())
+          .ref(destinationKey.branch())
           .check(RefPermission.UPDATE);
       permissionBackend
           .user(user)
           .project(projectKey)
-          .ref(buildBranchKey.get())
+          .ref(buildBranchKey.branch())
           .check(RefPermission.CREATE);
 
       if (QtUtil.branchExists(git, buildBranchKey) == true) {

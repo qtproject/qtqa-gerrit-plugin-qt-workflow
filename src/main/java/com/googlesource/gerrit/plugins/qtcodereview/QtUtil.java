@@ -23,10 +23,10 @@ import com.google.gerrit.common.FooterConstants;
 import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.registration.DynamicItem;
 import com.google.gerrit.extensions.restapi.RestApiException;
-import com.google.gerrit.reviewdb.client.Branch;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.PatchSet;
-import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.PatchSet;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.data.ChangeAttribute;
@@ -136,7 +136,7 @@ public class QtUtil {
     if (project.endsWith(Constants.DOT_GIT_EXT)) {
       projectName = project.substring(0, project.length() - Constants.DOT_GIT_EXT.length());
     }
-    return new Project.NameKey(projectName);
+    return Project.nameKey(projectName);
   }
 
   /**
@@ -147,13 +147,13 @@ public class QtUtil {
    * @param branch Branch name with or without prefix.
    * @return Branch name key with prefix.
    */
-  public static Branch.NameKey getNameKeyLong(
+  public static BranchNameKey getNameKeyLong(
       final String project, final String prefix, final String branch) {
     final Project.NameKey projectKey = getProjectKey(project);
     if (branch.startsWith(prefix)) {
-      return new Branch.NameKey(projectKey, branch);
+      return BranchNameKey.create(projectKey, branch);
     } else {
-      return new Branch.NameKey(projectKey, prefix + branch);
+      return BranchNameKey.create(projectKey, prefix + branch);
     }
   }
 
@@ -165,19 +165,19 @@ public class QtUtil {
    * @param branch Branch name with or without prefix.
    * @return Branch name key without prefix.
    */
-  public static Branch.NameKey getNameKeyShort(
+  public static BranchNameKey getNameKeyShort(
       final String project, final String prefix, final String branch) {
     final Project.NameKey projectKey = getProjectKey(project);
     if (branch.startsWith(prefix)) {
-      return new Branch.NameKey(projectKey, branch.substring(prefix.length()));
+      return BranchNameKey.create(projectKey, branch.substring(prefix.length()));
     } else {
-      return new Branch.NameKey(projectKey, branch);
+      return BranchNameKey.create(projectKey, branch);
     }
   }
 
-  public static boolean branchExists(Repository git, final Branch.NameKey branch)
+  public static boolean branchExists(Repository git, final BranchNameKey branch)
       throws IOException {
-    return git.getRefDatabase().getRef(branch.get()) != null;
+    return git.getRefDatabase().getRef(branch.branch()) != null;
   }
 
   /**
@@ -186,33 +186,33 @@ public class QtUtil {
    * @param branch Branch under refs/heads. E.g. refs/heads/master. Can be short name.
    * @return Matching staging branch. E.g. refs/staging/master
    */
-  public static Branch.NameKey getStagingBranch(final Branch.NameKey branch) {
+  public static BranchNameKey getStagingBranch(final BranchNameKey branch) {
     return getBranchWithNewPrefix(branch, R_HEADS, R_STAGING);
   }
 
-  private static Branch.NameKey getBranchWithNewPrefix(
-      final Branch.NameKey branch, final String oldPrefix, final String newPrefix) {
-    final String ref = branch.get();
+  private static BranchNameKey getBranchWithNewPrefix(
+      final BranchNameKey branch, final String oldPrefix, final String newPrefix) {
+    final String ref = branch.branch();
 
     if (ref.startsWith(oldPrefix)) {
       // Create new ref replacing the old prefix with new.
-      return new Branch.NameKey(
-          branch.getParentKey(), newPrefix + ref.substring(oldPrefix.length()));
+      return BranchNameKey.create(
+          branch.project(), newPrefix + ref.substring(oldPrefix.length()));
     }
     // Treat the ref as short name.
-    return new Branch.NameKey(branch.getParentKey(), newPrefix + ref);
+    return BranchNameKey.create(branch.project(), newPrefix + ref);
   }
 
-  public static Result createStagingBranch(Repository git, final Branch.NameKey sourceBranch) {
+  public static Result createStagingBranch(Repository git, final BranchNameKey sourceBranch) {
     try {
       final String sourceBranchName;
-      if (sourceBranch.get().startsWith(R_HEADS)) {
-        sourceBranchName = sourceBranch.get();
+      if (sourceBranch.branch().startsWith(R_HEADS)) {
+        sourceBranchName = sourceBranch.branch();
       } else {
-        sourceBranchName = R_HEADS + sourceBranch.get();
+        sourceBranchName = R_HEADS + sourceBranch.branch();
       }
 
-      final String stagingBranch = R_STAGING + sourceBranch.getShortName();
+      final String stagingBranch = R_STAGING + sourceBranch.shortName();
 
       return updateRef(git, stagingBranch, sourceBranchName, true);
     } catch (NoSuchRefException | IOException e) {
@@ -234,21 +234,21 @@ public class QtUtil {
       Repository git,
       IdentifiedUser user,
       final Project.NameKey projectKey,
-      final Branch.NameKey stagingBranch,
-      final Branch.NameKey newBranch)
+      final BranchNameKey stagingBranch,
+      final BranchNameKey newBranch)
       throws IOException, NoSuchRefException {
     final String stagingBranchName;
-    if (stagingBranch.get().startsWith(R_STAGING)) {
-      stagingBranchName = stagingBranch.get();
+    if (stagingBranch.branch().startsWith(R_STAGING)) {
+      stagingBranchName = stagingBranch.branch();
     } else {
-      stagingBranchName = R_STAGING + stagingBranch.get();
+      stagingBranchName = R_STAGING + stagingBranch.branch();
     }
 
     final String buildBranchName;
-    if (newBranch.get().startsWith(R_BUILDS)) {
-      buildBranchName = newBranch.get();
+    if (newBranch.branch().startsWith(R_BUILDS)) {
+      buildBranchName = newBranch.branch();
     } else {
-      buildBranchName = R_BUILDS + newBranch.get();
+      buildBranchName = R_BUILDS + newBranch.branch();
     }
 
     Ref sourceRef = git.getRefDatabase().getRef(stagingBranchName);
@@ -342,7 +342,7 @@ public class QtUtil {
       Change change = item.change();
       logger.atInfo().log("qtcodereview: rebuilding add %s", change);
       PatchSet p = item.currentPatchSet();
-      ObjectId srcId = git.resolve(p.getRevision().get());
+      ObjectId srcId = git.resolve(p.commitId().name());
       newId =
           qtCherryPickPatch
               .cherryPickPatch(
@@ -427,8 +427,8 @@ public class QtUtil {
       Repository git,
       IdentifiedUser user,
       final Project.NameKey projectKey,
-      final Branch.NameKey stagingBranchKey,
-      final Branch.NameKey destBranchShortKey)
+      final BranchNameKey stagingBranchKey,
+      final BranchNameKey destBranchShortKey)
       throws MergeConflictException {
     InternalChangeQuery query = null;
     List<ChangeData> changes_integrating = null;
@@ -441,9 +441,9 @@ public class QtUtil {
     String stagingBranchName = null;
 
     try {
-      stagingBranchName = stagingBranchKey.get();
+      stagingBranchName = stagingBranchKey.branch();
       oldStageRef = git.resolve(stagingBranchName);
-      branchRef = git.resolve(destBranchShortKey.get());
+      branchRef = git.resolve(destBranchShortKey.branch());
 
       query = queryProvider.get();
       changes_integrating = query.byBranchStatus(destBranchShortKey, Change.Status.INTEGRATING);
@@ -529,16 +529,16 @@ public class QtUtil {
    * @throws IOException Thrown by Repository or RevWalk if repository is not accessible.
    */
   public List<Map.Entry<ChangeData, RevCommit>> listChangesNotMerged(
-      Repository git, final Branch.NameKey branch, final Branch.NameKey destination)
+      Repository git, final BranchNameKey branch, final BranchNameKey destination)
       throws IOException, BranchNotFoundException {
 
     Map<Change.Id, Map.Entry<ChangeData, RevCommit>> map = new HashMap<>();
     RevWalk revWalk = new RevWalk(git);
 
     try {
-      Ref ref = git.getRefDatabase().getRef(branch.get());
+      Ref ref = git.getRefDatabase().getRef(branch.branch());
       if (ref == null) throw new BranchNotFoundException("No such branch: " + branch);
-      Ref refDest = git.getRefDatabase().getRef(destination.get());
+      Ref refDest = git.getRefDatabase().getRef(destination.branch());
       if (refDest == null) throw new BranchNotFoundException("No such branch: " + destination);
       RevCommit firstCommit = revWalk.parseCommit(ref.getObjectId());
       revWalk.markStart(firstCommit);
@@ -552,7 +552,7 @@ public class QtUtil {
         List<ChangeData> changes = null;
 
         if (changeId != null) {
-          Change.Key key = new Change.Key(changeId);
+          Change.Key key = Change.key(changeId);
           changes = queryProvider.get().byBranchKey(destination, key);
         }
 
@@ -618,24 +618,24 @@ public class QtUtil {
   public static RefUpdate.Result mergeBranches(
       IdentifiedUser user,
       Repository git,
-      final Branch.NameKey branch,
-      final Branch.NameKey destination)
+      final BranchNameKey branch,
+      final BranchNameKey destination)
       throws NoSuchRefException, IOException, MergeConflictException {
 
-    ObjectId srcId = git.resolve(branch.get());
+    ObjectId srcId = git.resolve(branch.branch());
     if (srcId == null) throw new NoSuchRefException("Invalid Revision: " + branch);
 
     return mergeObjectToBranch(user, git, srcId, destination);
   }
 
   private static RefUpdate.Result mergeObjectToBranch(
-      IdentifiedUser user, Repository git, ObjectId srcId, final Branch.NameKey destination)
+      IdentifiedUser user, Repository git, ObjectId srcId, final BranchNameKey destination)
       throws NoSuchRefException, IOException, MergeConflictException {
 
-    Ref destRef = git.getRefDatabase().getRef(destination.get());
+    Ref destRef = git.getRefDatabase().getRef(destination.branch());
     if (destRef == null) throw new NoSuchRefException("No such branch: " + destination);
 
-    ObjectId destId = git.resolve(destination.get());
+    ObjectId destId = git.resolve(destination.branch());
     if (destId == null) throw new NoSuchRefException("Invalid Revision: " + destination);
 
     RevWalk revWalk = new RevWalk(git);
@@ -651,7 +651,7 @@ public class QtUtil {
       objInserter.flush();
       logger.atInfo().log("qtcodereview: merge commit for %s added to %s", srcId, destination);
 
-      RefUpdate refUpdate = git.updateRef(destination.get());
+      RefUpdate refUpdate = git.updateRef(destination.branch());
       refUpdate.setNewObjectId(mergeCommit);
       return refUpdate.update();
     } catch (Exception e) {

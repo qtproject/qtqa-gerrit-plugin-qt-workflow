@@ -8,10 +8,10 @@ import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.BadRequestException;
 import com.google.gerrit.extensions.restapi.RestApiException;
-import com.google.gerrit.reviewdb.client.Branch;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.PatchSet;
-import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.PatchSet;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.change.PatchSetInserter;
@@ -130,10 +130,10 @@ class QtCommandBuildApprove extends SshCommand {
   private static final String STDIN_MESSAGE = "-";
 
   private Project.NameKey projectKey;
-  private Branch.NameKey buildBranchKey;
-  private Branch.NameKey destBranchKey;
-  private Branch.NameKey stagingBranchKey;
-  private Branch.NameKey destBranchShortKey;
+  private BranchNameKey buildBranchKey;
+  private BranchNameKey destBranchKey;
+  private BranchNameKey stagingBranchKey;
+  private BranchNameKey destBranchShortKey;
 
   private List<Entry<ChangeData, RevCommit>> affectedChanges = null;
 
@@ -158,21 +158,21 @@ class QtCommandBuildApprove extends SshCommand {
       permissionBackend
           .user(user)
           .project(projectKey)
-          .ref(destBranchKey.get())
+          .ref(destBranchKey.branch())
           .check(RefPermission.UPDATE);
       permissionBackend
           .user(user)
           .project(projectKey)
-          .ref(stagingBranchKey.get())
+          .ref(stagingBranchKey.branch())
           .check(RefPermission.UPDATE);
       permissionBackend
           .user(user)
           .project(projectKey)
-          .ref(buildBranchKey.get())
+          .ref(buildBranchKey.branch())
           .check(RefPermission.READ);
 
-      if (git.resolve(destBranchKey.get()) == null) throw die("branch not found");
-      if (git.resolve(buildBranchKey.get()) == null) throw die("build not found");
+      if (git.resolve(destBranchKey.branch()) == null) throw die("branch not found");
+      if (git.resolve(buildBranchKey.branch()) == null) throw die("build not found");
 
       // Initialize and populate open changes list.
       affectedChanges = qtUtil.listChangesNotMerged(git, buildBranchKey, destBranchKey);
@@ -223,7 +223,7 @@ class QtCommandBuildApprove extends SshCommand {
           RestApiException, ConfigInvalidException {
     if (message == null) message = String.format("Change merged into branch %s", destBranchKey);
 
-    ObjectId oldId = git.resolve(destBranchKey.get());
+    ObjectId oldId = git.resolve(destBranchKey.branch());
 
     Result result =
         QtUtil.mergeBranches(user.asIdentifiedUser(), git, buildBranchKey, destBranchKey);
@@ -241,11 +241,11 @@ class QtCommandBuildApprove extends SshCommand {
     logger.atInfo().log(
         "qtcodereview: staging-approve build %s merged into branch %s", buildBranch, destBranchKey);
 
-    ObjectId newId = git.resolve(destBranchKey.get());
+    ObjectId newId = git.resolve(destBranchKey.branch());
     // send ref updated event only if there are changes to build
     if (!newId.equals(oldId)) {
       referenceUpdated.fire(
-          projectKey, destBranchKey.get(), oldId, newId, user.asIdentifiedUser().state());
+          projectKey, destBranchKey.branch(), oldId, newId, user.asIdentifiedUser().state());
     }
   }
 
@@ -291,9 +291,9 @@ class QtCommandBuildApprove extends SshCommand {
         Change change = cd.change();
         if (change.getStatus() == oldStatus) {
           if (newStatus == Change.Status.MERGED) {
-            ObjectId obj = git.resolve(cd.currentPatchSet().getRevision().get());
+            ObjectId obj = git.resolve(cd.currentPatchSet().commitId().name());
             CodeReviewCommit currCommit = new CodeReviewCommit(obj);
-            currCommit.setPatchsetId(cd.currentPatchSet().getId());
+            currCommit.setPatchsetId(cd.currentPatchSet().id());
             CodeReviewCommit newCommit = new CodeReviewCommit(item.getValue());
             Change.Id changeId = insertPatchSet(u, git, cd.notes(), newCommit);
             if (!changeId.equals(cd.getId())) {
@@ -346,7 +346,7 @@ class QtCommandBuildApprove extends SshCommand {
 
     PatchSet ps = changeData.currentPatchSet();
     changeMerged.fire(
-        changeData.change(), ps, user.asIdentifiedUser().state(), ps.getRevision().get(), ts);
+        changeData.change(), ps, user.asIdentifiedUser().state(), ps.commitId().name(), ts);
 
     // logger.atInfo().log("qtcodereview: staging-approve sending merge event failed for %s",
     //                     changeData.change());

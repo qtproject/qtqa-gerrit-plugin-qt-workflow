@@ -8,13 +8,14 @@ import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
+import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
 import com.google.gerrit.extensions.webui.UiAction;
-import com.google.gerrit.reviewdb.client.Branch;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.PatchSet;
-import com.google.gerrit.reviewdb.client.Project;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.PatchSet;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.ProjectUtil;
 import com.google.gerrit.server.account.AccountResolver;
@@ -57,8 +58,8 @@ class QtUnStage
 
   private Change change;
   private Project.NameKey projectKey;
-  private Branch.NameKey destBranchKey;
-  private Branch.NameKey stagingBranchKey;
+  private BranchNameKey destBranchKey;
+  private BranchNameKey stagingBranchKey;
 
   @Inject
   QtUnStage(
@@ -79,7 +80,7 @@ class QtUnStage
   }
 
   @Override
-  public Output apply(RevisionResource rsrc, SubmitInput input)
+  public Response<Output> apply(RevisionResource rsrc, SubmitInput input)
       throws RestApiException, IOException, UpdateException, PermissionBackendException,
           ConfigInvalidException {
 
@@ -96,7 +97,7 @@ class QtUnStage
 
     projectCache.checkedGet(rsrc.getProject()).checkStatePermitsWrite();
 
-    return new Output(removeChangeFromStaging(rsrc, submitter));
+    return Response.ok(new Output(removeChangeFromStaging(rsrc, submitter)));
   }
 
   private Change removeChangeFromStaging(RevisionResource rsrc, IdentifiedUser submitter)
@@ -115,25 +116,25 @@ class QtUnStage
     } else if (!ProjectUtil.branchExists(repoManager, change.getDest())) {
       logger.atSevere().log(
           "qtcodereview: unstage: change %s destination branch \"%s\" not found",
-          change, change.getDest().get());
+          change, change.getDest().branch());
       throw new ResourceConflictException(
-          String.format("destination branch \"%s\" not found.", change.getDest().get()));
-    } else if (!rsrc.getPatchSet().getId().equals(change.currentPatchSetId())) {
+          String.format("destination branch \"%s\" not found.", change.getDest().branch()));
+    } else if (!rsrc.getPatchSet().id().equals(change.currentPatchSetId())) {
       logger.atSevere().log(
           "qtcodereview: unstage: change %s revision %s is not current revision",
-          change, rsrc.getPatchSet().getRevision().get());
+          change, rsrc.getPatchSet().commitId());
       throw new ResourceConflictException(
           String.format(
-              "revision %s is not current revision", rsrc.getPatchSet().getRevision().get()));
+              "revision %s is not current revision", rsrc.getPatchSet().commitId()));
     }
 
-    final Branch.NameKey destBranchShortKey =
-        QtUtil.getNameKeyShort(projectKey.get(), QtUtil.R_STAGING, stagingBranchKey.get());
+    final BranchNameKey destBranchShortKey =
+        QtUtil.getNameKeyShort(projectKey.get(), QtUtil.R_STAGING, stagingBranchKey.branch());
 
     try {
       git = repoManager.openRepository(projectKey);
 
-      ObjectId srcId = git.resolve(patchSet.getRevision().get());
+      ObjectId srcId = git.resolve(patchSet.commitId().name());
       if (srcId == null) {
         logger.atSevere().log(
             "qtcodereview: unstage merge: change %s has invalid revision %s", change, patchSet);

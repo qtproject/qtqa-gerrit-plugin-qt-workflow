@@ -24,8 +24,9 @@ import com.google.gerrit.extensions.api.changes.AbandonInput;
 import com.google.gerrit.extensions.common.ChangeInfo;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.RestApiException;
+import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.webui.UiAction;
-import com.google.gerrit.reviewdb.client.Change;
+import com.google.gerrit.entities.Change;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.PatchSetUtil;
@@ -65,7 +66,7 @@ class QtDefer extends RetryingRestModifyView<ChangeResource, AbandonInput, Chang
   }
 
   @Override
-  protected ChangeInfo applyImpl(
+  protected Response<ChangeInfo> applyImpl(
       BatchUpdate.Factory updateFactory, ChangeResource rsrc, AbandonInput input)
       throws RestApiException, UpdateException, PermissionBackendException, IOException {
     Change change = rsrc.getChange();
@@ -99,7 +100,7 @@ class QtDefer extends RetryingRestModifyView<ChangeResource, AbandonInput, Chang
     change = op.getChange();
     logger.atInfo().log("qtcodereview: deferred %s", change);
 
-    return json.noOptions().format(change);
+    return Response.ok(json.noOptions().format(change));
   }
 
   @Override

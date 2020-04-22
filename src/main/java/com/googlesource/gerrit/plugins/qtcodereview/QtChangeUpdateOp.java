@@ -10,11 +10,11 @@ import com.google.common.collect.Iterables;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.common.Nullable;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.ChangeMessage;
-import com.google.gerrit.reviewdb.client.LabelId;
-import com.google.gerrit.reviewdb.client.PatchSet;
-import com.google.gerrit.reviewdb.client.PatchSetApproval;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.ChangeMessage;
+import com.google.gerrit.entities.LabelId;
+import com.google.gerrit.entities.PatchSet;
+import com.google.gerrit.entities.PatchSetApproval;
 import com.google.gerrit.server.ApprovalsUtil;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.change.LabelNormalizer;
@@ -139,15 +139,15 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
     for (PatchSetApproval psa :
         approvalsUtil.byPatchSet(
             ctx.getNotes(), psId, ctx.getRevWalk(), ctx.getRepoView().getConfig())) {
-      byKey.put(psa.getKey(), psa);
+      byKey.put(psa.key(), psa);
     }
 
     submitter =
-        ApprovalsUtil.newApproval(psId, ctx.getUser(), LabelId.legacySubmit(), 1, ctx.getWhen());
-    byKey.put(submitter.getKey(), submitter);
+        ApprovalsUtil.newApproval(psId, ctx.getUser(), LabelId.legacySubmit(), 1, ctx.getWhen()).build();
+    byKey.put(submitter.key(), submitter);
 
     LabelNormalizer.Result normalized = labelNormalizer.normalize(ctx.getNotes(), byKey.values());
-    update.putApproval(submitter.getLabel(), submitter.getValue());
+    update.putApproval(submitter.label(), submitter.value());
     saveApprovals(normalized, update, false);
     return normalized;
   }
@@ -155,41 +155,41 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
   private void saveApprovals(
       LabelNormalizer.Result normalized, ChangeUpdate update, boolean includeUnchanged) {
     for (PatchSetApproval psa : normalized.updated()) {
-      update.putApprovalFor(psa.getAccountId(), psa.getLabel(), psa.getValue());
+      update.putApprovalFor(psa.accountId(), psa.label(), psa.value());
     }
     for (PatchSetApproval psa : normalized.deleted()) {
-      update.removeApprovalFor(psa.getAccountId(), psa.getLabel());
+      update.removeApprovalFor(psa.accountId(), psa.label());
     }
 
     for (PatchSetApproval psa : normalized.unchanged()) {
       if (includeUnchanged || psa.isLegacySubmit()) {
         logger.atFine().log("Adding submit label %s", psa);
-        update.putApprovalFor(psa.getAccountId(), psa.getLabel(), psa.getValue());
+        update.putApprovalFor(psa.accountId(), psa.label(), psa.value());
       }
     }
   }
 
   private Function<PatchSetApproval, PatchSetApproval> convertPatchSet(final PatchSet.Id psId) {
     return psa -> {
-      if (psa.getPatchSetId().equals(psId)) {
+      if (psa.patchSetId().equals(psId)) {
         return psa;
       }
-      return new PatchSetApproval(psId, psa);
+      return psa.copyWithPatchSet(psId);
     };
   }
 
-  private Iterable<PatchSetApproval> convertPatchSet(
-      Iterable<PatchSetApproval> approvals, PatchSet.Id psId) {
-    return Iterables.transform(approvals, convertPatchSet(psId));
-  }
-
-  private Iterable<PatchSetApproval> zero(Iterable<PatchSetApproval> approvals) {
-    return Iterables.transform(
-        approvals,
-        a -> {
-          PatchSetApproval copy = new PatchSetApproval(a.getPatchSetId(), a);
-          copy.setValue((short) 0);
-          return copy;
-        });
-  }
+//  private Iterable<PatchSetApproval> convertPatchSet(
+//      Iterable<PatchSetApproval> approvals, PatchSet.Id psId) {
+//    return Iterables.transform(approvals, convertPatchSet(psId));
+//  }
+//
+//  private Iterable<PatchSetApproval> zero(Iterable<PatchSetApproval> approvals) {
+//    return Iterables.transform(
+//        approvals,
+//        a -> {
+//          PatchSetApproval copy = new PatchSetApproval(a.getPatchSetId(), a);
+//          copy.setValue((short) 0);
+//          return copy;
+//        });
+//  }
 }

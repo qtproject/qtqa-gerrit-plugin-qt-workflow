@@ -14,13 +14,13 @@ import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
+import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.webui.UiAction;
-import com.google.gerrit.reviewdb.client.Branch;
-import com.google.gerrit.reviewdb.client.Change;
-import com.google.gerrit.reviewdb.client.PatchSet;
-import com.google.gerrit.reviewdb.client.Project;
-import com.google.gerrit.reviewdb.client.RevId;
-import com.google.gerrit.reviewdb.client.Change.Status;
+import com.google.gerrit.entities.PatchSet;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.Change.Status;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.ProjectUtil;
 import com.google.gerrit.server.account.AccountResolver;
@@ -86,8 +86,8 @@ public class QtStage
 
   private Change change;
   private Project.NameKey projectKey;
-  private Branch.NameKey destBranchKey;
-  private Branch.NameKey stagingBranchKey;
+  private BranchNameKey destBranchKey;
+  private BranchNameKey stagingBranchKey;
 
   @Inject
   QtStage(
@@ -119,7 +119,7 @@ public class QtStage
   }
 
   @Override
-  public Output apply(RevisionResource rsrc, SubmitInput input)
+  public Response<Output> apply(RevisionResource rsrc, SubmitInput input)
       throws RestApiException, RepositoryNotFoundException, IOException, PermissionBackendException,
           UpdateException, ConfigInvalidException {
 
@@ -135,7 +135,7 @@ public class QtStage
 
     projectCache.checkedGet(rsrc.getProject()).checkStatePermitsWrite();
 
-    return new Output(changeToStaging(rsrc, submitter, input));
+    return Response.ok(new Output(changeToStaging(rsrc, submitter, input)));
   }
 
   private Change changeToStaging(RevisionResource rsrc, IdentifiedUser submitter, SubmitInput input)
@@ -150,15 +150,15 @@ public class QtStage
     } else if (!ProjectUtil.branchExists(repoManager, change.getDest())) {
       logger.atSevere().log(
           "qtcodereview: stage: change %s destination branch \"%s\" not found",
-          change, change.getDest().get());
+          change, change.getDest().branch());
       throw new ResourceConflictException(
-          String.format("Destination branch \"%s\" not found.", change.getDest().get()));
-    } else if (!rsrc.getPatchSet().getId().equals(change.currentPatchSetId())) {
+          String.format("Destination branch \"%s\" not found.", change.getDest().branch()));
+    } else if (!rsrc.getPatchSet().id().equals(change.currentPatchSetId())) {
       logger.atSevere().log(
           "qtcodereview: stage: change %s revision %s is not current revision",
-          change, rsrc.getPatchSet().getRevision().get());
+          change, rsrc.getPatchSet().commitId());
       throw new ResourceConflictException(
-          String.format("Revision %s is not current.", rsrc.getPatchSet().getRevision().get()));
+          String.format("Revision %s is not current.", rsrc.getPatchSet().commitId()));
     }
 
     Repository git = null;
@@ -172,15 +172,15 @@ public class QtStage
       if (!ProjectUtil.branchExists(repoManager, stagingBranchKey)) {
         Result result = QtUtil.createStagingBranch(git, destBranchKey);
         if (result == null)
-          throw new NoSuchRefException("Cannot create staging ref: " + stagingBranchKey.get());
+          throw new NoSuchRefException("Cannot create staging ref: " + stagingBranchKey.branch());
       }
-      destId = git.resolve(stagingBranchKey.get());
+      destId = git.resolve(stagingBranchKey.branch());
       if (destId == null)
-        throw new NoSuchRefException("Invalid Revision: " + stagingBranchKey.get());
+        throw new NoSuchRefException("Invalid Revision: " + stagingBranchKey.branch());
 
-      sourceId = git.resolve(rsrc.getPatchSet().getRevision().get());
+      sourceId = git.resolve(rsrc.getPatchSet().commitId().name());
       if (sourceId == null)
-        throw new NoSuchRefException("Invalid Revision: " + rsrc.getPatchSet().getRevision().get());
+        throw new NoSuchRefException("Invalid Revision: " + rsrc.getPatchSet().commitId());
 
       checkParents(git, rsrc);
 
@@ -199,9 +199,9 @@ public class QtStage
               null, // inputMessage
               QtUtil.TAG_CI // tag
               );
-      Result result = qtUtil.updateRef(git, stagingBranchKey.get(), commit.toObjectId(), false);
+      Result result = qtUtil.updateRef(git, stagingBranchKey.branch(), commit.toObjectId(), false);
       referenceUpdated.fire(
-          projectKey, stagingBranchKey.get(), destId, commit.toObjectId(), submitter.state());
+          projectKey, stagingBranchKey.branch(), destId, commit.toObjectId(), submitter.state());
 
     } catch (IntegrationException e) {
       logger.atInfo().log("qtcodereview: stage merge error %s", e);
@@ -238,7 +238,7 @@ public class QtStage
   private void checkParents(Repository repository, RevisionResource resource) throws ResourceConflictException {
     try (final RevWalk rw = new RevWalk(repository)) {
       final PatchSet ps = resource.getPatchSet();
-      final RevCommit rc = rw.parseCommit(ObjectId.fromString(ps.getRevision().get()));
+      final RevCommit rc = rw.parseCommit(ObjectId.fromString(ps.commitId().name()));
       if (rc.getParentCount() < 2) {
           return;
       }
@@ -294,12 +294,12 @@ public class QtStage
     //     throw new OrmRuntimeException("Could not determine mergeability", e);
     // }
 
-    RevId revId = resource.getPatchSet().getRevision();
+    ObjectId revId = resource.getPatchSet().commitId();
     Map<String, String> params =
         ImmutableMap.of(
-            "patchSet", String.valueOf(resource.getPatchSet().getPatchSetId()),
-            "branch", change.getDest().getShortName(),
-            "commit", ObjectId.fromString(revId.get()).abbreviate(7).name());
+            "patchSet", String.valueOf(resource.getPatchSet().number()),
+            "branch", change.getDest().shortName(),
+            "commit", revId.abbreviate(7).name());
     return new UiAction.Description()
         .setLabel(label)
         .setTitle(Strings.emptyToNull(titlePattern.replace(params)))
