@@ -51,9 +51,10 @@
             });
 
             // Customize header changes dropdown menu
-            plugin.hook('header-dropdown-Changes').onAttached(element => {
+            plugin.hook('header-dropdown-changes').onAttached(element => {
                 // this is ugly, but there is no API for this
-                var ul_elem = element.content.children[1].children[0].children[0].children[0];
+                var parent_elem = element.parentNode.host;
+                var ul_elem = parent_elem.childNodes[1].root.childNodes[4].childNodes[1].childNodes[1];
                 var li_elem;
                 var link_elem;
 
@@ -77,19 +78,30 @@
             });
 
             // Hide Sanity Bot review score row by default in reply dialog
-            plugin.hook('review-label-scores-Sanity-Review').onAttached(element => {
-                const html = '<div onclick="\
-                                            document.getElementById(\'sanitybotreviewmorediv\').style.display=\'none\'; \
-                                            document.getElementById(\'sanitybotreviewscorediv\').style.display=\'block\'; \
-                                            \"> \
+            plugin.hook('review-label-scores-sanity-review').onAttached(element => {
+                const html = '<div id="review-label-scores-sanity-review-more-button"> \
                                   <div id="sanitybotreviewmorediv" style="display:block;">more...</div> \
                                   <div id="sanitybotreviewscorediv" style="display:none;"></div> \
                               </div>';
                 var wrapper_elem = document.createElement('div');
                 wrapper_elem.innerHTML = html;
-                var child_elem = element.content.children[0];
-                element.content.replaceChild(wrapper_elem, child_elem);
-                document.getElementById('sanitybotreviewscorediv').appendChild(child_elem);
+
+                // Access the shadow DOM root (seems to be the same as .shadowRoot).
+                var child_elem = element.content.root.childNodes[2];
+                element.content.root.replaceChild(wrapper_elem, child_elem);
+
+                // Append the original content inside the just-replaced element.
+                wrapper_elem.querySelector("#sanitybotreviewscorediv").appendChild(child_elem);
+
+                // Install click listener to show the score buttons when clicking on more.
+                var more_button_handler = wrapper_elem.querySelector("#review-label-scores-sanity-review-more-button");
+                var more_button_div = wrapper_elem.querySelector("#sanitybotreviewmorediv");
+                var review_score_div = wrapper_elem.querySelector("#sanitybotreviewscorediv");
+                more_button_handler.addEventListener("click", function() {
+                    more_button_div.style.display = "none";
+                    review_score_div.style.display = "block";
+                });
+
             });
 
             // Customize change view
@@ -100,7 +112,7 @@
                 plugin.ca.setActionHidden('revision', 'rebase', true);
 
                 // Hide 'Sanity-Review+1' button in header
-                var secondaryActionsElem = document.getElementById("secondaryActions");
+                var secondaryActionsElem = plugin.ca._el.root.querySelector("#secondaryActions");
                 if (secondaryActionsElem &&
                     secondaryActionsElem.innerHTML &&
                     secondaryActionsElem.innerHTML.indexOf('Sanity-Review+1') != -1) {
