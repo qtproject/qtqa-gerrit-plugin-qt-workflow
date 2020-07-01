@@ -5,7 +5,7 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.base.Supplier;
-import com.google.gerrit.reviewdb.client.Change;
+import com.google.gerrit.entities.Change;
 import com.google.gerrit.server.data.AccountAttribute;
 import com.google.gerrit.server.events.PatchSetEvent;
 
