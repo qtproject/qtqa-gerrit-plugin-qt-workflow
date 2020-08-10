@@ -46,6 +46,7 @@ import com.google.inject.Singleton;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.Config;
@@ -71,6 +72,7 @@ public class QtStage
     }
   }
 
+  private final ReentrantLock stageLock = new ReentrantLock();
   private final GitRepositoryManager repoManager;
   private final PermissionBackend permissionBackend;
   private final ChangeData.Factory changeDataFactory;
@@ -123,25 +125,32 @@ public class QtStage
       throws RestApiException, RepositoryNotFoundException, IOException, PermissionBackendException,
           UpdateException, ConfigInvalidException {
 
-    logger.atInfo().log("qtcodereview: stage %s", rsrc.getChange().toString());
+    Output output;
+    logger.atInfo().log("qtcodereview: stage request reveived for %s", rsrc.getChange().toString());
 
-    IdentifiedUser submitter = rsrc.getUser().asIdentifiedUser();
-    change = rsrc.getChange();
-    projectKey = rsrc.getProject();
-    destBranchKey = change.getDest();
-    stagingBranchKey = QtUtil.getStagingBranch(destBranchKey);
+    stageLock.lock();  // block processing of parallel stage requests
+    try {
+      IdentifiedUser submitter = rsrc.getUser().asIdentifiedUser();
+      change = rsrc.getChange();
+      projectKey = rsrc.getProject();
+      destBranchKey = change.getDest();
+      stagingBranchKey = QtUtil.getStagingBranch(destBranchKey);
 
-    rsrc.permissions().check(ChangePermission.QT_STAGE);
+      rsrc.permissions().check(ChangePermission.QT_STAGE);
+      projectCache.checkedGet(rsrc.getProject()).checkStatePermitsWrite();
 
-    projectCache.checkedGet(rsrc.getProject()).checkStatePermitsWrite();
+      output = new Output(changeToStaging(rsrc, submitter, input));
+    } finally {
+      stageLock.unlock();
+    }
 
-    return Response.ok(new Output(changeToStaging(rsrc, submitter, input)));
+    return Response.ok(output);
   }
 
   private Change changeToStaging(RevisionResource rsrc, IdentifiedUser submitter, SubmitInput input)
       throws RestApiException, IOException, UpdateException, ConfigInvalidException,
           PermissionBackendException {
-    logger.atInfo().log("qtcodereview: changeToStaging starts");
+    logger.atInfo().log("qtcodereview: changeToStaging starts for %s", change.toString());
 
     if (change.getStatus() != Change.Status.NEW) {
       logger.atSevere().log(
