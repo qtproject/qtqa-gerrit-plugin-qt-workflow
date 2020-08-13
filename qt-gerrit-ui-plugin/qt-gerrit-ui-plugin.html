@@ -105,26 +105,27 @@
             });
 
             // Customize change view
-            plugin.on('show-revision-actions', function(actions, changeInfo) {
-                plugin.ca = plugin.changeActions();
+            plugin.on('show-revision-actions', function(revisionActions, changeInfo) {
+                var actions = Object.assign({}, revisionActions, changeInfo.actions);
+                var cActions = plugin.changeActions();
 
                 // always hide the rebase button
-                plugin.ca.setActionHidden('revision', 'rebase', true);
+                cActions.setActionHidden('revision', 'rebase', true);
 
                 // Hide 'Sanity-Review+1' button in header
-                var secondaryActionsElem = plugin.ca._el.root.querySelector("#secondaryActions");
+                var secondaryActionsElem = cActions._el.root.querySelector("#secondaryActions");
                 if (secondaryActionsElem &&
                     secondaryActionsElem.innerHTML &&
                     secondaryActionsElem.innerHTML.indexOf('Sanity-Review+1') != -1) {
-                    plugin.ca.hideQuickApproveAction();
+                    cActions.hideQuickApproveAction();
                 }
 
                 // Remove any existing buttons
                 if (plugin.buttons) {
                     BUTTONS.forEach((key) => {
                         if(typeof plugin.buttons[key] !== 'undefined' && plugin.buttons[key] !== null) {
-                            plugin.ca.removeTapListener(plugin.buttons[key], (param) => {} );
-                            plugin.ca.remove(plugin.buttons[key]);
+                            cActions.removeTapListener(plugin.buttons[key], (param) => {} );
+                            cActions.remove(plugin.buttons[key]);
                             plugin.buttons[key] = null;
                         }
                     });
@@ -135,20 +136,20 @@
                     var action = actions[key];
                     if (action) {
                         // hide dropdown action
-                        plugin.ca.setActionHidden(action.__type, action.__key, true);
+                        cActions.setActionHidden(action.__type, action.__key, true);
 
                         // add button
-                        plugin.buttons[key] = plugin.ca.add(action.__type, action.label);
-                        plugin.ca.setTitle(plugin.buttons[key], action.title);
-                        plugin.ca.addTapListener(plugin.buttons[key], buttonEventCallback);
+                        plugin.buttons[key] = cActions.add(action.__type, action.label);
+                        cActions.setTitle(plugin.buttons[key], action.title);
+                        cActions.addTapListener(plugin.buttons[key], buttonEventCallback);
 
                         if (key === 'gerrit-plugin-qt-workflow~stage') {
                             // use the submit icon for our stage button
-                            plugin.ca.setIcon(plugin.buttons[key], 'submit');
+                            cActions.setIcon(plugin.buttons[key], 'submit');
                             // hide submit button when it would be disabled next to the stage button
                             let submit = actions['submit'];
                             if (!submit.enabled) {
-                                plugin.ca.setActionHidden('revision', 'submit', true);
+                                cActions.setActionHidden('revision', 'submit', true);
                             }
                         }
 
