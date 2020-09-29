@@ -57,9 +57,7 @@ public class QtCommandListStagingIT extends QtCodeReviewIT {
 
     QtNewBuild("master", "test-build-251");
     result = qtListStaging("refs/staging/master", "refs/heads/master");
-    assertThat(result).contains(stagingHead1.getId().name());
-    assertThat(result).contains(stagingHead2.getId().name());
-    assertThat(result).contains(stagingHead3.getId().name());
+    assertThat(result).isEmpty();
 
     result = qtListStaging("refs/builds/test-build-251", "master");
     assertThat(result).contains(stagingHead1.getId().name());

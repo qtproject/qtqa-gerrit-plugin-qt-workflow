@@ -122,6 +122,7 @@ public class QtCherryPickPatch {
           RevCommit commit =
               QtUtil.merge(committerIdent, git, oi, revWalk, commitToCherryPick, baseCommit, true);
           cherryPickCommit = revWalk.parseCommit(commit);
+          logger.atInfo().log("qtcodereview: %s merged as %s", commitToCherryPick, cherryPickCommit);
         }
       } else {
         String commitMessage =
@@ -138,14 +139,14 @@ public class QtCherryPickPatch {
                 0,
                 true, // ignoreIdenticalTree
                 false); // allowConflicts
+        boolean patchSetNotChanged = cherryPickCommit.equals(commitToCherryPick);
+        if (!patchSetNotChanged) {
+          logger.atInfo().log(
+              "qtcodereview: %s cherrypicked as %s", commitToCherryPick, cherryPickCommit);
+          oi.flush();
+        }
       }
 
-      boolean patchSetNotChanged = cherryPickCommit.equals(commitToCherryPick);
-      if (!patchSetNotChanged) {
-        logger.atInfo().log(
-            "qtcodereview: %s cherrypicked as %s", commitToCherryPick, cherryPickCommit);
-        oi.flush();
-      }
       Timestamp commitTimestamp = new Timestamp(committerIdent.getWhen().getTime());
       BatchUpdate bu = batchUpdateFactory.create(project, identifiedUser, commitTimestamp);
       bu.addOp(

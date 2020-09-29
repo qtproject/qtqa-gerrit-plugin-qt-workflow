@@ -209,7 +209,13 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     return result;
   }
 
-  protected void assertCherryPick(RevCommit head, RevCommit source, RevCommit base) {
+  protected void assertCherryPick(RevCommit head, RevCommit source, RevCommit base) throws Exception {
+    // Fetch all commit data
+    Repository repo = repoManager.openRepository(project);
+    RevWalk revWalk = new RevWalk(repo);
+    source = revWalk.parseCommit(source);
+    head = revWalk.parseCommit(head);
+
     assertThat(head).isNotEqualTo(source);
     assertThat(head.getName()).isNotEqualTo(source.getName());
     assertThat(head.getShortMessage()).isEqualTo(source.getShortMessage());

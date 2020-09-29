@@ -162,6 +162,9 @@ class QtCommandNewBuild extends SshCommand {
         }
       }
 
+      // reset staging ref back to branch head
+      result = QtUtil.createStagingBranch(git, destBranchShortKey);
+
       logger.atInfo().log(
           "qtcodereview: staging-new-build build %s for %s created", build, destBranchShortKey);
 

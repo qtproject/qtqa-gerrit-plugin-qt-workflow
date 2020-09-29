@@ -51,7 +51,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     QtStage(c);
     QtNewBuild("master", "test-build-100");
 
-    RevCommit updatedHead = qtApproveBuild("master", "test-build-100", c, null);
+    RevCommit updatedHead = qtApproveBuild("master", "test-build-100", c, false);
   }
 
   @Test
@@ -73,7 +73,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
     QtNewBuild("master", "test-build-101");
 
-    RevCommit updatedHead = qtApproveBuild("master", "test-build-101", c3, null);
+    RevCommit updatedHead = qtApproveBuild("master", "test-build-101", c3, false);
     assertStatusMerged(c1.getChange().change());
     assertStatusMerged(c2.getChange().change());
   }
@@ -86,7 +86,98 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     QtStage(c);
     QtNewBuild("master", "test-build-200");
 
-    RevCommit updatedHead = qtFailBuild("master", "test-build-200", c, initialHead);
+    RevCommit updatedHead = qtFailBuild("master", "test-build-200", c);
+  }
+
+  @Test
+  public void RebuildStagingRefAfterPassingBuild() throws Exception {
+    RevCommit initialHead = getRemoteHead();
+    PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "file1", "content1");
+    approve(c1.getChangeId());
+    QtStage(c1);
+    QtNewBuild("master", "test-build-parallel-1");
+
+    testRepo.reset(initialHead);
+    PushOneCommit.Result c2 = pushCommit("master", "commitmsg2", "file2", "content2");
+    approve(c2.getChangeId());
+    QtStage(c2);
+
+    testRepo.reset(initialHead);
+    PushOneCommit.Result c3 = pushCommit("master", "commitmsg3", "file3", "content3");
+    approve(c3.getChangeId());
+    QtStage(c3);
+
+    RevCommit updatedHead = qtApproveBuild("master", "test-build-parallel-1", c1, false);
+    assertStatusStaged(c2.getChange().change());
+    assertStatusStaged(c3.getChange().change());
+
+    // verify that staged changes are in the rebuilt staging ref
+    RevCommit stagingHead = getRemoteRefHead(project, R_STAGING + "master");
+    assertCherryPick(stagingHead, c3.getCommit(), null);
+    assertCherryPick(stagingHead.getParent(0), c2.getCommit(), updatedHead);
+  }
+
+  @Test
+  public void RebuildStagingRefFailsAfterPassingBuild() throws Exception {
+    RevCommit initialHead = getRemoteHead();
+    PushOneCommit.Result c = pushCommit("master", "commitmsg1", "thesamefile", "content1");
+    approve(c.getChangeId());
+    QtStage(c);
+    QtNewBuild("master", "test-build-201");
+
+    testRepo.reset(initialHead);
+    PushOneCommit.Result d1 = pushCommit("master", "commitmsg2", "file2", "content2");
+    approve(d1.getChangeId());
+    QtStage(d1);
+
+    testRepo.reset(initialHead);
+    PushOneCommit.Result d2 = pushCommit("master", "commitmsg3", "thesamefile", "content3");
+    approve(d2.getChangeId());
+    QtStage(d2);
+
+    testRepo.reset(initialHead);
+    PushOneCommit.Result d3 = pushCommit("master", "commitmsg4", "file4", "content4");
+    approve(d3.getChangeId());
+    QtStage(d3);
+
+    RevCommit updatedHead = qtApproveBuild("master", "test-build-201", c, false);
+
+    RevCommit stagingHead = getRemoteRefHead(project, R_STAGING + "master");
+    assertThat(stagingHead).isEqualTo(updatedHead); // staging is not updated
+    assertStatusMerged(c.getChange().change());
+    assertStatusNew(d1.getChange().change());
+    assertStatusNew(d2.getChange().change());
+    assertStatusNew(d3.getChange().change());
+  }
+
+  @Test
+  public void parallelBuilds_MergeCommitVerify() throws Exception {
+    // created 3 parallel builds
+    RevCommit initialHead = getRemoteHead();
+    PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "file1", "content1");
+    approve(c1.getChangeId());
+    QtStage(c1);
+    QtNewBuild("master", "test-build-parallel-1");
+
+    testRepo.reset(initialHead);
+    PushOneCommit.Result c2 = pushCommit("master", "commitmsg2", "file2", "content2");
+    approve(c2.getChangeId());
+    QtStage(c2);
+    QtNewBuild("master", "test-build-parallel-2");
+
+    testRepo.reset(initialHead);
+    PushOneCommit.Result c3 = pushCommit("master", "commitmsg3", "file3", "content3");
+    approve(c3.getChangeId());
+    QtStage(c3);
+    QtNewBuild("master", "test-build-parallel-3");
+
+    RevCommit updatedHead = qtApproveBuild("master", "test-build-parallel-1", c1, false);
+    updatedHead = qtApproveBuild("master", "test-build-parallel-2", c2, true);
+    updatedHead = qtApproveBuild("master", "test-build-parallel-3", c3, true);
+
+    assertStatusMerged(c1.getChange().change());
+    assertStatusMerged(c2.getChange().change());
+    assertStatusMerged(c3.getChange().change());
   }
 
   @Test
@@ -191,7 +282,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
     QtNewBuild("master", "test-build-201");
 
-    RevCommit updatedHead = qtFailBuild("master", "test-build-201", c3, initialHead);
+    RevCommit updatedHead = qtFailBuild("master", "test-build-201", c3);
     assertStatusNew(c1.getChange().change());
     assertStatusNew(c2.getChange().change());
   }
@@ -249,7 +340,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     approve(c.getChangeId());
     QtStage(c);
     QtNewBuild("master", "test-build-602");
-    RevCommit updatedHead = qtApproveBuild("master", "test-build-602", c, null);
+    RevCommit updatedHead = qtApproveBuild("master", "test-build-602", c, false);
 
     String resultStr = qtApproveBuildExpectFail("pass", "master", "test-build-602");
     assertThat(resultStr).contains("No open changes in the build branch");
@@ -278,22 +369,23 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
   }
 
   @Test
-  public void errorApproveBuild_FastForwardFail() throws Exception {
+  public void errorApproveBuild_MergeFailInParallelBuilds() throws Exception {
     RevCommit initialHead = getRemoteHead();
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c.getChangeId());
     QtStage(c);
     QtNewBuild("master", "test-build-605");
 
-    // direct push that causes fast forward failure
+    // parallel change causing a merge conflict
     testRepo.reset(initialHead);
-    PushOneCommit.Result d = pushCommit("master", "commitmsg2", "file2", "content2");
+    PushOneCommit.Result d = pushCommit("master", "commitmsg2", "file1", "content2");
     approve(d.getChangeId());
-    gApi.changes().id(d.getChangeId()).current().submit();
+    QtStage(d);
+    QtNewBuild("master", "test-build-606");
+    QtApproveBuild("master", "test-build-606");
     RevCommit branchHead = getRemoteHead();
 
     String stagingRef = R_STAGING + "master";
-    String branchRef = R_HEADS + "master";
     String commandStr;
     commandStr = "gerrit-plugin-qt-workflow staging-approve";
     commandStr += " --project " + project.get();
@@ -304,14 +396,13 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     adminSshSession.exec(commandStr);
     assertThat(adminSshSession.getError()).isNull();
 
-    RevCommit updatedHead = getRemoteHead(project, branchRef);
+    RevCommit updatedHead = getRemoteHead();
     assertThat(updatedHead).isEqualTo(branchHead); // master is not updated
-    RevCommit stagingHead = getRemoteHead(project, stagingRef);
-    assertThat(stagingHead).isEqualTo(branchHead); // staging is updated to branch head
+    RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
+    assertThat(stagingHead).isEqualTo(branchHead); // staging is not updated
 
     assertStatusNew(c.getChange().change());
-    Change change = d.getChange().change();
-    assertThat(change.getStatus()).isEqualTo(Change.Status.MERGED);
+    assertStatusMerged(d.getChange().change());
   }
 
   @Test
@@ -319,13 +410,13 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c.getChangeId());
     QtStage(c);
-    QtNewBuild("master", "test-build-605");
+    QtNewBuild("master", "test-build-607");
 
     String commandStr;
     commandStr = "gerrit-plugin-qt-workflow staging-approve";
     commandStr += " --project " + project.get();
     commandStr += " --branch master";
-    commandStr += " --build-id test-build-605";
+    commandStr += " --build-id test-build-607";
     commandStr += " --result pass";
     commandStr += " --message -";
     String multiMessage = "the build\nwas\n\"approved\"\n";
@@ -341,7 +432,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
   }
 
   private RevCommit qtApproveBuild(
-      String branch, String buildId, PushOneCommit.Result expectedContent, RevCommit expectedHead)
+      String branch, String buildId, PushOneCommit.Result expectedContent, boolean expectMerge)
       throws Exception {
     String stagingRef = R_STAGING + branch;
     String branchRef = R_HEADS + branch;
@@ -365,18 +456,17 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     assertReviewedByFooter(buildHead, true);
 
     RevCommit updatedHead = getRemoteHead(project, branchRef);
-    if (expectedContent != null && expectedHead == null) {
-      RevCommit commit = expectedContent.getCommit();
-      assertCherryPick(updatedHead, commit, null);
-      expectedHead = updatedHead;
+    if (expectMerge) {
+      assertThat(updatedHead.getParentCount()).isEqualTo(2);
+      assertCherryPick(updatedHead.getParent(1), expectedContent.getCommit(), null);
     } else {
-      assertThat(updatedHead).isEqualTo(expectedHead); // master is updated
+      assertCherryPick(updatedHead, expectedContent.getCommit(), null);
     }
 
     RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
-    assertThat(stagingHead).isEqualTo(stagingHeadOld); // staging remains the same
+    assertThat(stagingHead).isNotEqualTo(stagingHeadOld); // staging is rebuilt
 
-    assertRefUpdatedEvents(branchRef, initialHead, expectedHead);
+    assertRefUpdatedEvents(branchRef, initialHead, updatedHead);
     resetEvents();
 
     assertStatusMerged(expectedContent.getChange().change());
@@ -388,8 +478,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     return updatedHead;
   }
 
-  private RevCommit qtFailBuild(
-      String branch, String buildId, PushOneCommit.Result c, RevCommit expectedStagingHead)
+  private RevCommit qtFailBuild(String branch, String buildId, PushOneCommit.Result c)
       throws Exception {
     String stagingRef = R_STAGING + branch;
     String branchRef = R_HEADS + branch;
@@ -411,17 +500,10 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     assertThat(updatedHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
     RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
-
-    if (c != null && expectedStagingHead == null) {
-      assertCherryPick(stagingHead, c.getCommit(), null);
-      expectedStagingHead = stagingHead;
-    }
-    assertThat(stagingHead).isEqualTo(expectedStagingHead); // staging is rebuild
+    assertThat(stagingHead).isEqualTo(stagingHeadOld); // staging ref remains the same
 
     RevCommit buildHead = getRemoteHead(project, buildRef);
     assertThat(buildHead.getId()).isNotNull(); // build ref is still there
-
-    assertRefUpdatedEvents(stagingRef, stagingHeadOld, stagingHead); // staging is rebuild
 
     assertStatusNew(c.getChange().change());
 

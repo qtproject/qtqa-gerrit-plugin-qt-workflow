@@ -40,6 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.concurrent.locks.ReentrantLock;
 import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.ObjectId;
@@ -81,6 +82,8 @@ class QtCommandBuildApprove extends SshCommand {
   @Inject private QtUtil qtUtil;
 
   @Inject private QtChangeUpdateOp.Factory qtUpdateFactory;
+
+  private final ReentrantLock buildApproveLock = new ReentrantLock();
 
   @Option(
       name = "--project",
@@ -139,6 +142,15 @@ class QtCommandBuildApprove extends SshCommand {
 
   @Override
   protected void run() throws UnloggedFailure {
+    buildApproveLock.lock();  // block processing of parallel requests
+    try {
+      runBuildApprove();
+    } finally {
+      buildApproveLock.unlock();
+    }
+  }
+
+  private void runBuildApprove() throws UnloggedFailure {
     logger.atInfo().log(
         "qtcodereview: staging-approve -p %s -i %s -r %s -m %s -b %s",
         project, buildBranch, result, message, destBranch);
@@ -229,8 +241,10 @@ class QtCommandBuildApprove extends SshCommand {
         QtUtil.mergeBranches(user.asIdentifiedUser(), git, buildBranchKey, destBranchKey);
 
     if (result != Result.FAST_FORWARD) {
-      message =
-          "Branch update failed, changed back to NEW. Either the destination branch was changed externally, or this is an issue in the Qt plugin.";
+      message = "Unable to merge this integration because another integration parallel to this one "
+              + "successfully merged first and created a conflict in one of the tested changes.\n"
+              + "Please review, resolve conflicts if necessary, and restage.";
+      logger.atInfo().log(message);
       rejectBuildChanges();
       return;
     }
@@ -240,6 +254,10 @@ class QtCommandBuildApprove extends SshCommand {
 
     logger.atInfo().log(
         "qtcodereview: staging-approve build %s merged into branch %s", buildBranch, destBranchKey);
+
+    // need to rebuild the staging ref to include recently merged changes
+    qtUtil.rebuildStagingBranch(
+        git, user.asIdentifiedUser(), projectKey, stagingBranchKey, destBranchShortKey);
 
     ObjectId newId = git.resolve(destBranchKey.branch());
     // send ref updated event only if there are changes to build
@@ -261,10 +279,6 @@ class QtCommandBuildApprove extends SshCommand {
         message,
         ChangeMessagesUtil.TAG_REVERT,
         false);
-
-    // need to rebuild the staging ref because the reject changes need to be removed from there
-    qtUtil.rebuildStagingBranch(
-        git, user.asIdentifiedUser(), projectKey, stagingBranchKey, destBranchShortKey);
 
     logger.atInfo().log(
         "qtcodereview: staging-approve build %s rejected for branch %s",

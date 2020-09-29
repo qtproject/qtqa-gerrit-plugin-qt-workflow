@@ -63,6 +63,32 @@ public class QtCommandNewBuildIT extends QtCodeReviewIT {
   }
 
   @Test
+  public void parallelBuilds_New_Staged_Integrating() throws Exception {
+    // 3 parallel integrations
+    RevCommit initialHead = getRemoteHead();
+    PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "file1", "content1");
+    approve(c1.getChangeId());
+    QtStage(c1);
+    RevCommit buildHead1 = qtNewBuild("master", "test-build-paraller-1", c1, null);
+
+    testRepo.reset(initialHead);
+    PushOneCommit.Result c2 = pushCommit("master", "commitmsg2", "file2", "content2");
+    approve(c2.getChangeId());
+    QtStage(c2);
+    RevCommit buildHead2 = qtNewBuild("master", "test-build-paraller-2", c2, null);
+
+    testRepo.reset(initialHead);
+    PushOneCommit.Result c3 = pushCommit("master", "commitmsg3", "file3", "content3");
+    approve(c3.getChangeId());
+    QtStage(c3);
+    RevCommit buildHead3 = qtNewBuild("master", "test-build-paraller-3", c3, null);
+
+    assertStatusIntegrating(c1.getChange().change());
+    assertStatusIntegrating(c2.getChange().change());
+    assertStatusIntegrating(c3.getChange().change());
+  }
+
+  @Test
   public void errorNewBuild_NoPermission() throws Exception {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c.getChangeId());
@@ -156,6 +182,12 @@ public class QtCommandNewBuildIT extends QtCodeReviewIT {
     String buildRef = R_BUILDS + buildId;
     String commandStr;
     RevCommit initialHead = getRemoteHead(project, branchRef);
+    RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
+
+    if (expectedHead == null) {
+      assertCherryPick(stagingHead, c.getCommit(), null);
+      expectedHead = stagingHead;
+    }
 
     commandStr = "gerrit-plugin-qt-workflow staging-new-build";
     commandStr += " --project " + project.get();
@@ -167,13 +199,8 @@ public class QtCommandNewBuildIT extends QtCodeReviewIT {
     RevCommit updatedHead = getRemoteHead(project, branchRef);
     assertThat(updatedHead.getId()).isEqualTo(initialHead.getId()); // master is not updated
 
-    RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
-    assertThat(stagingHead.getId()).isNotEqualTo(initialHead.getId()); // staging is not master
-
-    if (expectedHead == null) {
-      assertCherryPick(stagingHead, c.getCommit(), null);
-      expectedHead = stagingHead;
-    }
+    stagingHead = getRemoteRefHead(project, stagingRef);
+    assertThat(stagingHead.getId()).isEqualTo(initialHead.getId()); // staging reset back to master
 
     RevCommit buildHead = getRemoteHead(project, buildRef);
     assertThat(buildHead).isEqualTo(expectedHead); // build ref is updated
