@@ -682,4 +682,15 @@ public class QtUtil {
     }
   }
 
+  public void postChangePreCheckEvent(Change change, PatchSet patchSet) {
+    try {
+      ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+      QtChangePreCheckEvent event = new QtChangePreCheckEvent(change);
+      event.change = changeAttributeSupplier(change, notes);
+      event.commitID = patchSet.commitId().name();
+      eventDispatcher.get().postEvent(event);
+    } catch (StorageException | PermissionBackendException e) {
+      logger.atWarning().log("qtcodereview: postChangePreCheckEvent failed: %s", e);
+    }
+  }
 }

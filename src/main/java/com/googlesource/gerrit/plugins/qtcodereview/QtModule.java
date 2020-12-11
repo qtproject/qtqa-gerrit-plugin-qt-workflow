@@ -21,6 +21,7 @@ public class QtModule extends FactoryModule {
   static {
     EventTypes.register(QtChangeStagedEvent.TYPE, QtChangeStagedEvent.class);
     EventTypes.register(QtChangeUnStagedEvent.TYPE, QtChangeUnStagedEvent.class);
+    EventTypes.register(QtChangePreCheckEvent.TYPE, QtChangePreCheckEvent.class);
   }
 
   @Override
@@ -39,6 +40,7 @@ public class QtModule extends FactoryModule {
             post(CHANGE_KIND, "reopen").to(QtReOpen.class);
             post(REVISION_KIND, "stage").to(QtStage.class);
             post(REVISION_KIND, "unstage").to(QtUnStage.class);
+            post(REVISION_KIND, "precheck").to(QtPreCheck.class);
           }
         });
   }
