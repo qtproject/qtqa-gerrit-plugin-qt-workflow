@@ -94,6 +94,7 @@ public class QtUtil {
   private final EventFactory eventFactory;
   private final QtCherryPickPatch qtCherryPickPatch;
   private final QtChangeUpdateOp.Factory qtUpdateFactory;
+  private final QtEmailSender qtEmailSender;
 
   @Inject
   QtUtil(
@@ -104,7 +105,8 @@ public class QtUtil {
       EventFactory eventFactory,
       DynamicItem<EventDispatcher> eventDispatcher,
       QtCherryPickPatch qtCherryPickPatch,
-      QtChangeUpdateOp.Factory qtUpdateFactory) {
+      QtChangeUpdateOp.Factory qtUpdateFactory,
+      QtEmailSender qtEmailSender) {
     this.queryProvider = queryProvider;
     this.referenceUpdated = referenceUpdated;
     this.updateFactory = updateFactory;
@@ -113,6 +115,7 @@ public class QtUtil {
     this.eventFactory = eventFactory;
     this.qtCherryPickPatch = qtCherryPickPatch;
     this.qtUpdateFactory = qtUpdateFactory;
+    this.qtEmailSender = qtEmailSender;
   }
 
   public static class MergeConflictException extends Exception {
@@ -462,6 +465,12 @@ public class QtUtil {
       } catch (UpdateException | RestApiException ex) {
         logger.atSevere().log(
             "qtcodereview: staging ref rebuild. Failed to update change status %s", ex);
+      }
+
+      for (ChangeData item : changes_staged) {
+        Change change = item.change();
+        qtEmailSender.sendBuildFailedEmail(projectKey, change.getId(), user.getAccountId(),
+            message);
       }
     }
 

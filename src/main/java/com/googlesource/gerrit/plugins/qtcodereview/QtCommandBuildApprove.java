@@ -19,7 +19,6 @@ import com.google.gerrit.server.extensions.events.ChangeMerged;
 import com.google.gerrit.server.extensions.events.GitReferenceUpdated;
 import com.google.gerrit.server.git.CodeReviewCommit;
 import com.google.gerrit.server.git.GitRepositoryManager;
-import com.google.gerrit.server.mail.send.MergedSender;
 import com.google.gerrit.server.notedb.ChangeNotes;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
@@ -67,10 +66,6 @@ class QtCommandBuildApprove extends SshCommand {
 
   @Inject private GitRepositoryManager gitManager;
 
-  @Inject private MergedSender.Factory mergedSenderFactory;
-
-  @Inject QtBuildFailedSender.Factory qtBuildFailedSenderFactory;
-
   @Inject private BatchUpdate.Factory updateFactory;
 
   @Inject private PatchSetInserter.Factory patchSetInserterFactory;
@@ -80,6 +75,8 @@ class QtCommandBuildApprove extends SshCommand {
   @Inject private ChangeMerged changeMerged;
 
   @Inject private QtUtil qtUtil;
+
+  @Inject private QtEmailSender qtEmailSender;
 
   @Inject private QtChangeUpdateOp.Factory qtUpdateFactory;
 
@@ -333,12 +330,12 @@ class QtCommandBuildApprove extends SshCommand {
       if (passed) {
         qtUtil.postChangeIntegrationPassEvent(change);
         sendMergeEvent(cd);
-        sendMergedEmail(change.getId());
+        qtEmailSender.sendMergedEmail(projectKey, change.getId(), user.getAccountId());
         logger.atInfo().log(
             "qtcodereview: staging-approve     change %s merged into %s", change, destBranchKey);
       } else {
         qtUtil.postChangeIntegrationFailEvent(change);
-        sendBuildFailedEmail(change.getId());
+        qtEmailSender.sendBuildFailedEmail(projectKey, change.getId(), user.getAccountId(), message);
         logger.atInfo().log(
             "qtcodereview: staging-approve     change %s rejected for %s", change, destBranchKey);
       }
@@ -389,27 +386,4 @@ class QtCommandBuildApprove extends SshCommand {
     }
   }
 
-  private void sendMergedEmail(Change.Id changeId) {
-    try {
-      MergedSender mcm = mergedSenderFactory.create(projectKey, changeId);
-      mcm.setFrom(user.getAccountId());
-      mcm.send();
-    } catch (Exception e) {
-      logger.atWarning().log(
-          "qtcodereview: staging-approve Merged notification not sent for %s %s", changeId, e);
-    }
-  }
-
-  private void sendBuildFailedEmail(Change.Id changeId) {
-    try {
-      QtBuildFailedSender cm = qtBuildFailedSenderFactory.create(projectKey, changeId);
-      cm.setFrom(user.getAccountId());
-      cm.setChangeMessage(message, TimeUtil.nowTs());
-      cm.send();
-    } catch (Exception e) {
-      logger.atWarning().log(
-          "qtcodereview: staging-approve Build Failed not sent notification for %s %s",
-          changeId, e);
-    }
-  }
 }
