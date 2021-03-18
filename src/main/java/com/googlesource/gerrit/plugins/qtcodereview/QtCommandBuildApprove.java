@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2020 The Qt Company
+// Copyright (C) 2021 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -237,8 +237,8 @@ class QtCommandBuildApprove extends SshCommand {
 
     ObjectId oldId = git.resolve(destBranchKey.branch());
 
-    Result result =
-        QtUtil.mergeBranches(user.asIdentifiedUser(), git, buildBranchKey, destBranchKey);
+    Result result = QtUtil.mergeBranches(user.asIdentifiedUser(), git, buildBranchKey,
+        destBranchKey, "Merge integration " + buildBranch);
 
     if (result != Result.FAST_FORWARD) {
       message = "Unable to merge this integration because another integration parallel to this one "

@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2021 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -120,7 +120,8 @@ public class QtCherryPickPatch {
         } else {
           logger.atInfo().log("qtcodereview: merge of merge created");
           RevCommit commit =
-              QtUtil.merge(committerIdent, git, oi, revWalk, commitToCherryPick, baseCommit, true);
+              QtUtil.merge(committerIdent, git, oi, revWalk, commitToCherryPick,
+                           baseCommit, null, true);
           cherryPickCommit = revWalk.parseCommit(commit);
           logger.atInfo().log("qtcodereview: %s merged as %s", commitToCherryPick, cherryPickCommit);
         }

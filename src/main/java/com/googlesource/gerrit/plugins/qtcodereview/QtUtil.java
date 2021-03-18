@@ -1,6 +1,6 @@
 // Copyright (C) 2011 The Android Open Source Project
 // Copyright (C) 2014 Digia Plc and/or its subsidiary(-ies).
-// Copyright (C) 2020 The Qt Company
+// Copyright (C) 2021 The Qt Company
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -288,7 +288,7 @@ public class QtUtil {
     return result;
   }
 
-  private String getChangeId(RevCommit commit) {
+  private static String getChangeId(RevCommit commit) {
     List<String> changeIds = commit.getFooterLines(FooterConstants.CHANGE_ID);
     String changeId = null;
     if (!changeIds.isEmpty()) changeId = changeIds.get(0);
@@ -541,6 +541,7 @@ public class QtUtil {
       RevWalk revWalk,
       RevCommit toMerge,
       RevCommit mergeTip,
+      String customCommitMessage,
       boolean mergeAlways)
       throws NoSuchRefException, IOException, MergeConflictException {
 
@@ -561,18 +562,20 @@ public class QtUtil {
       return toMerge;
     }
 
-    String message;
-    try {
-      message = revWalk.parseCommit(toMerge).getShortMessage();
-    } catch (Exception e) {
-      message = toMerge.toString();
+    String message = customCommitMessage;
+    if (message == null) {
+      try {
+          message = revWalk.parseCommit(toMerge).getShortMessage();
+        } catch (Exception e) {
+          message = toMerge.toString();
+        }
+      message = "Merge \"" + toMerge.toString() + "\"";
     }
-    message = "Merge \"" + message + "\"";
 
     final CommitBuilder mergeCommit = new CommitBuilder();
     mergeCommit.setTreeId(merger.getResultTreeId());
     mergeCommit.setParentIds(mergeTip, toMerge); // important: mergeTip must be parent index 0
-    mergeCommit.setAuthor(toMerge.getAuthorIdent());
+    mergeCommit.setAuthor(committerIdent);
     mergeCommit.setCommitter(committerIdent);
     mergeCommit.setMessage(message);
 
@@ -585,17 +588,22 @@ public class QtUtil {
       IdentifiedUser user,
       Repository git,
       final BranchNameKey branch,
-      final BranchNameKey destination)
+      final BranchNameKey destination,
+      String customCommitMessage)
       throws NoSuchRefException, IOException, MergeConflictException {
 
     ObjectId srcId = git.resolve(branch.branch());
     if (srcId == null) throw new NoSuchRefException("Invalid Revision: " + branch);
 
-    return mergeObjectToBranch(user, git, srcId, destination);
+    return mergeObjectToBranch(user, git, srcId, destination, customCommitMessage);
   }
 
   private static RefUpdate.Result mergeObjectToBranch(
-      IdentifiedUser user, Repository git, ObjectId srcId, final BranchNameKey destination)
+      IdentifiedUser user,
+      Repository git,
+      ObjectId srcId,
+      final BranchNameKey destination,
+      String customCommitMessage)
       throws NoSuchRefException, IOException, MergeConflictException {
 
     Ref destRef = git.getRefDatabase().getRef(destination.branch());
@@ -613,7 +621,8 @@ public class QtUtil {
       PersonIdent committer =
           user.newCommitterIdent(new Timestamp(System.currentTimeMillis()), TimeZone.getDefault());
 
-      RevCommit mergeCommit = merge(committer, git, objInserter, revWalk, toMerge, mergeTip, false);
+      RevCommit mergeCommit = merge(committer, git, objInserter, revWalk, toMerge,
+                                    mergeTip, customCommitMessage, false);
       logger.atInfo().log("qtcodereview: merge commit for %s added to %s", srcId, destination);
 
       RefUpdate refUpdate = git.updateRef(destination.branch());

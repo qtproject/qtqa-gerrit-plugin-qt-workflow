@@ -1,4 +1,4 @@
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2021 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -168,16 +168,32 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     testRepo.reset(initialHead);
     PushOneCommit.Result c3 = pushCommit("master", "commitmsg3", "file3", "content3");
     approve(c3.getChangeId());
+    PushOneCommit.Result c4 = pushCommit("master", "commitmsg4", "file4", "content4");
+    approve(c4.getChangeId());
+    PushOneCommit.Result c5 = pushCommit("master", "commitmsg5", "file5", "content5");
+    approve(c5.getChangeId());
     QtStage(c3);
+    QtStage(c4);
+    QtStage(c5);
     QtNewBuild("master", "test-build-parallel-3");
 
     RevCommit updatedHead = qtApproveBuild("master", "test-build-parallel-1", c1, false);
+    String commitMessage = updatedHead.getFullMessage();
+    assertThat(commitMessage).doesNotContain("Merge");
+
     updatedHead = qtApproveBuild("master", "test-build-parallel-2", c2, true);
-    updatedHead = qtApproveBuild("master", "test-build-parallel-3", c3, true);
+    commitMessage = updatedHead.getFullMessage();
+    assertThat(commitMessage).contains("Merge integration test-build-parallel-2");
+
+    updatedHead = qtApproveBuild("master", "test-build-parallel-3", c5, true);
+    commitMessage = updatedHead.getFullMessage();
+    assertThat(commitMessage).contains("Merge integration test-build-parallel-3");
 
     assertStatusMerged(c1.getChange().change());
     assertStatusMerged(c2.getChange().change());
     assertStatusMerged(c3.getChange().change());
+    assertStatusMerged(c4.getChange().change());
+    assertStatusMerged(c5.getChange().change());
   }
 
   @Test
@@ -459,8 +475,12 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     if (expectMerge) {
       assertThat(updatedHead.getParentCount()).isEqualTo(2);
       assertCherryPick(updatedHead.getParent(1), expectedContent.getCommit(), null);
+      assertThat(updatedHead.getAuthorIdent().getEmailAddress()).isEqualTo(admin.email());
+      assertThat(updatedHead.getCommitterIdent().getEmailAddress()).isEqualTo(admin.email());
     } else {
       assertCherryPick(updatedHead, expectedContent.getCommit(), null);
+      assertThat(updatedHead.getAuthorIdent().getEmailAddress()).isEqualTo(user.email());
+      assertThat(updatedHead.getCommitterIdent().getEmailAddress()).isEqualTo(user.email());
     }
 
     RevCommit stagingHead = getRemoteRefHead(project, stagingRef);
