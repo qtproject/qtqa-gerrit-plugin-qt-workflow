@@ -34,9 +34,13 @@ import com.google.gerrit.server.extensions.events.GitReferenceUpdated;
 import com.google.gerrit.server.events.ChangeEvent;
 import com.google.gerrit.server.events.EventDispatcher;
 import com.google.gerrit.server.events.EventFactory;
+import com.google.gerrit.server.git.CodeReviewCommit;
+import com.google.gerrit.server.git.MergeUtil;
 import com.google.gerrit.server.notedb.ChangeNotes;
 import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.project.NoSuchRefException;
+import com.google.gerrit.server.project.ProjectCache;
+import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
 import com.google.gerrit.server.submit.IntegrationException;
@@ -50,6 +54,7 @@ import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -60,6 +65,7 @@ import org.eclipse.jgit.lib.CommitBuilder;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectInserter;
+import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Ref;
 import org.eclipse.jgit.lib.RefUpdate;
@@ -92,6 +98,8 @@ public class QtUtil {
   private final ChangeNotes.Factory changeNotesFactory;
   private final DynamicItem<EventDispatcher> eventDispatcher;
   private final EventFactory eventFactory;
+  private final MergeUtil.Factory mergeUtilFactory;
+  private final ProjectCache projectCache;
   private final QtCherryPickPatch qtCherryPickPatch;
   private final QtChangeUpdateOp.Factory qtUpdateFactory;
   private final QtEmailSender qtEmailSender;
@@ -104,6 +112,8 @@ public class QtUtil {
       ChangeNotes.Factory changeNotesFactory,
       EventFactory eventFactory,
       DynamicItem<EventDispatcher> eventDispatcher,
+      MergeUtil.Factory mergeUtilFactory,
+      ProjectCache projectCache,
       QtCherryPickPatch qtCherryPickPatch,
       QtChangeUpdateOp.Factory qtUpdateFactory,
       QtEmailSender qtEmailSender) {
@@ -113,6 +123,8 @@ public class QtUtil {
     this.changeNotesFactory = changeNotesFactory;
     this.eventDispatcher = eventDispatcher;
     this.eventFactory = eventFactory;
+    this.mergeUtilFactory = mergeUtilFactory;
+    this.projectCache = projectCache;
     this.qtCherryPickPatch = qtCherryPickPatch;
     this.qtUpdateFactory = qtUpdateFactory;
     this.qtEmailSender = qtEmailSender;
@@ -604,11 +616,10 @@ public class QtUtil {
     String message = customCommitMessage;
     if (message == null) {
       try {
-          message = revWalk.parseCommit(toMerge).getShortMessage();
+          message = "Merge \"" + revWalk.parseCommit(toMerge).getShortMessage() + "\"";
         } catch (Exception e) {
-          message = toMerge.toString();
+          message = "Merge";
         }
-      message = "Merge \"" + toMerge.toString() + "\"";
     }
 
     final CommitBuilder mergeCommit = new CommitBuilder();
@@ -672,6 +683,213 @@ public class QtUtil {
       return null;
     } finally {
       revWalk.dispose();
+    }
+  }
+
+  private RefUpdate.Result fastForwardBranch(Repository git,
+      String branchName, ObjectId toObjectId) {
+
+    RefUpdate.Result result = null;
+
+    try {
+      RefUpdate refUpdate = git.updateRef(branchName);
+      refUpdate.setNewObjectId(toObjectId);
+      refUpdate.setForceUpdate(false);
+      result = refUpdate.update();
+      logger.atInfo().log("fastforward branch %s to %s, result: %s", branchName,
+          toObjectId.name(), result);
+    } catch (Exception e) {
+      result = null;
+      logger.atWarning().log("fastforward failed for %s: %s", branchName, e);
+    }
+
+    return result;
+  }
+
+  private List<RevCommit> listCommitsInIntegrationBranch(Repository git,
+      ObjectId integrationHeadId, ObjectId targetBranchHeadId) {
+
+    List<RevCommit> commits = new ArrayList<RevCommit>();
+    int count = 0;
+
+    try {
+      RevWalk revWalk = new RevWalk(git);
+      RevCommit commit = revWalk.parseCommit(integrationHeadId);
+      RevCommit targetHeadCommit = revWalk.parseCommit(targetBranchHeadId);
+
+      do {
+        if (revWalk.isMergedInto(commit, targetHeadCommit)) {
+          commit = null;
+        } else {
+          commits.add(0, commit);
+          if (commit.getParentCount() > 0) {
+            // Qt Gerrit plugins's merges always have the branch as parent 0
+            commit = revWalk.parseCommit(commit.getParent(0));
+          } else commit = null;
+        }
+        count++;
+      } while (commit != null && count < 100);
+    } catch (Exception e) {
+      commits = null;
+      logger.atWarning().log("listing commits in a branch failed: %s", e);
+    }
+
+    if (count >= 100) {
+      logger.atWarning().log("listing commits in a branch failed: too many commmits");
+      return null;
+    }
+
+    return commits;
+  }
+
+  private Boolean isCherryPickingAllowed(List<RevCommit> commits) {
+    // Cherry-picking merge commits is not allowed, because it would squash
+    // the merge into one single commit
+    for (RevCommit commit : commits) {
+      if (commit.getParentCount() > 1) return false;
+    }
+    return true;
+  }
+
+  private List<RevCommit> cherryPickCommitsToBranch(Repository git,
+      Project.NameKey project, String branchName, List<RevCommit> commits) {
+
+    try {
+      ProjectState projectState = projectCache.checkedGet(project);
+      MergeUtil mergeUtil = mergeUtilFactory.create(projectState, true);
+      ObjectInserter objInserter = git.newObjectInserter();
+      ObjectReader reader = objInserter.newReader();
+      CodeReviewCommit.CodeReviewRevWalk revWalk = CodeReviewCommit.newRevWalk(reader);
+      RevCommit newBranchHead = revWalk.parseCommit(git.resolve(branchName));
+
+      List<RevCommit> cherryPicked = new ArrayList<RevCommit>();
+
+      for (RevCommit commit : commits) {
+        CodeReviewCommit cherryPickCommit =
+            mergeUtil.createCherryPickFromCommit(
+                objInserter,
+                git.getConfig(),
+                newBranchHead,
+                commit,
+                new PersonIdent(commit.getCommitterIdent(), new Date()),
+                commit.getFullMessage(),
+                revWalk,
+                0,
+                true, // ignoreIdenticalTree
+                false); // allowConflicts
+        objInserter.flush();
+        logger.atInfo().log("created cherrypick commit %s from %s", cherryPickCommit.name(),
+            commit.name());
+        newBranchHead = cherryPickCommit;
+        cherryPicked.add(cherryPickCommit);
+      }
+
+      RefUpdate.Result result = fastForwardBranch(git, branchName, newBranchHead);
+      if (result != RefUpdate.Result.FAST_FORWARD) return null;
+
+      return cherryPicked;
+    } catch (Exception e) {
+      logger.atWarning().log("cherrypicking commits to branch failed: %s", e);
+      return null;
+    }
+  }
+
+  private List<Map.Entry<ChangeData, RevCommit>> listChanges(Repository git,
+      BranchNameKey destination, List<RevCommit> commits) throws Exception {
+
+    Map<Change.Id, Map.Entry<ChangeData, RevCommit>> map = new HashMap<>();
+
+    for (RevCommit commit : commits) {
+      String changeId = getChangeId(commit);
+      List<ChangeData> changes = null;
+
+      if (changeId == null && commit.getParentCount() > 1) {
+        // Merge commit without Change-Id, so done by plugin: changes merged in will be parent 1
+        changeId = getChangeId(commit.getParent(1));
+      }
+
+      if (changeId != null) {
+        Change.Key key = Change.key(changeId);
+        changes = queryProvider.get().byBranchKey(destination, key);
+      }
+
+      if (changes != null && !changes.isEmpty()) {
+        if (changes.size() > 1) {
+          String msg = String.format("Same Change-Id in several changes on same branch: %s",
+              commit.name());
+          throw new Exception(msg);
+        }
+        ChangeData cd = changes.get(0);
+        map.put(cd.getId(), new AbstractMap.SimpleEntry<ChangeData, RevCommit>(cd, commit));
+      }
+    }
+    return new ArrayList<Map.Entry<ChangeData, RevCommit>>(map.values());
+  }
+
+  public List<Map.Entry<ChangeData, RevCommit>> mergeIntegrationToBranch(
+      IdentifiedUser user,
+      Repository git,
+      Project.NameKey project,
+      final BranchNameKey integrationBranch,
+      final BranchNameKey targetBranch,
+      String customCommitMessage)
+      throws MergeConflictException, NoSuchRefException {
+
+    List<RevCommit> commitsInBranch = null;
+    RevCommit newBranchHead = null;
+    RefUpdate.Result result  = null;
+    ObjectId sourceId = null;
+    ObjectId targetId = null;
+
+    logger.atInfo().log("start merging integration %s to %s", integrationBranch.branch(),
+        targetBranch.branch());
+
+    try {
+      sourceId = git.resolve(integrationBranch.branch());
+      if (sourceId == null) throw new NoSuchRefException("Invalid Revision: " + integrationBranch);
+
+      Ref targetRef = git.getRefDatabase().getRef(targetBranch.branch());
+      if (targetRef == null) throw new NoSuchRefException("No such branch: " + targetBranch);
+
+      targetId = git.resolve(targetBranch.branch());
+      if (targetId == null) throw new NoSuchRefException("Invalid Revision: " + targetBranch);
+
+      if (sourceId.equals(targetId)) throw new NoSuchRefException("Nothing to merge");
+
+      commitsInBranch = listCommitsInIntegrationBranch(git, sourceId, targetId);
+      if (commitsInBranch == null)
+          throw new NoSuchRefException("Failed to list commits in " + integrationBranch);
+      else if (commitsInBranch.isEmpty())
+          throw new NoSuchRefException("No commits in " + integrationBranch);
+    } catch (Exception e) {
+      logger.atWarning().log("preconditions of merging integration failed: %s", e);
+      throw new NoSuchRefException(e.getMessage());
+    }
+
+    try {
+      logger.atInfo().log("Trying to fast forward...");
+      result = fastForwardBranch(git, targetBranch.branch(), sourceId);
+      if (result == RefUpdate.Result.FAST_FORWARD)
+        return listChanges(git, targetBranch, commitsInBranch);
+
+      if (isCherryPickingAllowed(commitsInBranch)) {
+        logger.atInfo().log("Trying to rebase integration onto the target branch...");
+        List<RevCommit> cherrypicks = cherryPickCommitsToBranch(git, project, targetBranch.branch(), commitsInBranch);
+        if (cherrypicks != null) return listChanges(git, targetBranch, cherrypicks);
+      }
+
+      logger.atInfo().log("Trying to create merge commit...");
+      List<Map.Entry<ChangeData, RevCommit>> mergedCommits =
+          listChangesNotMerged(git, integrationBranch, targetBranch);
+      result = mergeBranches(user, git, integrationBranch, targetBranch, customCommitMessage);
+      if (result != RefUpdate.Result.FAST_FORWARD) throw new Exception("Merge conflict");
+      return mergedCommits;
+    } catch (Exception e) {
+      result = null;
+      logger.atWarning().log("Merging integration %s to %s failed: %s",
+          integrationBranch.branch(), targetBranch.branch(), e.getMessage());
+      throw new MergeConflictException("Merge conflict:" + integrationBranch.branch() +
+                                       " to " + targetBranch.branch());
     }
   }
 

@@ -151,7 +151,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
   }
 
   @Test
-  public void parallelBuilds_MergeCommitVerify() throws Exception {
+  public void parallelBuilds_CherryPicksVerify() throws Exception {
     // created 3 parallel builds
     RevCommit initialHead = getRemoteHead();
     PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "file1", "content1");
@@ -178,22 +178,59 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     QtNewBuild("master", "test-build-parallel-3");
 
     RevCommit updatedHead = qtApproveBuild("master", "test-build-parallel-1", c1, false);
-    String commitMessage = updatedHead.getFullMessage();
-    assertThat(commitMessage).doesNotContain("Merge");
+    assertThat(updatedHead.getFullMessage()).doesNotContain("Merge");
+    assertThat(updatedHead.getShortMessage()).isEqualTo("commitmsg1");
 
-    updatedHead = qtApproveBuild("master", "test-build-parallel-2", c2, true);
-    commitMessage = updatedHead.getFullMessage();
-    assertThat(commitMessage).contains("Merge integration test-build-parallel-2");
+    updatedHead = qtApproveBuild("master", "test-build-parallel-2", c2, false);
+    assertThat(updatedHead.getFullMessage()).doesNotContain("Merge");
+    assertThat(updatedHead.getShortMessage()).isEqualTo("commitmsg2");
 
-    updatedHead = qtApproveBuild("master", "test-build-parallel-3", c5, true);
-    commitMessage = updatedHead.getFullMessage();
-    assertThat(commitMessage).contains("Merge integration test-build-parallel-3");
+    updatedHead = qtApproveBuild("master", "test-build-parallel-3", c5, false);
+    assertThat(updatedHead.getFullMessage()).doesNotContain("Merge");
+    assertThat(updatedHead.getShortMessage()).isEqualTo("commitmsg5");
+    assertCherryPick(updatedHead.getParent(0), c4.getCommit(), null);
+    assertCherryPick(loadCommit(updatedHead.getParent(0)).getParent(0), c3.getCommit(), null);
 
     assertStatusMerged(c1.getChange().change());
     assertStatusMerged(c2.getChange().change());
     assertStatusMerged(c3.getChange().change());
     assertStatusMerged(c4.getChange().change());
     assertStatusMerged(c5.getChange().change());
+  }
+
+  @Test
+  public void parallelBuilds_MergeCommitIntegrationVerify() throws Exception {
+
+    // make a change on feature branch
+    final PushOneCommit.Result f1 = pushCommit("feature", "f1-commitmsg", "f1-file", "f1-content");
+    approve(f1.getChangeId());
+    gApi.changes().id(f1.getCommit().getName()).current().submit();
+
+    // make a change on master branch
+    final PushOneCommit.Result m1 = pushCommit("master", "m1-commitmsg", "m1-file", "m1-content");
+    approve(m1.getChangeId());
+    gApi.changes().id(m1.getCommit().getName()).current().submit();
+
+    // Start a build
+    RevCommit initialHead = getRemoteHead();
+    PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "file1", "content1");
+    approve(c1.getChangeId());
+    QtStage(c1);
+    QtNewBuild("master", "test-build-parallel");
+
+    // Start parallel build with a merge commit
+    final PushOneCommit mm = pushFactory.create(admin.newIdent(), testRepo);
+    mm.setParents(ImmutableList.of(f1.getCommit(), m1.getCommit()));
+    final PushOneCommit.Result m = mm.to("refs/for/master");
+    m.assertOkStatus();
+    approve(m.getChangeId());
+    QtStage(m);
+    QtNewBuild("master", "test-build-parallel-with-merge");
+
+    RevCommit updatedHead = qtApproveBuild("master", "test-build-parallel", c1, false);
+
+    updatedHead = qtApproveBuild("master", "test-build-parallel-with-merge", m, true);
+    assertThat(updatedHead.getFullMessage()).contains("Merge integration test-build-parallel-with-merge");
   }
 
   @Test
@@ -474,7 +511,8 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     RevCommit updatedHead = getRemoteHead(project, branchRef);
     if (expectMerge) {
       assertThat(updatedHead.getParentCount()).isEqualTo(2);
-      assertCherryPick(updatedHead.getParent(1), expectedContent.getCommit(), null);
+      assertThat(updatedHead.getName()).isNotEqualTo(expectedContent.getCommit().getName());
+      assertThat(updatedHead.getShortMessage()).contains("Merge");
       assertThat(updatedHead.getAuthorIdent().getEmailAddress()).isEqualTo(admin.email());
       assertThat(updatedHead.getCommitterIdent().getEmailAddress()).isEqualTo(admin.email());
     } else {

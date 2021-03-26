@@ -1,4 +1,4 @@
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2021 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -380,4 +380,11 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
   protected RevCommit getRemoteHead() throws Exception {
     return getRemoteHead(project, "master");
   }
+
+  protected RevCommit loadCommit(RevCommit commit) throws Exception {
+      Repository repo = repoManager.openRepository(project);
+      RevWalk revWalk = new RevWalk(repo);
+      return revWalk.parseCommit(commit);
+  }
+
 }
