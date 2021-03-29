@@ -313,6 +313,7 @@ public class QtUtil {
     if (refObj.equals(tipObj)) return results;
 
     RevWalk revWalk = new RevWalk(git);
+    RevCommit branchHead = revWalk.parseCommit(tipObj);
     RevCommit commit = revWalk.parseCommit(refObj);
     int count = 0;
     do {
@@ -331,7 +332,7 @@ public class QtUtil {
         // It can always be trusted that parent in index 0 is the correct one
         commit = revWalk.parseCommit(commit.getParent(0));
       }
-    } while (commit != null && !commit.equals(tipObj) && count < 100);
+    } while (commit != null && !revWalk.isMergedInto(commit, branchHead) && count < 100);
 
     if (count == 100) return null;
     return results;
@@ -376,7 +377,10 @@ public class QtUtil {
 
     ObjectId reusableHead = null;
     RevWalk revWalk = new RevWalk(git);
+    RevCommit branch = revWalk.parseCommit(branchHead);
     RevCommit commit = revWalk.parseCommit(stagingHead);
+    if (!revWalk.isMergedInto(branch, commit)) return branchHead;
+
     int count = 0;
     do {
       count++;

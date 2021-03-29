@@ -4,6 +4,8 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
+import static com.google.gerrit.acceptance.GitUtil.assertPushOk;
+import static com.google.gerrit.acceptance.GitUtil.pushHead;
 import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_COMMIT;
 import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_REVISION;
 import static com.google.gerrit.extensions.client.ListChangesOption.DETAILED_LABELS;
@@ -54,6 +56,8 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
   protected static final String BUILD_PASS_MESSAGE = "thebuildpassed";
   protected static final String BUILD_FAIL_MESSAGE = "thebuildfailed";
 
+  private RevCommit lastGeneratedCommit;
+
   @Before
   public void ReduceLogging() throws Exception {
     LogManager.resetConfiguration();
@@ -70,6 +74,25 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     final Logger root = LogManager.getRootLogger();
     root.removeAllAppenders();
     root.addAppender(dst);
+  }
+
+  @Before
+  public void GenerateCommits() throws Exception {
+    // Generate 100+ commits to match more like production environment
+    RevCommit parent = getRemoteHead();
+    for (int i = 0; i <= 101; i++) {
+      RevCommit c = testRepo.commit()
+          .message("a commit " + String.valueOf(i))
+          .add("afile" + String.valueOf(i), "somecontent")
+          .parent(parent)
+          .insertChangeId()
+          .create();
+      testRepo.reset(c);
+      assertPushOk(pushHead(testRepo, "refs/heads/master", false), "refs/heads/master");
+      parent = c;
+    }
+    lastGeneratedCommit = parent;
+    resetEvents();
   }
 
   @Test
@@ -296,7 +319,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
   protected void assertReviewedByFooter(RevCommit commit, boolean exists) {
 
     // Skip initial commit and merge commits
-    if (commit.getParentCount() != 1) return;
+    if (commit.getParentCount() != 1 || commit.equals(lastGeneratedCommit)) return;
 
     List<String> changeIds = commit.getFooterLines(FooterConstants.REVIEWED_BY);
     assertThat(!changeIds.isEmpty()).isEqualTo(exists);
