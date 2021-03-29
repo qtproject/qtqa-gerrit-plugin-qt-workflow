@@ -308,59 +308,73 @@ public class QtUtil {
   // Step backwards from the ref and return change list in the same order
   private List<ChangeData> arrangeOrderLikeInRef(
       Repository git, ObjectId refObj, ObjectId tipObj, List<ChangeData> changeList)
-      throws MissingObjectException, IOException {
+      throws Exception {
     List<ChangeData> results = new ArrayList<ChangeData>();
-    if (refObj.equals(tipObj)) return results;
-
-    RevWalk revWalk = new RevWalk(git);
-    RevCommit branchHead = revWalk.parseCommit(tipObj);
-    RevCommit commit = revWalk.parseCommit(refObj);
     int count = 0;
-    do {
-      count++;
-      String changeId = getChangeId(commit);
+    logger.atInfo().log("Arranging change order to match original");
 
-      if (commit.getParentCount() == 0) {
-        commit = null; // something is going wrong, just exit
-      } else {
-        if (changeId == null && commit.getParentCount() > 1) {
-          changeId = getChangeId(revWalk.parseCommit(commit.getParent(1)));
+    try {
+      if (refObj.equals(tipObj)) return results;
+
+      RevWalk revWalk = new RevWalk(git);
+      RevCommit branchHead = revWalk.parseCommit(tipObj);
+      RevCommit commit = revWalk.parseCommit(refObj);
+
+      do {
+        count++;
+        String changeId = getChangeId(commit);
+
+        if (commit.getParentCount() == 0) {
+          commit = null; // something is going wrong, just exit
+         } else {
+          if (changeId == null && commit.getParentCount() > 1) {
+            changeId = getChangeId(revWalk.parseCommit(commit.getParent(1)));
+          }
+          ChangeData change = findChangeFromList(changeId, changeList);
+          if (change != null) results.add(0, change);
+
+          // It can always be trusted that parent in index 0 is the correct one
+          commit = revWalk.parseCommit(commit.getParent(0));
         }
-        ChangeData change = findChangeFromList(changeId, changeList);
-        if (change != null) results.add(0, change);
+      } while (commit != null  && !revWalk.isMergedInto(commit, branchHead) && count < 100);
+    } catch (Exception e) {
+      throw new Exception("arranging change order failed: " + e.getMessage());
+    }
 
-        // It can always be trusted that parent in index 0 is the correct one
-        commit = revWalk.parseCommit(commit.getParent(0));
-      }
-    } while (commit != null && !revWalk.isMergedInto(commit, branchHead) && count < 100);
+    if (count == 100) throw new Exception("arranging change order failed: too many commits");
 
-    if (count == 100) return null;
     return results;
   }
 
   private ObjectId pickChangesToStagingRef(
       Repository git, final Project.NameKey projectKey, List<ChangeData> changes, ObjectId tipObj)
-      throws IOException, IntegrationException {
+      throws Exception {
     ObjectId newId = tipObj;
-    for (ChangeData item : changes) {
-      Change change = item.change();
-      logger.atInfo().log("qtcodereview: rebuilding add %s", change);
-      PatchSet p = item.currentPatchSet();
-      ObjectId srcId = git.resolve(p.commitId().name());
-      newId =
-          qtCherryPickPatch
-              .cherryPickPatch(
-                  item,
-                  projectKey,
-                  srcId,
-                  newId,
-                  false, // allowFastForward
-                  null, // newStatus
-                  null, // defaultMessage
-                  null, // inputMessage
-                  TAG_CI // tag
-                  )
-              .toObjectId();
+    logger.atInfo().log("Cherry-picking changes on top of %s", tipObj.name());
+
+    try {
+      for (ChangeData item : changes) {
+        Change change = item.change();
+        logger.atInfo().log("cherry-picking %s", change.getKey());
+        PatchSet p = item.currentPatchSet();
+        ObjectId srcId = git.resolve(p.commitId().name());
+        newId =
+            qtCherryPickPatch
+                .cherryPickPatch(
+                    item,
+                    projectKey,
+                    srcId,
+                    newId,
+                    false, // allowFastForward
+                    null, // newStatus
+                    null, // defaultMessage
+                    null, // inputMessage
+                    TAG_CI // tag
+                    )
+                .toObjectId();
+      }
+    } catch (Exception e) {
+      throw new Exception("cherry-picking changes failed: " + e.getMessage());
     }
     return newId;
   }
@@ -370,34 +384,46 @@ public class QtUtil {
       Repository git,
       ObjectId stagingHead,
       ObjectId branchHead,
-      List<ChangeData> stagedChanges)
-      throws MissingObjectException, IOException {
-
+      List<ChangeData> stagedChanges) {
+    ObjectId reusableHead = null;
+    logger.atInfo().log("Finding reusable staging commit");
     if (stagingHead.equals(branchHead)) return branchHead;
 
-    ObjectId reusableHead = null;
-    RevWalk revWalk = new RevWalk(git);
-    RevCommit branch = revWalk.parseCommit(branchHead);
-    RevCommit commit = revWalk.parseCommit(stagingHead);
-    if (!revWalk.isMergedInto(branch, commit)) return branchHead;
+    try {
+      RevWalk revWalk = new RevWalk(git);
+      RevCommit branch = revWalk.parseCommit(branchHead);
+      RevCommit commit = revWalk.parseCommit(stagingHead);
+      logger.atInfo().log("Branch head: " + branch.name());
+      logger.atInfo().log("Staging head: " + commit.name());
 
-    int count = 0;
-    do {
-      count++;
-      String changeId = getChangeId(commit);
-      ChangeData change = findChangeFromList(changeId, stagedChanges);
-      if (change != null) {
-        if (reusableHead == null) reusableHead = commit;
-      } else reusableHead = null;
+      if (!revWalk.isMergedInto(branch, commit)) return branchHead;
 
-      if (commit.getParentCount() > 0) {
-        // It can always be trusted that parent in index 0 is the correct one
-        commit = revWalk.parseCommit(commit.getParent(0));
-      } else commit = null;
+      int count = 0;
+      do {
+        count++;
+        String changeId = getChangeId(commit);
+        ChangeData change = findChangeFromList(changeId, stagedChanges);
+        if (change != null) {
+          if (reusableHead == null) reusableHead = commit;
+        } else reusableHead = null;
 
-    } while (commit != null && !commit.equals(branchHead) && count < 100);
+        if (commit.getParentCount() > 0) {
+          // It can always be trusted that parent in index 0 is the correct one
+          commit = revWalk.parseCommit(commit.getParent(0));
+        } else commit = null;
+      } while (commit != null && !commit.equals(branchHead) && count < 100);
 
-    if (reusableHead == null) reusableHead = branchHead;
+      if (count == 100) throw new Exception("can't find ref, too many commits");
+    } catch (Exception e) {
+      reusableHead = null;
+      logger.atSevere().log("Finding reusable staging commit failed: %s", e.getMessage());
+    }
+
+    if (reusableHead == null) {
+      reusableHead = branchHead;
+      logger.atInfo().log("Reusable staging commit not found");
+    }
+
     return reusableHead;
   }
 
@@ -416,6 +442,8 @@ public class QtUtil {
     ObjectId newStageRef = null;
     String stagingBranchName = null;
 
+    logger.atInfo().log("Rebuilding %s", stagingBranchKey.branch());
+
     try {
       stagingBranchName = stagingBranchKey.branch();
       oldStageRef = git.resolve(stagingBranchName);
@@ -425,33 +453,31 @@ public class QtUtil {
       changes_staged = query.byBranchStatus(destBranchShortKey, Change.Status.STAGED);
     } catch (IOException e) {
       logger.atSevere().log(
-          "qtcodereview: rebuild staging ref %s db query failed. Exception %s",
+          "rebuild staging ref %s db query failed. Exception %s",
           stagingBranchKey, e);
       throw new MergeConflictException("fatal: " + e.getMessage());
     }
 
     try {
-      logger.atInfo().log(
-          "qtcodereview: rebuild staging ref reset %s back to %s",
-          stagingBranchKey, destBranchShortKey);
+      logger.atInfo().log("staging ref %s reseted to %s", stagingBranchKey.branch(),
+          destBranchShortKey.branch());
+
       Result result = QtUtil.createStagingBranch(git, destBranchShortKey);
       if (result == null)
-        throw new NoSuchRefException("Cannot create staging ref: " + stagingBranchName);
-      logger.atInfo().log(
-          "qtcodereview: rebuild staging ref reset to %s with result %s", branchRef, result);
-      newStageRef = findReusableStagingHead(git, oldStageRef, branchRef, changes_staged);
-      logger.atInfo().log("qtcodereview: rebuild staging reused staging ref is %s", newStageRef);
-      changes_to_cherrypick = arrangeOrderLikeInRef(git, oldStageRef, newStageRef, changes_staged);
-    } catch (NoSuchRefException | IOException e) {
-      logger.atSevere().log(
-          "qtcodereview: rebuild staging ref reset %s failed. Exception %s", stagingBranchKey, e);
-      throw new MergeConflictException("fatal: " + e.getMessage());
-    }
+        throw new NoSuchRefException("Cannot create staging ref %s" + stagingBranchName);
 
-    try {
+      newStageRef = findReusableStagingHead(git, oldStageRef, branchRef, changes_staged);
+      logger.atInfo().log("reused staging ref is %s", newStageRef.name());
+
+      changes_to_cherrypick = arrangeOrderLikeInRef(git, oldStageRef, newStageRef, changes_staged);
+      String changeStr = "";
+      for (ChangeData item : changes_to_cherrypick) changeStr += " " + item.change().getKey();
+      logger.atInfo().log("changes to be cherry-picked: %s", changeStr);
+
       newStageRef = pickChangesToStagingRef(git, projectKey, changes_to_cherrypick, newStageRef);
     } catch (Exception e) {
-      logger.atInfo().log("qtcodereview: rebuild staging ref %s merge conflict", stagingBranchKey);
+      logger.atSevere().log("rebuild staging ref %s failed: %s", stagingBranchKey.branch(),
+          e.getMessage());
       newStageRef = branchRef;
       String message =
           "Merge conflict in staging branch. Status changed back to new. Please stage again.";
@@ -461,14 +487,13 @@ public class QtUtil {
       try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
         for (ChangeData item : changes_staged) {
           Change change = item.change();
-          logger.atInfo().log(
-              "qtcodereview: staging ref rebuild merge conflict. Change %s back to NEW", change);
+          logger.atInfo().log("change %s back to NEW", change.getKey());
           u.addOp(change.getId(), op);
         }
         u.execute();
+
       } catch (UpdateException | RestApiException ex) {
-        logger.atSevere().log(
-            "qtcodereview: staging ref rebuild. Failed to update change status %s", ex);
+        logger.atSevere().log("Failed to update change status %s", ex);
       }
 
       for (ChangeData item : changes_staged) {
@@ -482,6 +507,7 @@ public class QtUtil {
       RefUpdate refUpdate = git.updateRef(stagingBranchName);
       refUpdate.setNewObjectId(newStageRef);
       refUpdate.update();
+      logger.atInfo().log("Ref %s points now to %s", stagingBranchKey.branch(), newStageRef.name());
 
       // send ref updated event only if it changed
       if (!newStageRef.equals(oldStageRef)) {
