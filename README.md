@@ -71,16 +71,14 @@
 
     Building the Java Plugin
         * have a gerrit checkout and clone the plugin to plugins/gerrit-plugin-qt-workflow (we should add it as submodule when it's done)
-        * run "bazel build plugins/gerrit-plugin-qt-workflow"
+        * run "bazelisk build plugins/gerrit-plugin-qt-workflow"
         * the binary will be "bazel-genfiles/plugins/gerrit-plugin-qt-workflow/gerrit-plugin-qt-workflow.jar"
 
     Building Gerrit
-        * run "bazel build release"
+        * run "bazelisk build release"
         * copy binary file to the gerrit site directory: "cp bazel-bin/release.war thedir/bin/gerrit.war"
 
     Working with the local development environment
-        * Setup database
-            https://codereview.qt-project.org/Documentation/install.html#createdb
         * Init test site
             https://gerrit-review.googlesource.com/Documentation/dev-readme.html#init
         * Set access righs for test projects:
@@ -98,22 +96,18 @@
             ssh -p 29418 admin@localhost gerrit-plugin-qt-workflow staging-approve --branch master --build-id b001 --project JustTest --result pass
             ssh -p 29418 admin@localhost gerrit stream-events
             ssh -p 29418 admin@localhost gerrit index changes 17 26 27 28
-        * useful Git commands
-            git pull --recurse-submodules
-            git clone ssh://admin@localhost:29418/arepo.git
-            git push origin HEAD:refs/for/master
+        * Fetching staging and builds refs to work area.
             git fetch -f origin refs/staging/*:refs/staging/*
             git fetch -f origin refs/builds/*:refs/builds/*
-            git fetch origin
-            git reset --hard origin/master
         * Running tests:
-            bazel test --test_output=streamed //plugins/gerrit-plugin-qt-workflow:*
+            bazelisk test --test_output=streamed //plugins/gerrit-plugin-qt-workflow:*
+        * Running a single test, for example:
+            bazelisk test --test_output=streamed //plugins/gerrit-plugin-qt-workflow:qtcodereview_tests --test_filter=singleChange_Defer_QtAbandon
         * Test coverage:
             install genhtml tool, for example: brew install lcov
-            run: bazel coverage //plugins/gerrit-plugin-qt-workflow:*
-            cd plugins/gerrit-plugin-qt-workflow
-            ./tools/coverage.sh thecoveragefile.dat
-            => html report available at ./coverage/index.html
+            run: bazelisk coverage //plugins/gerrit-plugin-qt-workflow:*
+            genhtml -o ./coveragedir --ignore-errors source thegeneratedcoveragefile.dat
+            => html report available at ./coveragedir/index.html
 
 ## Installation
 
@@ -125,17 +119,8 @@
     rebuild with the patches. The plan is to upstream these changes.
 
     Access rights:
-       * FIXME: Stage/Unstage requires push permission to refs/staging/* branch - we should instead have an explicit staging right
        * Defer/Reopen requires same permissions as abandon
        * CI needs the permission to created references (refs/builds/*), push to branches (refs/heads/*) and
          force push to staging refs (refs/staging/*)
 
     Copy static files into the site dir: cp gerrit-plugin-qt-workflow/static/* gerritsitedir/static/
-
-## Open Items
-
-    * Events are needed for staged, integrating and deferred status changes
-    * There is currently no rights management for when to show the staging button
-    * In testing the staging branch was not created automatically
-    * Are email notifications needed for deferred, reopened status changes?
-    * automated tests for UI?
