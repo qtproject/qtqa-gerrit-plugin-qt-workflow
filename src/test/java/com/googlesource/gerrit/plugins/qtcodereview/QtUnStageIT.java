@@ -1,4 +1,4 @@
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-21 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -11,7 +11,7 @@ import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
-import com.google.gerrit.common.data.Permission;
+import com.google.gerrit.entities.Permission;
 import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.ChangeMessage;
 import java.util.ArrayList;

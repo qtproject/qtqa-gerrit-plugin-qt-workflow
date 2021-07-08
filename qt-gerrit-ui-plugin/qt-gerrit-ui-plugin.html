@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-21 The Qt Company
 //
 // This plugin provides UI customization for codereview.qt-project.org
 //
@@ -51,48 +51,23 @@
                 element.appendChild(elem);
             });
 
-            // Customize header changes dropdown menu
-            plugin.hook('header-dropdown-changes').onAttached(element => {
-                // this is ugly, but there is no API for this
-                var parent_elem = element.parentNode.host;
-                var ul_elem = parent_elem.childNodes[1].root.childNodes[4].childNodes[1].childNodes[1];
-                var li_elem;
-                var link_elem;
-
-                li_elem = htmlToElement(ul_elem.children[1].outerHTML);
-                link_elem = li_elem.children[0].children[1];
-                link_elem.text = 'Staged';
-                link_elem.href = '/q/status:staged';
-                ul_elem.insertBefore(li_elem, ul_elem.children[2]);
-
-                li_elem = htmlToElement(ul_elem.children[1].outerHTML);
-                link_elem = li_elem.children[0].children[1];
-                link_elem.text = 'Integrating';
-                link_elem.href = '/q/status:integrating';
-                ul_elem.insertBefore(li_elem, ul_elem.children[3]);
-
-                li_elem = htmlToElement(ul_elem.children[1].outerHTML);
-                link_elem = li_elem.children[0].children[1];
-                link_elem.text = 'Deferred';
-                link_elem.href = '/q/status:deferred';
-                ul_elem.insertBefore(li_elem, ul_elem.children[5]);
-            });
-
             // Hide Sanity Bot review score row by default in reply dialog
             plugin.hook('review-label-scores-sanity-review').onAttached(element => {
                 const html = '<div id="review-label-scores-sanity-review-more-button"> \
-                                  <div id="sanitybotreviewmorediv" style="display:block;">more...</div> \
+                                  <div id="sanitybotreviewmorediv" class="labelNameCell" style="display:block;">more...</div> \
                                   <div id="sanitybotreviewscorediv" style="display:none;"></div> \
                               </div>';
                 var wrapper_elem = document.createElement('div');
                 wrapper_elem.innerHTML = html;
 
-                // Access the shadow DOM root (seems to be the same as .shadowRoot).
-                var child_elem = element.content.root.childNodes[2];
-                element.content.root.replaceChild(wrapper_elem, child_elem);
-
-                // Append the original content inside the just-replaced element.
-                wrapper_elem.querySelector("#sanitybotreviewscorediv").appendChild(child_elem);
+                // Place the sanity review label elements inside the new wrapper element.
+                // When upgrading to a new Gerrit release use, "console.log(element)" to debug structure of the elements
+                var child_elem2 = element.content.root.replaceChild(wrapper_elem, element.content.root.childNodes[2]);
+                var child_elem3 = element.content.root.removeChild(element.content.root.childNodes[4]);
+                var child_elem4 = element.content.root.removeChild(element.content.root.childNodes[5]);
+                wrapper_elem.querySelector("#sanitybotreviewscorediv").appendChild(child_elem2);
+                wrapper_elem.querySelector("#sanitybotreviewscorediv").appendChild(child_elem3);
+                wrapper_elem.querySelector("#sanitybotreviewscorediv").appendChild(child_elem4);
 
                 // Install click listener to show the score buttons when clicking on more.
                 var more_button_handler = wrapper_elem.querySelector("#review-label-scores-sanity-review-more-button");

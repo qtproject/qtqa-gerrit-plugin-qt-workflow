@@ -1,8 +1,10 @@
 //
-// Copyright (C) 2020 The Qt Company
+// Copyright (C) 2020-21 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+
+import static com.google.gerrit.server.project.ProjectCache.illegalState;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
@@ -34,9 +36,10 @@ import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.project.ProjectCache;
+import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
-import com.google.gerrit.server.submit.IntegrationException;
+import com.google.gerrit.server.submit.IntegrationConflictException;
 import com.google.gerrit.server.submit.MergeOp;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.inject.Inject;
@@ -137,7 +140,10 @@ public class QtStage
       stagingBranchKey = QtUtil.getStagingBranch(destBranchKey);
 
       rsrc.permissions().check(ChangePermission.QT_STAGE);
-      projectCache.checkedGet(rsrc.getProject()).checkStatePermitsWrite();
+      projectCache
+          .get(rsrc.getProject())
+          .orElseThrow(illegalState(rsrc.getProject()))
+          .checkStatePermitsWrite();
 
       output = new Output(changeToStaging(rsrc, submitter, input));
     } finally {
@@ -212,7 +218,7 @@ public class QtStage
       referenceUpdated.fire(
           projectKey, stagingBranchKey.branch(), destId, commit.toObjectId(), submitter.state());
 
-    } catch (IntegrationException e) {
+    } catch (IntegrationConflictException e) {
       logger.atInfo().log("qtcodereview: stage merge error %s", e);
       throw new ResourceConflictException(e.getMessage());
     } catch (NoSuchRefException e) {
@@ -282,10 +288,13 @@ public class QtStage
         return null;
     }
     try {
-      if (!projectCache.checkedGet(resource.getProject()).statePermitsWrite()) {
+      if (!projectCache
+          .get(resource.getProject())
+           .map(ProjectState::statePermitsWrite)
+          .orElse(false)) {
         return null; // stage not visible
       }
-    } catch (IOException e) {
+    } catch (StorageException e) {
       logger.atSevere().withCause(e).log("Error checking if change is submittable");
       throw new StorageException("Could not determine problems for the change", e);
     }

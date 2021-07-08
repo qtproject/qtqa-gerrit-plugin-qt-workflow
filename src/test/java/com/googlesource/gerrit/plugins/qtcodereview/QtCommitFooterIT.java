@@ -1,4 +1,4 @@
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-21 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -16,7 +16,7 @@ import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.testsuite.project.ProjectOperations;
 import com.google.gerrit.acceptance.testsuite.request.RequestScopeOperations;
-import com.google.gerrit.common.data.LabelType;
+import com.google.gerrit.entities.LabelType;
 import com.google.gerrit.extensions.api.changes.ReviewInput;
 import com.google.gerrit.extensions.api.projects.ProjectInput;
 import com.google.gerrit.extensions.client.SubmitType;

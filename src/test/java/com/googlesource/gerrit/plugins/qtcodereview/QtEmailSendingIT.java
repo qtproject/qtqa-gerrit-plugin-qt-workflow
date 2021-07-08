@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-21 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -13,9 +13,9 @@ import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
-import com.google.gerrit.common.data.Permission;
-import com.google.gerrit.mail.Address;
-import com.google.gerrit.mail.EmailHeader;
+import com.google.gerrit.entities.Address;
+import com.google.gerrit.entities.EmailHeader;
+import com.google.gerrit.entities.Permission;
 import com.google.gerrit.testing.FakeEmailSender;
 import org.junit.Before;
 import org.junit.Test;
@@ -48,7 +48,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
     QtApproveBuild("master", "test_build_01");
 
     FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "merged").get(0);
-    Address expectedTo = new Address(user.fullName(), user.email());
+    Address expectedTo = Address.create(user.fullName(), user.email());
     assertThat(m.rcpt()).containsExactly(expectedTo);
     assertThat(((EmailHeader.AddressList) m.headers().get("To")).getAddressList())
         .containsExactly(expectedTo);
@@ -65,7 +65,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
     QtFailBuild("master", "test_build_02");
 
     FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "comment").get(0);
-    Address expectedTo = new Address(user.fullName(), user.email());
+    Address expectedTo = Address.create(user.fullName(), user.email());
     assertThat(m.rcpt()).containsExactly(expectedTo);
     assertThat(((EmailHeader.AddressList) m.headers().get("To")).getAddressList())
         .containsExactly(expectedTo);
@@ -83,7 +83,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
     QtApproveBuild("master", "test_build_03");
 
     FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "merged").get(0);
-    Address expectedTo = new Address(user.fullName(), user.email());
+    Address expectedTo = Address.create(user.fullName(), user.email());
     assertThat(m.rcpt()).containsExactly(expectedTo);
     assertThat(((EmailHeader.AddressList) m.headers().get("To")).getAddressList())
         .containsExactly(expectedTo);
@@ -100,7 +100,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
     QtFailBuild("master", "test_build_04");
 
     FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "comment").get(0);
-    Address expectedTo = new Address(user.fullName(), user.email());
+    Address expectedTo = Address.create(user.fullName(), user.email());
     assertThat(m.rcpt()).containsExactly(expectedTo);
     assertThat(((EmailHeader.AddressList) m.headers().get("To")).getAddressList())
         .containsExactly(expectedTo);

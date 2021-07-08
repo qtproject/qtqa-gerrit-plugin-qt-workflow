@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-21 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -15,6 +15,7 @@ import com.google.gerrit.entities.ChangeMessage;
 import com.google.gerrit.entities.LabelId;
 import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.PatchSetApproval;
+import com.google.gerrit.entities.SubmissionId;
 import com.google.gerrit.server.ApprovalsUtil;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.change.LabelNormalizer;
@@ -91,7 +92,13 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
 
     if (newStatus != null && (oldStatus == null || change.getStatus() == oldStatus)) {
       change.setStatus(newStatus);
-      update.fixStatus(newStatus);
+      if (newStatus == Change.Status.MERGED) {
+        SubmissionId submissionId = new SubmissionId(change);
+        change.setSubmissionId(submissionId.toString());
+        update.fixStatusToMerged(submissionId);
+      } else {
+        update.setStatus(newStatus);
+      }
       updated = true;
     }
 

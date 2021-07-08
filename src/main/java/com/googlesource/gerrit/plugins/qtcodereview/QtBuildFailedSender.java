@@ -1,13 +1,13 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-21 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.gerrit.exceptions.EmailException;
 import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.NotifyConfig.NotifyType;
 import com.google.gerrit.entities.Project;
-import com.google.gerrit.server.account.ProjectWatches.NotifyType;
 import com.google.gerrit.server.mail.send.EmailArguments;
 import com.google.gerrit.server.mail.send.ReplyToChangeSender;
 import com.google.inject.Inject;
@@ -49,8 +49,4 @@ public class QtBuildFailedSender extends ReplyToChangeSender {
     soyContext.put("commentFiles", emptyList);
   }
 
-  @Override
-  protected boolean supportsHtml() {
-    return false;
-  }
 }

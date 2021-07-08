@@ -1,10 +1,13 @@
 //
-// Copyright (C) 2020 The Qt Company
+// Copyright (C) 2020-21 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
+import static com.google.gerrit.server.project.ProjectCache.illegalState;
+
 import com.google.common.flogger.FluentLogger;
+import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
@@ -25,6 +28,7 @@ import com.google.gerrit.server.permissions.ChangePermission;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.project.ProjectCache;
+import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
@@ -94,8 +98,10 @@ class QtUnStage
     stagingBranchKey = QtUtil.getStagingBranch(destBranchKey);
 
     rsrc.permissions().check(ChangePermission.QT_STAGE);
-
-    projectCache.checkedGet(rsrc.getProject()).checkStatePermitsWrite();
+    projectCache
+        .get(rsrc.getProject())
+        .orElseThrow(illegalState(rsrc.getProject()))
+        .checkStatePermitsWrite();
 
     return Response.ok(new Output(removeChangeFromStaging(rsrc, submitter)));
   }
@@ -195,10 +201,13 @@ class QtUnStage
     }
 
     try {
-      if (!projectCache.checkedGet(rsrc.getProject()).statePermitsWrite()) {
+      if (!projectCache
+          .get(rsrc.getProject())
+          .map(ProjectState::statePermitsWrite)
+          .orElse(false)) {
         return description;
       }
-    } catch (IOException e) {
+    } catch (StorageException e) {
       logger.atSevere().withCause(e).log(
           "Failed to check if project state permits write: %s", rsrc.getProject());
       return description;

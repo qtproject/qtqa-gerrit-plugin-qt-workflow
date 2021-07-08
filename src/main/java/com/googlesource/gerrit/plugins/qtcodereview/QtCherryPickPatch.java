@@ -4,6 +4,8 @@
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
+import static com.google.gerrit.server.project.ProjectCache.noSuchProject;
+
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.Project;
@@ -12,12 +14,11 @@ import com.google.gerrit.server.git.CodeReviewCommit;
 import com.google.gerrit.server.git.CodeReviewCommit.CodeReviewRevWalk;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.git.MergeUtil;
-import com.google.gerrit.server.project.NoSuchProjectException;
 import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.query.change.ChangeData;
-import com.google.gerrit.server.submit.IntegrationException;
+import com.google.gerrit.server.submit.IntegrationConflictException;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -71,7 +72,7 @@ public class QtCherryPickPatch {
       String defaultMessage,
       String inputMessage,
       String tag)
-      throws IntegrationException {
+      throws IntegrationConflictException {
 
     IdentifiedUser identifiedUser = user.get();
     try (Repository git = gitManager.openRepository(project);
@@ -104,9 +105,7 @@ public class QtCherryPickPatch {
       commitToCherryPick.setNotes(changeData.notes());
 
       CodeReviewCommit cherryPickCommit;
-
-      ProjectState projectState = projectCache.checkedGet(project);
-      if (projectState == null) throw new NoSuchProjectException(project);
+      ProjectState projectState = projectCache.get(project).orElseThrow(noSuchProject(project));
 
       MergeUtil mergeUtil = mergeUtilFactory.create(projectState, true);
       if (commitToCherryPick.getParentCount() > 1) {
@@ -157,7 +156,7 @@ public class QtCherryPickPatch {
       logger.atInfo().log("qtcodereview: cherrypick done %s", changeData.getId());
       return cherryPickCommit;
     } catch (Exception e) {
-      throw new IntegrationException("Reason: " + e.getMessage());
+      throw new IntegrationConflictException("Reason: " + e.getMessage());
     }
   }
 }

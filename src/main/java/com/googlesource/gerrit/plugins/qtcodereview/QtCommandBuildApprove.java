@@ -332,12 +332,12 @@ class QtCommandBuildApprove extends SshCommand {
       if (passed) {
         qtUtil.postChangeIntegrationPassEvent(change);
         sendMergeEvent(cd);
-        qtEmailSender.sendMergedEmail(projectKey, change.getId(), user.getAccountId());
+        qtEmailSender.sendMergedEmail(projectKey, change, user.getAccountId());
         logger.atInfo().log(
             "qtcodereview: staging-approve     change %s merged into %s", change, destBranchKey);
       } else {
         qtUtil.postChangeIntegrationFailEvent(change);
-        qtEmailSender.sendBuildFailedEmail(projectKey, change.getId(), user.getAccountId(), message);
+        qtEmailSender.sendBuildFailedEmail(projectKey, change, user.getAccountId(), message);
         logger.atInfo().log(
             "qtcodereview: staging-approve     change %s rejected for %s", change, destBranchKey);
       }

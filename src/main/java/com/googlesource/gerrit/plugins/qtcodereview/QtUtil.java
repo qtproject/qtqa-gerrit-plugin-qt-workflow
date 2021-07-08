@@ -16,6 +16,8 @@
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
+import static com.google.gerrit.server.project.ProjectCache.noSuchProject;
+
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.flogger.FluentLogger;
@@ -43,7 +45,6 @@ import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
-import com.google.gerrit.server.submit.IntegrationException;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
@@ -510,7 +511,7 @@ public class QtUtil {
 
       for (ChangeData item : changes_staged) {
         Change change = item.change();
-        qtEmailSender.sendBuildFailedEmail(projectKey, change.getId(), user.getAccountId(),
+        qtEmailSender.sendBuildFailedEmail(projectKey, change, user.getAccountId(),
             message);
       }
     }
@@ -755,7 +756,7 @@ public class QtUtil {
       Project.NameKey project, String branchName, List<RevCommit> commits) {
 
     try {
-      ProjectState projectState = projectCache.checkedGet(project);
+      ProjectState projectState = projectCache.get(project).orElseThrow(noSuchProject(project));
       MergeUtil mergeUtil = mergeUtilFactory.create(projectState, true);
       ObjectInserter objInserter = git.newObjectInserter();
       ObjectReader reader = objInserter.newReader();
@@ -906,7 +907,7 @@ public class QtUtil {
 
   public void postChangeStagedEvent(Change change) {
     try {
-      ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+      ChangeNotes notes = changeNotesFactory.createChecked(change);
       QtChangeStagedEvent event = new QtChangeStagedEvent(change);
       event.change = changeAttributeSupplier(change, notes);
       eventDispatcher.get().postEvent(event);
@@ -917,7 +918,7 @@ public class QtUtil {
 
   public void postChangeUnStagedEvent(Change change) {
     try {
-      ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+      ChangeNotes notes = changeNotesFactory.createChecked(change);
       QtChangeUnStagedEvent event = new QtChangeUnStagedEvent(change);
       event.change = changeAttributeSupplier(change, notes);
       eventDispatcher.get().postEvent(event);
@@ -928,7 +929,7 @@ public class QtUtil {
 
   public void postChangeIntegrationPassEvent(Change change) {
     try {
-      ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+      ChangeNotes notes = changeNotesFactory.createChecked(change);
       QtChangeIntegrationPassEvent event = new QtChangeIntegrationPassEvent(change);
       event.change = changeAttributeSupplier(change, notes);
       eventDispatcher.get().postEvent(event);
@@ -939,7 +940,7 @@ public class QtUtil {
 
   public void postChangeIntegrationFailEvent(Change change) {
     try {
-      ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+      ChangeNotes notes = changeNotesFactory.createChecked(change);
       QtChangeIntegrationFailEvent event = new QtChangeIntegrationFailEvent(change);
       event.change = changeAttributeSupplier(change, notes);
       eventDispatcher.get().postEvent(event);
@@ -950,7 +951,7 @@ public class QtUtil {
 
   public void postChangePreCheckEvent(Change change, PatchSet patchSet) {
     try {
-      ChangeNotes notes = changeNotesFactory.createChecked(change.getId());
+      ChangeNotes notes = changeNotesFactory.createChecked(change);
       QtChangePreCheckEvent event = new QtChangePreCheckEvent(change);
       event.change = changeAttributeSupplier(change, notes);
       event.commitID = patchSet.commitId().name();
