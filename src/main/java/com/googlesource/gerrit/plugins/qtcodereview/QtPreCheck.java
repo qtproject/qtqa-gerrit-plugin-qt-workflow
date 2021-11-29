@@ -18,6 +18,7 @@ import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.server.change.RevisionResource;
 import com.google.gerrit.server.config.GerritServerConfig;
+import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.gerrit.server.permissions.LabelPermission;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
@@ -31,6 +32,7 @@ import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.errors.ConfigInvalidException;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.Map;
 
 @Singleton
@@ -39,6 +41,7 @@ public class QtPreCheck
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
   private static final String DEFAULT_TOOLTIP = "Trigger a precheck integration";
+  private static final String DEFAULT_TOOLTIP_DISABLED = "Precheck disabled for this project";
   private static final String LABEL_CODE_REVIEW = "Code-Review";
   private static final short LABEL_CODE_REVIEW_VALUE = 2;
 
@@ -55,8 +58,10 @@ public class QtPreCheck
   private final QtUtil qtUtil;
   private final String label;
   private final ParameterizedString titlePattern;
+  private final ParameterizedString titlePatternDisabled;
 
-  private Change change;
+  @Inject
+  private PluginConfigFactory pluginCfg;
 
   @Inject
   QtPreCheck(
@@ -73,6 +78,10 @@ public class QtPreCheck
       new ParameterizedString(
         MoreObjects.firstNonNull(
           cfg.getString("precheck", null, "precheckTooltip"), DEFAULT_TOOLTIP));
+    this.titlePatternDisabled =
+      new ParameterizedString(
+        MoreObjects.firstNonNull(
+          cfg.getString("precheck", null, "precheckTooltip"), DEFAULT_TOOLTIP_DISABLED));
   }
 
   @Override
@@ -88,6 +97,11 @@ public class QtPreCheck
     if (!canReview) {
       throw new AuthException(String.format("Precheck request from user %s without permission, %s",
         rsrc.getUser().getUserName(), rsrc.getChange().toString()));
+    }
+
+    if (!isPreCheckAllowed(rsrc)) {
+      throw new AuthException(String.format("Precheck request for project not allowed, %s",
+        rsrc.getChange().toString()));
     }
 
     Change change = rsrc.getChange();
@@ -118,6 +132,8 @@ public class QtPreCheck
       return null; // precheck not visible
     }
 
+    boolean enabled = isPreCheckAllowed(resource);
+
     ObjectId revId = resource.getPatchSet().commitId();
     Map<String, String> params =
       ImmutableMap.of(
@@ -126,8 +142,16 @@ public class QtPreCheck
         "commit", revId.abbreviate(7).name());
     return new UiAction.Description()
       .setLabel(this.label)
-      .setTitle(Strings.emptyToNull(titlePattern.replace(params)))
+      .setTitle(Strings.emptyToNull(
+        enabled ? titlePattern.replace(params) : titlePatternDisabled.replace(params)))
       .setVisible(true)
-      .setEnabled(true);
+      .setEnabled(enabled);
+  }
+
+  private boolean isPreCheckAllowed(RevisionResource resource) {
+    String[] disabledProjects = pluginCfg.getGlobalPluginConfig("gerrit-plugin-qt-workflow")
+      .getStringList("precheck", "disabled", "projects");
+
+    return !Arrays.asList(disabledProjects).contains(resource.getProject().get());
   }
 }
