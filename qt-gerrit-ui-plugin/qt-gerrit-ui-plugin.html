@@ -142,6 +142,7 @@
                         // add button
                         plugin.buttons[key] = cActions.add(action.__type, action.label);
                         cActions.setTitle(plugin.buttons[key], action.title);
+                        cActions.setEnabled(plugin.buttons[key], action.enabled===true);
                         cActions.addTapListener(plugin.buttons[key], buttonEventCallback);
 
                         if (key === 'gerrit-plugin-qt-workflow~stage') {
