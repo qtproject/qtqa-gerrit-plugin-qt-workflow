@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-21 The Qt Company
+// Copyright (C) 2019-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -64,7 +64,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
     sender.clear();
     QtFailBuild("master", "test_build_02");
 
-    FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "comment").get(0);
+    FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "qtbuildfailed").get(0);
     Address expectedTo = Address.create(user.fullName(), user.email());
     assertThat(m.rcpt()).containsExactly(expectedTo);
     assertThat(((EmailHeader.AddressList) m.headers().get("To")).getAddressList())
@@ -99,7 +99,7 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
     sender.clear();
     QtFailBuild("master", "test_build_04");
 
-    FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "comment").get(0);
+    FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "qtbuildfailed").get(0);
     Address expectedTo = Address.create(user.fullName(), user.email());
     assertThat(m.rcpt()).containsExactly(expectedTo);
     assertThat(((EmailHeader.AddressList) m.headers().get("To")).getAddressList())

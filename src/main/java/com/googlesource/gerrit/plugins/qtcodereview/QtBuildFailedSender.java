@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-21 The Qt Company
+// Copyright (C) 2019-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -24,7 +24,7 @@ public class QtBuildFailedSender extends ReplyToChangeSender {
   @Inject
   public QtBuildFailedSender(
       EmailArguments ea, @Assisted Project.NameKey project, @Assisted Change.Id id) {
-    super(ea, "comment", newChangeData(ea, project, id));
+    super(ea, "qtbuildfailed", newChangeData(ea, project, id));
   }
 
   @Override
@@ -39,7 +39,10 @@ public class QtBuildFailedSender extends ReplyToChangeSender {
 
   @Override
   protected void formatChange() throws EmailException {
-    appendText(textTemplate("Comment"));
+    appendText(textTemplate("QtBuildFailed"));
+    if (useHtml()) {
+      appendHtml(soyHtmlTemplate("QtBuildFailedHtml"));
+    }
   }
 
   @Override

@@ -11,7 +11,7 @@ gerrit_plugin(
         "Implementation-Title: Qt Code Review Flow Plugin",
         "Implementation-URL: https://codereview.qt-project.org/p/qtqa/gerrit-plugin-qt-workflow.git",
     ],
-    resources = glob(["src/main/**/*"]),
+    resources = glob(["src/main/resources/**/*"]),
 )
 
 junit_tests(

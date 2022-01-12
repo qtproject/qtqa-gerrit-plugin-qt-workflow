@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2020 The Qt Company
+// Copyright (C) 2020-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -13,6 +13,7 @@ import com.google.gerrit.extensions.registration.DynamicSet;
 import com.google.gerrit.extensions.restapi.RestApiModule;
 import com.google.gerrit.server.git.ChangeMessageModifier;
 import com.google.gerrit.server.events.EventTypes;
+import com.google.gerrit.server.mail.send.MailSoyTemplateProvider;
 
 public class QtModule extends FactoryModule {
 
@@ -30,6 +31,7 @@ public class QtModule extends FactoryModule {
     factory(QtBuildFailedSender.Factory.class);
     factory(QtChangeUpdateOp.Factory.class);
     DynamicSet.bind(binder(), ChangeMessageModifier.class).to(QtChangeMessageModifier.class);
+    DynamicSet.bind(binder(), MailSoyTemplateProvider.class).to(QtBuildFailedEmailTemplateRegister.class);
 
     install(
         new RestApiModule() {

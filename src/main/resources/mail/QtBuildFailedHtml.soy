@@ -1,0 +1,28 @@
+/**
+ * Copyright (C) 2022 The Qt Company
+ */
+
+{namespace com.google.gerrit.server.mail.template}
+
+/**
+ * The .QtBuildFailed template will determine the contents of the email related to a
+ * change failed CI.
+ */
+
+{template .QtBuildFailedHtml}
+  {@param coverLetter: ?}
+  {@param email: ?}
+  <p>
+    The change has <strong>failed</strong> CI.
+  </p>
+
+  {if $email.changeUrl}
+    <p>
+      {call .ViewChangeButton data="all" /}
+    </p>
+  {/if}
+
+  {if $coverLetter}
+    <div style="white-space:pre-wrap">{$coverLetter}</div>
+  {/if}
+{/template}
