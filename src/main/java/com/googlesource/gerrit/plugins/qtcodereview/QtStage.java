@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2020-21 The Qt Company
+// Copyright (C) 2020-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -305,12 +305,6 @@ public class QtStage
     } catch (ResourceConflictException e) {
       return null; // stage not visible
     }
-    Boolean enabled;
-    // try {
-    enabled = cd.isMergeable();
-    // } catch (OrmException e) {
-    //     throw new OrmRuntimeException("Could not determine mergeability", e);
-    // }
 
     ObjectId revId = resource.getPatchSet().commitId();
     Map<String, String> params =
@@ -322,6 +316,6 @@ public class QtStage
         .setLabel(label)
         .setTitle(Strings.emptyToNull(titlePattern.replace(params)))
         .setVisible(true)
-        .setEnabled(Boolean.TRUE.equals(enabled));
+        .setEnabled(true);
   }
 }
