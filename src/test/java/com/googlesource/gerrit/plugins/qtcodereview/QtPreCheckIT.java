@@ -1,11 +1,11 @@
-// Copyright (C) 2021 The Qt Company
+// Copyright (C) 2021-22 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS;
 import static com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate.allowLabel;
 
-import com.google.gerrit.acceptance.GlobalPluginConfig;
+import com.google.gerrit.acceptance.config.GlobalPluginConfig;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
