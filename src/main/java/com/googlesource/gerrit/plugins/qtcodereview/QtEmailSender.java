@@ -13,6 +13,7 @@ import com.google.gerrit.server.mail.send.MessageIdGenerator;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import java.util.Optional;
 
 @Singleton
 public class QtEmailSender {
@@ -28,7 +29,7 @@ public class QtEmailSender {
   public void sendMergedEmail(Project.NameKey projectKey, Change change,
       Account.Id fromAccount) {
     try {
-      MergedSender mcm = mergedSenderFactory.create(projectKey, change.getId());
+      MergedSender mcm = mergedSenderFactory.create(projectKey, change.getId(), Optional.empty());
       mcm.setFrom(fromAccount);
       mcm.setMessageId(
           messageIdGenerator.fromChangeUpdate(projectKey, change.currentPatchSetId()));

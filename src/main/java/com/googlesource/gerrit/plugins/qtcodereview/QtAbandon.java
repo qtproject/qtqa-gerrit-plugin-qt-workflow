@@ -95,8 +95,7 @@ public class QtAbandon
         new UiAction.Description()
             .setLabel("Abandon")
             .setTitle("Abandon the change")
-            .setVisible(false)
-            .setEnabled(false);
+            .setVisible(false);
     Change change = rsrc.getChange();
     if (change.getStatus() != Change.Status.DEFERRED) {
       return description;

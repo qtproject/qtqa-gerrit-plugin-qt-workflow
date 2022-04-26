@@ -361,7 +361,7 @@ class QtCommandBuildApprove extends SshCommand {
 
     PatchSet ps = changeData.currentPatchSet();
     changeMerged.fire(
-        changeData.change(), ps, user.asIdentifiedUser().state(), ps.commitId().name(), ts);
+        changeData, ps, user.asIdentifiedUser().state(), ps.commitId().name(), ts);
   }
 
   private void readMessageParameter() throws UnloggedFailure {

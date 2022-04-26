@@ -16,8 +16,8 @@ import com.google.gerrit.entities.LabelId;
 import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.PatchSetApproval;
 import com.google.gerrit.entities.SubmissionId;
-import com.google.gerrit.server.ApprovalsUtil;
 import com.google.gerrit.server.ChangeMessagesUtil;
+import com.google.gerrit.server.approval.ApprovalsUtil;
 import com.google.gerrit.server.change.LabelNormalizer;
 import com.google.gerrit.server.git.CodeReviewCommit;
 import com.google.gerrit.server.notedb.ChangeUpdate;
@@ -122,21 +122,21 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
     }
 
     if (defaultMessage != null) {
-      cmUtil.addChangeMessage(update, newMessage(ctx));
+      cmUtil.setChangeMessage(update, newMessage(ctx), null);
       updated = true;
     }
 
     return updated;
   }
 
-  private ChangeMessage newMessage(ChangeContext ctx) {
+  private String newMessage(ChangeContext ctx) {
     StringBuilder msg = new StringBuilder();
     msg.append(defaultMessage);
     if (!Strings.nullToEmpty(inputMessage).trim().isEmpty()) {
       msg.append("\n\n");
       msg.append(inputMessage.trim());
     }
-    return ChangeMessagesUtil.newMessage(ctx, msg.toString(), tag);
+    return msg.toString();
   }
 
   private LabelNormalizer.Result approve(ChangeContext ctx, ChangeUpdate update)
