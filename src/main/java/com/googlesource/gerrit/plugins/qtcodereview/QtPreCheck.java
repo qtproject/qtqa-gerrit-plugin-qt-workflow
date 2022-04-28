@@ -24,7 +24,9 @@ import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.permissions.LabelPermission.ForUser;
 import com.google.gerrit.server.query.change.ChangeData;
+import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import org.eclipse.jgit.lib.Config;
@@ -54,7 +56,7 @@ public class QtPreCheck
   }
 
   private final PermissionBackend permissionBackend;
-  private final ChangeData.Factory changeDataFactory;
+  private final BatchUpdate.Factory updateFactory;
   private final QtUtil qtUtil;
   private final String label;
   private final ParameterizedString titlePattern;
@@ -63,15 +65,17 @@ public class QtPreCheck
   @Inject
   private PluginConfigFactory pluginCfg;
 
+  @Inject private QtChangeUpdateOp.Factory qtUpdateFactory;
+
   @Inject
   QtPreCheck(
     PermissionBackend permissionBackend,
     @GerritServerConfig Config cfg,
-    ChangeData.Factory changeDataFactory,
+    BatchUpdate.Factory updateFactory,
     QtUtil qtUtil) {
 
     this.permissionBackend = permissionBackend;
-    this.changeDataFactory = changeDataFactory;
+    this.updateFactory = updateFactory;
     this.qtUtil = qtUtil;
     this.label = "PreCheck";
     this.titlePattern =
@@ -108,6 +112,13 @@ public class QtPreCheck
     Output output;
     output = new Output(change);
     this.qtUtil.postChangePreCheckEvent(change, rsrc.getPatchSet());
+
+    QtChangeUpdateOp op =
+        qtUpdateFactory.create(null, null, "Precheck requested", null, QtUtil.TAG_CI, null);
+    try (BatchUpdate u =
+        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
+      u.addOp(change.getId(), op).execute();
+    }
     return Response.ok(output);
   }
 
