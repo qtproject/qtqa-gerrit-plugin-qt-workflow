@@ -23,6 +23,7 @@ import com.google.common.base.Suppliers;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.common.FooterConstants;
 import com.google.gerrit.exceptions.StorageException;
+import com.google.gerrit.extensions.common.InputWithMessage;
 import com.google.gerrit.extensions.registration.DynamicItem;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.entities.BranchNameKey;
@@ -949,10 +950,10 @@ public class QtUtil {
     }
   }
 
-  public void postChangePreCheckEvent(Change change, PatchSet patchSet) {
+  public void postChangePreCheckEvent(Change change, PatchSet patchSet, InputWithMessage data) {
     try {
       ChangeNotes notes = changeNotesFactory.createChecked(change);
-      QtChangePreCheckEvent event = new QtChangePreCheckEvent(change);
+      QtChangePreCheckEvent event = new QtChangePreCheckEvent(change, data);
       event.change = changeAttributeSupplier(change, notes);
       event.commitID = patchSet.commitId().name();
       eventDispatcher.get().postEvent(event);

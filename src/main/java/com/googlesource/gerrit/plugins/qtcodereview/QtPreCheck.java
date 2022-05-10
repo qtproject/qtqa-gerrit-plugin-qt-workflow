@@ -9,7 +9,7 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.common.data.ParameterizedString;
-import com.google.gerrit.extensions.api.changes.SubmitInput;
+import com.google.gerrit.extensions.common.InputWithMessage;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
 import com.google.gerrit.extensions.restapi.AuthException;
@@ -39,7 +39,7 @@ import java.util.Map;
 
 @Singleton
 public class QtPreCheck
-    implements RestModifyView<RevisionResource, SubmitInput>, UiAction<RevisionResource> {
+    implements RestModifyView<RevisionResource, InputWithMessage>, UiAction<RevisionResource> {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
   private static final String DEFAULT_TOOLTIP = "Trigger a precheck integration";
@@ -89,10 +89,11 @@ public class QtPreCheck
   }
 
   @Override
-  public Response<Output> apply(RevisionResource rsrc, SubmitInput input)
+  public Response<Output> apply(RevisionResource rsrc, InputWithMessage in)
       throws RestApiException, RepositoryNotFoundException, IOException, PermissionBackendException,
           UpdateException, ConfigInvalidException {
     logger.atInfo().log("qtcodereview: precheck request for %s", rsrc.getChange().toString());
+
     boolean canReview;
 
     canReview = rsrc.permissions().test(new LabelPermission.
@@ -111,10 +112,28 @@ public class QtPreCheck
     Change change = rsrc.getChange();
     Output output;
     output = new Output(change);
-    this.qtUtil.postChangePreCheckEvent(change, rsrc.getPatchSet());
+    if (in.message == null) in.message = "none";
+    this.qtUtil.postChangePreCheckEvent(change, rsrc.getPatchSet(), in);
+
+    // Generate user friendly message
+    String[] inputs = in.message.split("&");
+    StringBuilder msg =  new StringBuilder();
+    for (String input : inputs) {
+      String[] values = input.split(":");
+      String property = values[0];
+      if (values.length < 2) {
+        continue;
+      }
+
+      if (msg.length() > 0) {
+        msg.append(", ");
+      }
+      msg.append(property + ": " + values[1]);
+    }
 
     QtChangeUpdateOp op =
-        qtUpdateFactory.create(null, null, "Precheck requested", null, QtUtil.TAG_CI, null);
+        qtUpdateFactory.create(null, null, String.format("Precheck requested with params %s", msg.toString()),
+          null, QtUtil.TAG_CI, null);
     try (BatchUpdate u =
         updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
       u.addOp(change.getId(), op).execute();
