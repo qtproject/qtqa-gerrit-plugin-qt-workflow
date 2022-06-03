@@ -349,12 +349,12 @@ public class QtUtil {
           // It can always be trusted that parent in index 0 is the correct one
           commit = revWalk.parseCommit(commit.getParent(0));
         }
-      } while (commit != null  && !revWalk.isMergedInto(commit, branchHead) && count < 100);
+      } while (commit != null  && !revWalk.isMergedInto(commit, branchHead) && count < 200);
     } catch (Exception e) {
       throw new Exception("arranging change order failed: " + e.getMessage());
     }
 
-    if (count == 100) throw new Exception("arranging change order failed: too many commits");
+    if (count == 200) throw new Exception("arranging change order failed: too many commits");
 
     return results;
   }
@@ -424,9 +424,9 @@ public class QtUtil {
           // It can always be trusted that parent in index 0 is the correct one
           commit = revWalk.parseCommit(commit.getParent(0));
         } else commit = null;
-      } while (commit != null && !commit.equals(branchHead) && count < 100);
+      } while (commit != null && !commit.equals(branchHead) && count < 200);
 
-      if (count == 100) throw new Exception("can't find ref, too many commits");
+      if (count == 200) throw new Exception("can't find ref, too many commits");
     } catch (Exception e) {
       reusableHead = null;
       logger.atSevere().log("Finding reusable staging commit failed: %s", e.getMessage());
@@ -729,14 +729,14 @@ public class QtUtil {
           } else commit = null;
         }
         count++;
-      } while (commit != null && count < 100);
+      } while (commit != null && count < 200);
     } catch (Exception e) {
       commits = null;
       logger.atWarning().log("listing commits in a branch failed: %s", e);
     }
 
-    if (count >= 100) {
-      logger.atWarning().log("listing commits in a branch failed: too many commmits");
+    if (count >= 200) {
+      logger.atWarning().log("listing commits in a branch failed: too many commits");
       return null;
     }
 
