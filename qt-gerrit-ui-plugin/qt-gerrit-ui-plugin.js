@@ -140,7 +140,13 @@ Gerrit.install(plugin => {
                                 confirmBtn.disabled = false;
                                 window.location.reload(true);
                         }).catch((failed_resp) => {
-                            this.fire('show-alert', {message: 'FAILED: ' + failed_resp});
+                            this.dispatchEvent(
+                                new CustomEvent('show-alert', {
+                                    detail: {message: failed_resp},
+                                    composed: true,
+                                    bubbles: true,
+                                })
+                            );
                     });
                 });
 
@@ -323,7 +329,13 @@ Gerrit.install(plugin => {
                     }).catch((failed_resp) => {
                         buttonEl.removeAttribute('loading');
                         buttonEl.disabled = false;
-                        this.fire('show-alert', {message: 'FAILED: ' + failed_resp});
+                        this.dispatchEvent(
+                            new CustomEvent('show-alert', {
+                                detail: {message: failed_resp},
+                                composed: true,
+                                bubbles: true,
+                            })
+                        );
                     });
             } else console.log('unexpected error: no action');
         }
