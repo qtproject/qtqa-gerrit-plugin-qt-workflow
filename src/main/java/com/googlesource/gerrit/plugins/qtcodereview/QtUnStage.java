@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2020-21 The Qt Company
+// Copyright (C) 2020-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -88,7 +88,7 @@ class QtUnStage
       throws RestApiException, IOException, UpdateException, PermissionBackendException,
           ConfigInvalidException {
 
-    logger.atInfo().log("qtcodereview: unstage %s", rsrc.getChange().toString());
+    logger.atInfo().log("unstage %s", rsrc.getChange().toString());
 
     IdentifiedUser submitter = rsrc.getUser().asIdentifiedUser();
 
@@ -113,21 +113,21 @@ class QtUnStage
     final Project.NameKey projectKey = rsrc.getProject();
     PatchSet patchSet = rsrc.getPatchSet();
 
-    logger.atInfo().log("qtcodereview: unstage start for %s", change);
+    logger.atInfo().log("unstage start for %s", change);
 
     if (change.getStatus() != Change.Status.STAGED) {
       logger.atSevere().log(
-          "qtcodereview: unstage: change %s status wrong %s", change, change.getStatus());
+          "unstage: change %s status wrong %s", change.getId(), change.getStatus());
       throw new ResourceConflictException("change is " + change.getStatus());
     } else if (!ProjectUtil.branchExists(repoManager, change.getDest())) {
       logger.atSevere().log(
-          "qtcodereview: unstage: change %s destination branch \"%s\" not found",
+          "unstage: change %s destination branch \"%s\" not found",
           change, change.getDest().branch());
       throw new ResourceConflictException(
           String.format("destination branch \"%s\" not found.", change.getDest().branch()));
     } else if (!rsrc.getPatchSet().id().equals(change.currentPatchSetId())) {
       logger.atSevere().log(
-          "qtcodereview: unstage: change %s revision %s is not current revision",
+          "unstage: change %s revision %s is not current revision",
           change, rsrc.getPatchSet().commitId());
       throw new ResourceConflictException(
           String.format(
@@ -143,7 +143,7 @@ class QtUnStage
       ObjectId srcId = git.resolve(patchSet.commitId().name());
       if (srcId == null) {
         logger.atSevere().log(
-            "qtcodereview: unstage merge: change %s has invalid revision %s", change, patchSet);
+            "unstage merge: change %s has invalid revision %s", change.getId(), patchSet);
         throw new ResourceConflictException("Invalid Revision: " + patchSet);
       }
 
@@ -157,16 +157,16 @@ class QtUnStage
 
       change = op.getChange();
       qtUtil.postChangeUnStagedEvent(change);
-      logger.atInfo().log("qtcodereview: unstaged %s from %s", change, stagingBranchKey);
+      logger.atInfo().log("unstaged %s,%s from %s", change.getId(), change.getKey(), stagingBranchKey.shortName());
 
     } catch (ResourceConflictException e) {
-      logger.atSevere().log("qtcodereview: unstage resource conflict error %s", e);
+      logger.atSevere().log("unstage resource conflict error %s", e);
       throw new ResourceConflictException(e.toString());
     } catch (QtUtil.MergeConflictException e) {
-      logger.atSevere().log("qtcodereview: unstage merge conflict error %s", e);
+      logger.atSevere().log("unstage merge conflict error %s", e);
       throw new IOException(e);
     } catch (IOException e) {
-      logger.atSevere().log("qtcodereview: unstage IOException %s", e);
+      logger.atSevere().log("unstage IOException %s", e);
       throw new IOException(e);
     } finally {
       if (git != null) {

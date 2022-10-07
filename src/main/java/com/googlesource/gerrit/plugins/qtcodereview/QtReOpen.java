@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-21 The Qt Company
+// Copyright (C) 2019-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -61,7 +61,7 @@ class QtReOpen
   public Response<ChangeInfo> apply(ChangeResource rsrc, RestoreInput input)
       throws RestApiException, UpdateException, PermissionBackendException, IOException {
     Change change = rsrc.getChange();
-    logger.atInfo().log("qtcodereview: reopen %s", change);
+    logger.atInfo().log("reopen %s", change);
 
     // Not allowed to restore if the current patch set is locked.
     psUtil.checkPatchSetNotLocked(rsrc.getNotes());
@@ -75,7 +75,7 @@ class QtReOpen
         .checkStatePermitsWrite();
 
     if (change.getStatus() != Change.Status.DEFERRED) {
-      logger.atSevere().log("qtcodereview: reopen %s status wrong %s", change, change.getStatus());
+      logger.atSevere().log("reopen %s status wrong %s", change.getId(), change.getStatus());
       throw new ResourceConflictException("change is " + ChangeUtil.status(change));
     }
 
@@ -93,7 +93,7 @@ class QtReOpen
     }
 
     change = op.getChange();
-    logger.atInfo().log("qtcodereview: reopened  %s", change);
+    logger.atInfo().log("reopened  %s,%s", change.getId(), change.getKey());
     return Response.ok(json.noOptions().format(change));
   }
 

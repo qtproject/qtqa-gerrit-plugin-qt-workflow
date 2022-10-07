@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -52,7 +52,7 @@ class QtCommandRebuildStaging extends SshCommand {
 
   @Override
   protected void run() throws UnloggedFailure {
-    logger.atInfo().log("qtcodereview: staging-rebuild -p %s -b %s", project, branch);
+    logger.atInfo().log("staging-rebuild -p %s -b %s", project, branch);
 
     BranchNameKey stagingBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, branch);
     BranchNameKey destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, branch);
@@ -72,21 +72,21 @@ class QtCommandRebuildStaging extends SshCommand {
       qtUtil.rebuildStagingBranch(
           git, user.asIdentifiedUser(), projectKey, stagingBranchKey, destBranchShortKey);
 
-      logger.atInfo().log("qtcodereview: staging-rebuild done for %s", stagingBranchKey);
+      logger.atInfo().log("staging-rebuild done for %s", stagingBranchKey.shortName());
     } catch (AuthException e) {
       logger.atSevere().log(
-          "qtcodereview: staging-rebuild Authentication failed to access repository: %s", e);
+          "staging-rebuild Authentication failed to access repository: %s", e);
       throw die("not authorized");
     } catch (PermissionBackendException e) {
-      logger.atSevere().log("qtcodereview: staging-rebuild permission error %s", e);
+      logger.atSevere().log("staging-rebuild permission error %s", e);
     } catch (RepositoryNotFoundException e) {
-      logger.atSevere().log("qtcodereview: staging-rebuild repository not found: %s", e);
+      logger.atSevere().log("staging-rebuild repository not found: %s", e);
       throw die("project not found");
     } catch (IOException e) {
-      logger.atSevere().log("qtcodereview: staging-rebuild IOException %s", e);
+      logger.atSevere().log("staging-rebuild IOException %s", e);
       throw die(e.getMessage());
     } catch (QtUtil.MergeConflictException e) {
-      logger.atSevere().log("qtcodereview: staging-rebuild error %s", e);
+      logger.atSevere().log("staging-rebuild error %s", e);
       throw die("staging rebuild failed, merge conflict");
     } finally {
       if (git != null) {

@@ -1,6 +1,6 @@
 // Copyright (C) 2011 The Android Open Source Project
 // Copyright (C) 2014 Digia Plc and/or its subsidiary(-ies).
-// Copyright (C) 2021 The Qt Company
+// Copyright (C) 2021-22 The Qt Company
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -369,7 +369,7 @@ public class QtUtil {
     try {
       for (ChangeData item : changes) {
         Change change = item.change();
-        logger.atInfo().log("cherry-picking %s", change.getKey());
+        logger.atInfo().log("cherry-picking %s,%s", change.getId(), change.getKey());
         PatchSet p = item.currentPatchSet();
         ObjectId srcId = git.resolve(p.commitId().name());
         newId =
@@ -467,8 +467,8 @@ public class QtUtil {
       changes_staged = query.byBranchStatus(destBranchShortKey, Change.Status.STAGED);
     } catch (IOException e) {
       logger.atSevere().log(
-          "rebuild staging ref %s db query failed. Exception %s",
-          stagingBranchKey, e);
+          "rebuild staging ref '%s' db query failed. Exception %s",
+          stagingBranchKey.branch(), e);
       throw new MergeConflictException("fatal: " + e.getMessage());
     }
 
@@ -501,7 +501,7 @@ public class QtUtil {
       try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
         for (ChangeData item : changes_staged) {
           Change change = item.change();
-          logger.atInfo().log("change %s back to NEW", change.getKey());
+          logger.atInfo().log("change %s,%s back to NEW", change.getId(), change.getKey());
           u.addOp(change.getId(), op);
         }
         u.execute();
@@ -530,7 +530,7 @@ public class QtUtil {
       }
     } catch (IOException e) {
       logger.atSevere().log(
-          "qtcodereview: rebuild %s failed to update ref %s", stagingBranchKey, e);
+          "rebuild %s failed to update ref %s", stagingBranchKey.branch(), e);
       throw new MergeConflictException("fatal: IOException");
     }
   }
@@ -576,7 +576,7 @@ public class QtUtil {
         if (changes != null && !changes.isEmpty()) {
           if (changes.size() > 1)
             logger.atWarning().log(
-                "qtcodereview: commit belongs to multiple changes: %s", commit.name());
+                "commit belongs to multiple changes: %s", commit.name());
           ChangeData cd = changes.get(0);
           map.put(cd.getId(), new AbstractMap.SimpleEntry<ChangeData, RevCommit>(cd, commit));
         }
@@ -599,19 +599,19 @@ public class QtUtil {
       throws NoSuchRefException, IOException, MergeConflictException {
 
     if (revWalk.isMergedInto(toMerge, mergeTip)) {
-      logger.atWarning().log("qtcodereview: commit %s already in %s", toMerge, mergeTip);
+      logger.atWarning().log("commit %s already in %s", toMerge.name(), mergeTip.name());
       return mergeTip; // already up to date
     }
 
     ThreeWayMerger merger = MergeStrategy.RESOLVE.newMerger(git, true);
     if (!merger.merge(mergeTip, toMerge)) {
-      logger.atWarning().log("qtcodereview: merge conflict %s on top of %s", toMerge, mergeTip);
+      logger.atWarning().log("merge conflict %s on top of %s", toMerge.name(), mergeTip.name());
       throw new MergeConflictException("Merge conflict");
     }
 
     if (!mergeAlways && merger.getResultTreeId().equals(toMerge.getTree().toObjectId())) {
       // Just fast forward, note that this will bring in all dependencies from source
-      logger.atInfo().log("qtcodereview: merge fast forward %s on top of %s", toMerge, mergeTip);
+      logger.atInfo().log("merge fast forward %s on top of %s", toMerge.name(), mergeTip.name());
       return toMerge;
     }
 
@@ -675,13 +675,13 @@ public class QtUtil {
 
       RevCommit mergeCommit = merge(committer, git, objInserter, revWalk, toMerge,
                                     mergeTip, customCommitMessage, false);
-      logger.atInfo().log("qtcodereview: merge commit for %s added to %s", srcId, destination);
+      logger.atInfo().log("merge commit %s added to %s", srcId.name(), destination.branch());
 
       RefUpdate refUpdate = git.updateRef(destination.branch());
       refUpdate.setNewObjectId(mergeCommit);
       return refUpdate.update();
     } catch (Exception e) {
-      logger.atWarning().log("qtcodereview: merge failed, %s", e);
+      logger.atWarning().log("merge failed, %s", e);
       return null;
     } finally {
       revWalk.dispose();
@@ -913,7 +913,7 @@ public class QtUtil {
       event.change = changeAttributeSupplier(change, notes);
       eventDispatcher.get().postEvent(event);
     } catch (StorageException | PermissionBackendException e) {
-      logger.atWarning().log("qtcodereview: postChangeStagedEvent failed: %s", e);
+      logger.atWarning().log("postChangeStagedEvent failed: %s", e);
     }
   }
 
@@ -924,7 +924,7 @@ public class QtUtil {
       event.change = changeAttributeSupplier(change, notes);
       eventDispatcher.get().postEvent(event);
     } catch (StorageException | PermissionBackendException e) {
-      logger.atWarning().log("qtcodereview: postChangeUnStagedEvent failed: %s", e);
+      logger.atWarning().log("postChangeUnStagedEvent failed: %s", e);
     }
   }
 
@@ -935,7 +935,7 @@ public class QtUtil {
       event.change = changeAttributeSupplier(change, notes);
       eventDispatcher.get().postEvent(event);
     } catch (StorageException | PermissionBackendException e) {
-      logger.atWarning().log("qtcodereview: postChangeIntegrationPassEvent failed: %s", e);
+      logger.atWarning().log("postChangeIntegrationPassEvent failed: %s", e);
     }
   }
 
@@ -946,7 +946,7 @@ public class QtUtil {
       event.change = changeAttributeSupplier(change, notes);
       eventDispatcher.get().postEvent(event);
     } catch (StorageException | PermissionBackendException e) {
-      logger.atWarning().log("qtcodereview: postChangeIntegrationFailEvent failed: %s", e);
+      logger.atWarning().log("postChangeIntegrationFailEvent failed: %s", e);
     }
   }
 
@@ -958,7 +958,7 @@ public class QtUtil {
       event.commitID = patchSet.commitId().name();
       eventDispatcher.get().postEvent(event);
     } catch (StorageException | PermissionBackendException e) {
-      logger.atWarning().log("qtcodereview: postChangePreCheckEvent failed: %s", e);
+      logger.atWarning().log("postChangePreCheckEvent failed: %s", e);
     }
   }
 }

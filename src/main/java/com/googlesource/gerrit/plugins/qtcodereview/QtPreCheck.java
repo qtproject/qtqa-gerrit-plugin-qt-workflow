@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2021 The Qt Company
+// Copyright (C) 2021-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -92,7 +92,7 @@ public class QtPreCheck
   public Response<Output> apply(RevisionResource rsrc, InputWithMessage in)
       throws RestApiException, RepositoryNotFoundException, IOException, PermissionBackendException,
           UpdateException, ConfigInvalidException {
-    logger.atInfo().log("qtcodereview: precheck request for %s", rsrc.getChange().toString());
+    logger.atInfo().log("precheck request for %s", rsrc.getChange().toString());
 
     boolean canReview;
 

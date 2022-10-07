@@ -213,7 +213,7 @@ public class QtCommandNewBuildIT extends QtCodeReviewIT {
 
     ArrayList<ChangeMessage> messages = new ArrayList(c.getChange().messages());
     assertThat(messages.get(messages.size() - 1).getMessage())
-        .contains(BUILDING_MSG + buildId); // check last message
+        .contains(BUILDING_MSG + "'" + buildId + "'"); // check last message
 
     return buildHead;
   }

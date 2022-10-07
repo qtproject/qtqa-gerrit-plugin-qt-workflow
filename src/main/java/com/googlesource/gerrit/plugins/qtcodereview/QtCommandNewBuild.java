@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -75,8 +75,7 @@ class QtCommandNewBuild extends SshCommand {
   @Override
   protected void run() throws UnloggedFailure {
 
-    logger.atInfo().log(
-        "qtcodereview: staging-new-build -p %s -s %s -i %s", project, stagingBranch, build);
+    logger.atInfo().log("staging-new-build -p %s -s %s -i %s", project, stagingBranch, build);
 
     try {
       Project.NameKey projectKey = Project.nameKey(project);
@@ -103,13 +102,13 @@ class QtCommandNewBuild extends SshCommand {
 
       if (QtUtil.branchExists(git, buildBranchKey) == true) {
         logger.atSevere().log(
-            "qtcodereview: staging-new-build Target build %s already exists", buildBranchKey);
+            "staging-new-build Target build '%s' already exists", buildBranchKey.branch());
         throw die("Target build already exists!");
       }
 
       if (QtUtil.branchExists(git, stagingBranchKey) == false) {
         logger.atSevere().log(
-            "qtcodereview: staging-new-build staging ref %s not found", stagingBranchKey);
+            "staging-new-build staging ref '%s' not found", stagingBranchKey.branch());
         throw die("Staging ref not found!");
       }
 
@@ -117,12 +116,12 @@ class QtCommandNewBuild extends SshCommand {
       Result result =
           qtUtil.createBuildRef(
               git, user.asIdentifiedUser(), projectKey, stagingBranchKey, buildBranchKey);
-      String message = String.format("Added to build %s for %s", build, destinationKey);
+      String message = String.format("Added to build '%s' for '%s'", build, destinationKey.shortName());
 
       if (result != Result.NEW && result != Result.FAST_FORWARD) {
         logger.atSevere().log(
-            "qtcodereview: staging-new-build failed to create new build ref %s result %s",
-            buildBranchKey, result);
+            "staging-new-build failed to create new build ref '%s' result %s",
+            buildBranchKey.branch(), result);
         throw new UnloggedFailure(1, "fatal: failed to create new build ref: " + result);
       } else {
         // list the changes in staging branch but missing from the destination branch
@@ -132,7 +131,7 @@ class QtCommandNewBuild extends SshCommand {
         // Make sure that there are changes in the staging branch.
         if (openChanges.isEmpty()) {
           logger.atSevere().log(
-              "qtcodereview: staging-new-build No changes in staging branch %s.", stagingBranchKey);
+              "staging-new-build No changes in staging branch %s.", stagingBranchKey.branch());
           throw die("No changes in staging branch. Not creating a build reference");
         }
 
@@ -149,13 +148,13 @@ class QtCommandNewBuild extends SshCommand {
             Change change = item.getKey().change();
             if (change.getStatus() == Change.Status.STAGED) {
               logger.atInfo().log(
-                  "qtcodereview: staging-new-build     inserted change %s (%s) into build %s for %s",
-                  change, item.getValue().toString(), build, destinationKey);
+                  "staging-new-build     inserted change %s,%s into build '%s' for '%s'",
+                  change.getId(), change.getKey(), build, destinationKey.shortName());
               u.addOp(change.getId(), op);
             } else {
               logger.atInfo().log(
-                  "qtcodereview: staging-new-build     change %s (%s) is included in build %s for %s",
-                  change, item.getValue().toString(), build, destinationKey);
+                  "staging-new-build     change %s, %s is included in build '%s' for '%s'",
+                  change.getId(), change.getKey(), build, destinationKey.shortName());
             }
           }
           u.execute();
@@ -166,30 +165,30 @@ class QtCommandNewBuild extends SshCommand {
       result = QtUtil.createStagingBranch(git, destBranchShortKey);
 
       logger.atInfo().log(
-          "qtcodereview: staging-new-build build %s for %s created", build, destBranchShortKey);
+          "staging-new-build build '%s' for '%s' created", build, destBranchShortKey.shortName());
 
     } catch (AuthException e) {
       logger.atSevere().log(
-          "qtcodereview: staging-new-build Authentication failed to access repository: %s", e);
+          "staging-new-build Authentication failed to access repository: %s", e);
       throw die("Authentication failed to access repository");
     } catch (PermissionBackendException e) {
       logger.atSevere().log(
-          "qtcodereview: staging-new-build Not enough permissions to access repository %s", e);
+          "staging-new-build Not enough permissions to access repository %s", e);
       throw die("Not enough permissions to access repository");
     } catch (RepositoryNotFoundException e) {
       throw die("project not found");
     } catch (IOException e) {
-      logger.atSevere().log("qtcodereview: staging-new-build Failed to access repository %s", e);
+      logger.atSevere().log("staging-new-build Failed to access repository %s", e);
       throw die("Failed to access repository");
     } catch (QtUtil.BranchNotFoundException e) {
       logger.atSevere().log(
-          "qtcodereview: staging-new-build Failed to access build or staging ref %s", e);
+          "staging-new-build Failed to access build or staging ref %s", e);
       throw die("Failed to access build or staging ref");
     } catch (NoSuchRefException e) {
-      logger.atSevere().log("qtcodereview: staging-new-build Invalid branch name %s", e);
+      logger.atSevere().log("staging-new-build Invalid branch name %s", e);
       throw die("Invalid branch name");
     } catch (UpdateException | RestApiException e) {
-      logger.atSevere().log("qtcodereview: staging-new-build failed to update change status %s", e);
+      logger.atSevere().log("staging-new-build failed to update change status %s", e);
       throw die("Failed to update change status");
     } finally {
       if (git != null) {

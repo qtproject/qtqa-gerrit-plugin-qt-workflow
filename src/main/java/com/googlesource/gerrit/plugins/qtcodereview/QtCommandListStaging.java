@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -65,7 +65,7 @@ class QtCommandListStaging extends SshCommand {
 
   @Override
   protected void run() throws UnloggedFailure {
-    logger.atInfo().log("qtcodereview: staging-ls -p %s -b %s", project, branch);
+    logger.atInfo().log("staging-ls -p %s -b %s", project, branch);
 
     final PrintWriter stdout = toPrintWriter(out);
 
@@ -106,20 +106,20 @@ class QtCommandListStaging extends SshCommand {
         }
       }
 
-      logger.atInfo().log("qtcodereview: staging-ls done");
+      logger.atInfo().log("staging-ls done");
     } catch (AuthException e) {
       logger.atSevere().log(
-          "qtcodereview: staging-ls Authentication failed to access repository: %s", e);
+          "staging-ls Authentication failed to access repository: %s", e);
       throw die("not authorized");
     } catch (PermissionBackendException e) {
-      logger.atSevere().log("qtcodereview: staging-ls permission error %s", e);
+      logger.atSevere().log("staging-ls permission error %s", e);
     } catch (RepositoryNotFoundException e) {
-      logger.atSevere().log("qtcodereview: staging-ls repository not found: %s", e);
+      logger.atSevere().log("staging-ls repository not found: %s", e);
       throw die("project not found");
     } catch (QtUtil.BranchNotFoundException e) {
       throw die("invalid branch " + e.getMessage());
     } catch (IOException e) {
-      logger.atSevere().log("qtcodereview: staging-ls IOException %s", e);
+      logger.atSevere().log("staging-ls IOException %s", e);
       throw die(e.getMessage());
     } finally {
       stdout.flush();

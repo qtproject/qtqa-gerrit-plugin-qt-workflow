@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-21 The Qt Company
+// Copyright (C) 2019-22 The Qt Company
 // Modified from
 // https://gerrit.googlesource.com/gerrit/+/refs/heads/stable-2.16/java/com/google/gerrit/server/restapi/change/Abandon.java
 //
@@ -70,7 +70,7 @@ public class QtDefer
   public Response<ChangeInfo> apply(ChangeResource rsrc, AbandonInput input)
       throws RestApiException, UpdateException, PermissionBackendException, IOException {
     Change change = rsrc.getChange();
-    logger.atInfo().log("qtcodereview: defer %s", rsrc.getChange().toString());
+    logger.atInfo().log("defer %s", rsrc.getChange().toString());
 
     // Not allowed to defer if the current patch set is locked.
     psUtil.checkPatchSetNotLocked(rsrc.getNotes());
@@ -80,7 +80,7 @@ public class QtDefer
 
     if (change.getStatus() != Change.Status.NEW && change.getStatus() != Change.Status.ABANDONED) {
       logger.atSevere().log(
-          "qtcodereview: defer: change %s status wrong %s", change, change.getStatus());
+          "defer: change %s status wrong %s", change.getId(), change.getStatus());
       throw new ResourceConflictException("change is " + ChangeUtil.status(change));
     }
 
@@ -98,7 +98,7 @@ public class QtDefer
     }
 
     change = op.getChange();
-    logger.atInfo().log("qtcodereview: deferred %s", change);
+    logger.atInfo().log("deferred %s,%s", change.getId(), change.getKey());
 
     return Response.ok(json.noOptions().format(change));
   }

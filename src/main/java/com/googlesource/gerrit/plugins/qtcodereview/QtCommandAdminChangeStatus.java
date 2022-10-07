@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -65,7 +65,7 @@ class QtCommandAdminChangeStatus extends SshCommand {
 
   @Override
   protected void run() throws UnloggedFailure {
-    logger.atInfo().log("qtcodereview: admin change-status start " + changeId);
+    logger.atInfo().log("admin change-status start " + changeId);
 
     try {
       Change.Status to = toStatus(toStr);
@@ -103,11 +103,11 @@ class QtCommandAdminChangeStatus extends SshCommand {
           throw die("change status was not " + fromStr);
         }
       }
-      logger.atInfo().log("qtcodereview: admin change-status done");
+      logger.atInfo().log("admin change-status done");
     } catch (NumberFormatException e) {
       throw die("change-id not numeric");
     } catch (UpdateException | RestApiException e) {
-      logger.atSevere().log("qtcodereview: change-status error %s", e.getMessage());
+      logger.atSevere().log("admin change-status error %s", e.getMessage());
       throw die("Database update failed");
     }
   }

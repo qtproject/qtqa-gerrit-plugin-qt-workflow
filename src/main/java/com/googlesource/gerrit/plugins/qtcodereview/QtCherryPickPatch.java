@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2021 The Qt Company
+// Copyright (C) 2021-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -93,7 +93,7 @@ public class QtCherryPickPatch {
           && parents.contains(baseCommit)
           && commitToCherryPick.getParentCount() < 2) {
         logger.atInfo().log(
-            "qtcodereview: cherrypick fast forward %s on top of %s", sourceId, destId);
+            "cherrypick fast forward %s on top of %s", sourceId.name(), destId.name());
         return commitToCherryPick;
       }
 
@@ -110,19 +110,19 @@ public class QtCherryPickPatch {
       MergeUtil mergeUtil = mergeUtilFactory.create(projectState, true);
       if (commitToCherryPick.getParentCount() > 1) {
         // Merge commit cannot be cherrypicked
-        logger.atInfo().log("qtcodereview: merge commit detected %s", commitToCherryPick);
+        logger.atInfo().log("merge commit detected %s", commitToCherryPick.name());
 
         if (commitToCherryPick.getParent(0).equals(baseCommit)) {
           // allow fast forward, when parent index 0 is correct
-          logger.atInfo().log("qtcodereview: merge commit fast forwarded");
+          logger.atInfo().log("merge commit fast forwarded");
           cherryPickCommit = commitToCherryPick;
         } else {
-          logger.atInfo().log("qtcodereview: merge of merge created");
+          logger.atInfo().log("merge of merge created");
           RevCommit commit =
               QtUtil.merge(committerIdent, git, oi, revWalk, commitToCherryPick,
                            baseCommit, null, true);
           cherryPickCommit = revWalk.parseCommit(commit);
-          logger.atInfo().log("qtcodereview: %s merged as %s", commitToCherryPick, cherryPickCommit);
+          logger.atInfo().log("commit %s merged as %s", commitToCherryPick.name(), cherryPickCommit.name());
         }
       } else {
         String commitMessage =
@@ -142,7 +142,7 @@ public class QtCherryPickPatch {
         boolean patchSetNotChanged = cherryPickCommit.equals(commitToCherryPick);
         if (!patchSetNotChanged) {
           logger.atInfo().log(
-              "qtcodereview: %s cherrypicked as %s", commitToCherryPick, cherryPickCommit);
+              "commit %s cherrypicked as %s", commitToCherryPick.name(), cherryPickCommit.name());
           oi.flush();
         }
       }
@@ -153,7 +153,7 @@ public class QtCherryPickPatch {
           changeData.getId(),
           qtUpdateFactory.create(newStatus, null, defaultMessage, inputMessage, tag, null));
       bu.execute();
-      logger.atInfo().log("qtcodereview: cherrypick done %s", changeData.getId());
+      logger.atInfo().log("cherrypick done for change %s", changeData.getId());
       return cherryPickCommit;
     } catch (Exception e) {
       throw new IntegrationConflictException("Reason: " + e.getMessage());

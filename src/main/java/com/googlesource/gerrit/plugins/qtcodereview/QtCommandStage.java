@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-22 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -53,7 +53,7 @@ class QtCommandStage extends SshCommand {
 
     for (PatchSet patchSet : patchSets) {
       try {
-        logger.atInfo().log("qtcodereview: ssh command stage %s", patchSet.id());
+        logger.atInfo().log("ssh command stage %s", patchSet.id());
         ChangeResource c = changes.parse(patchSet.id().changeId());
         IdString id = IdString.fromDecoded(patchSet.commitId().name());
         RevisionResource r = revisions.parse(c, id);

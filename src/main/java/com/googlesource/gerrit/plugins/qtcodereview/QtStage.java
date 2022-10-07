@@ -129,7 +129,7 @@ public class QtStage
           UpdateException, ConfigInvalidException {
 
     Output output;
-    logger.atInfo().log("qtcodereview: stage request reveived for %s", rsrc.getChange().toString());
+    logger.atInfo().log("stage request reveived for %s", rsrc.getChange().toString());
 
     stageLock.lock();  // block processing of parallel stage requests
     try {
@@ -156,22 +156,22 @@ public class QtStage
   private Change changeToStaging(RevisionResource rsrc, IdentifiedUser submitter, SubmitInput input)
       throws RestApiException, IOException, UpdateException, ConfigInvalidException,
           PermissionBackendException {
-    logger.atInfo().log("qtcodereview: changeToStaging starts for %s", change.toString());
+    logger.atInfo().log("changeToStaging starts for %s", change.getId());
 
     if (change.getStatus() != Change.Status.NEW) {
       logger.atSevere().log(
-          "qtcodereview: stage: change %s status wrong: %s", change, change.getStatus());
+          "stage: change %s status wrong: %s", change.getId(), change.getStatus());
       throw new ResourceConflictException("Change is " + change.getStatus());
     } else if (!ProjectUtil.branchExists(repoManager, change.getDest())) {
       logger.atSevere().log(
-          "qtcodereview: stage: change %s destination branch \"%s\" not found",
+          "stage: change %s destination branch \"%s\" not found",
           change, change.getDest().branch());
       throw new ResourceConflictException(
           String.format("Destination branch \"%s\" not found.", change.getDest().branch()));
     } else if (!rsrc.getPatchSet().id().equals(change.currentPatchSetId())) {
       logger.atSevere().log(
-          "qtcodereview: stage: change %s revision %s is not current revision",
-          change, rsrc.getPatchSet().commitId());
+          "stage: change %s revision %s is not current revision",
+          change.getId(), rsrc.getPatchSet().commitId());
       throw new ResourceConflictException(
           String.format("Revision %s is not current.", rsrc.getPatchSet().commitId()));
     }
@@ -219,10 +219,10 @@ public class QtStage
           projectKey, stagingBranchKey.branch(), destId, commit.toObjectId(), submitter.state());
 
     } catch (IntegrationConflictException e) {
-      logger.atInfo().log("qtcodereview: stage merge error %s", e);
+      logger.atInfo().log("stage merge error %s", e);
       throw new ResourceConflictException(e.getMessage());
     } catch (NoSuchRefException e) {
-      logger.atSevere().log("qtcodereview: stage error %s", e);
+      logger.atSevere().log("stage error %s", e);
       throw new ResourceConflictException(e.getMessage());
     } finally {
       if (git != null) {
@@ -235,7 +235,7 @@ public class QtStage
       case STAGED:
         qtUtil.postChangeStagedEvent(change);
         logger.atInfo().log(
-            "qtcodereview: changeToStaging %s added to %s", change, stagingBranchKey);
+            "changeToStaging %s,%s added to %s", change.getId(), change.getKey(), stagingBranchKey.branch());
         return change; // this doesn't return data to client, if needed use ChangeJson to convert it
       default:
         throw new ResourceConflictException("Change is unexpectedly " + change.getStatus());
