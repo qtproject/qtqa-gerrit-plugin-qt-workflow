@@ -20,15 +20,15 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
+import com.google.gerrit.entities.Change;
 import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.api.changes.AbandonInput;
 import com.google.gerrit.extensions.common.ChangeInfo;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
+import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
-import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.webui.UiAction;
-import com.google.gerrit.entities.Change;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.PatchSetUtil;
@@ -79,8 +79,7 @@ public class QtDefer
     rsrc.permissions().check(ChangePermission.ABANDON);
 
     if (change.getStatus() != Change.Status.NEW && change.getStatus() != Change.Status.ABANDONED) {
-      logger.atSevere().log(
-          "defer: change %s status wrong %s", change.getId(), change.getStatus());
+      logger.atSevere().log("defer: change %s status wrong %s", change.getId(), change.getStatus());
       throw new ResourceConflictException("change is " + ChangeUtil.status(change));
     }
 

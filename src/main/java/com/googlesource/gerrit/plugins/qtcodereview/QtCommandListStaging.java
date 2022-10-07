@@ -5,10 +5,10 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
-import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.Project;
+import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
@@ -29,7 +29,8 @@ import org.kohsuke.args4j.Option;
 @CommandMetaData(
     name = "staging-ls",
     description =
-        "List all the changes that have been applied to the staging or build ref that are not in the destination branch yet.")
+        "List all the changes that have been applied to the staging or build ref that are not in"
+            + " the destination branch yet.")
 class QtCommandListStaging extends SshCommand {
 
   @Inject private PermissionBackend permissionBackend;
@@ -71,8 +72,7 @@ class QtCommandListStaging extends SshCommand {
 
     Project.NameKey projectKey = Project.nameKey(project);
     BranchNameKey aBranchKey = BranchNameKey.create(projectKey, branch);
-    BranchNameKey destBranchShortKey =
-        QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, destination);
+    BranchNameKey destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, destination);
 
     try {
       git = gitManager.openRepository(projectKey);
@@ -108,8 +108,7 @@ class QtCommandListStaging extends SshCommand {
 
       logger.atInfo().log("staging-ls done");
     } catch (AuthException e) {
-      logger.atSevere().log(
-          "staging-ls Authentication failed to access repository: %s", e);
+      logger.atSevere().log("staging-ls Authentication failed to access repository: %s", e);
       throw die("not authorized");
     } catch (PermissionBackendException e) {
       logger.atSevere().log("staging-ls permission error %s", e);

@@ -6,16 +6,14 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.base.Function;
 import com.google.common.base.Strings;
-import com.google.common.collect.Iterables;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.common.Nullable;
-import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.entities.Change;
-import com.google.gerrit.entities.ChangeMessage;
 import com.google.gerrit.entities.LabelId;
 import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.PatchSetApproval;
 import com.google.gerrit.entities.SubmissionId;
+import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.approval.ApprovalsUtil;
 import com.google.gerrit.server.change.LabelNormalizer;
@@ -150,7 +148,8 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
     }
 
     submitter =
-        ApprovalsUtil.newApproval(psId, ctx.getUser(), LabelId.legacySubmit(), 1, ctx.getWhen()).build();
+        ApprovalsUtil.newApproval(psId, ctx.getUser(), LabelId.legacySubmit(), 1, ctx.getWhen())
+            .build();
     byKey.put(submitter.key(), submitter);
 
     LabelNormalizer.Result normalized = labelNormalizer.normalize(ctx.getNotes(), byKey.values());
@@ -185,18 +184,18 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
     };
   }
 
-//  private Iterable<PatchSetApproval> convertPatchSet(
-//      Iterable<PatchSetApproval> approvals, PatchSet.Id psId) {
-//    return Iterables.transform(approvals, convertPatchSet(psId));
-//  }
-//
-//  private Iterable<PatchSetApproval> zero(Iterable<PatchSetApproval> approvals) {
-//    return Iterables.transform(
-//        approvals,
-//        a -> {
-//          PatchSetApproval copy = new PatchSetApproval(a.getPatchSetId(), a);
-//          copy.setValue((short) 0);
-//          return copy;
-//        });
-//  }
+  //  private Iterable<PatchSetApproval> convertPatchSet(
+  //      Iterable<PatchSetApproval> approvals, PatchSet.Id psId) {
+  //    return Iterables.transform(approvals, convertPatchSet(psId));
+  //  }
+  //
+  //  private Iterable<PatchSetApproval> zero(Iterable<PatchSetApproval> approvals) {
+  //    return Iterables.transform(
+  //        approvals,
+  //        a -> {
+  //          PatchSetApproval copy = new PatchSetApproval(a.getPatchSetId(), a);
+  //          copy.setValue((short) 0);
+  //          return copy;
+  //        });
+  //  }
 }

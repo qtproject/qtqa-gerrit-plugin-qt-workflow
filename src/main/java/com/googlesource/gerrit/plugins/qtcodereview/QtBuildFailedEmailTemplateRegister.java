@@ -5,7 +5,6 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.gerrit.server.mail.send.MailSoyTemplateProvider;
-import com.google.inject.Singleton;
 import java.util.HashSet;
 import java.util.Set;
 

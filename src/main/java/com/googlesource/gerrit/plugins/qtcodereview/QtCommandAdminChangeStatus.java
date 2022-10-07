@@ -6,10 +6,10 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.common.data.GlobalCapability;
-import com.google.gerrit.extensions.annotations.RequiresCapability;
-import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.Project;
+import com.google.gerrit.extensions.annotations.RequiresCapability;
+import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
 import com.google.gerrit.server.update.BatchUpdate;
@@ -26,7 +26,8 @@ import org.kohsuke.args4j.Option;
 @CommandMetaData(
     name = "change-status",
     description =
-        "Modify change status for admins. NOTE: This only affects change attribure. No real git merge or revert will be performed.")
+        "Modify change status for admins. NOTE: This only affects change attribure. No real git"
+            + " merge or revert will be performed.")
 class QtCommandAdminChangeStatus extends SshCommand {
 
   @Inject Provider<InternalChangeQuery> queryProvider;

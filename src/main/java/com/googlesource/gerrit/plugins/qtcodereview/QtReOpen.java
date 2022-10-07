@@ -7,6 +7,7 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 import static com.google.gerrit.server.project.ProjectCache.illegalState;
 
 import com.google.common.flogger.FluentLogger;
+import com.google.gerrit.entities.Change;
 import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.api.changes.RestoreInput;
 import com.google.gerrit.extensions.common.ChangeInfo;
@@ -15,7 +16,6 @@ import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
 import com.google.gerrit.extensions.webui.UiAction;
-import com.google.gerrit.entities.Change;
 import com.google.gerrit.server.ChangeUtil;
 import com.google.gerrit.server.PatchSetUtil;
 import com.google.gerrit.server.change.ChangeJson;
@@ -32,8 +32,7 @@ import com.google.inject.Singleton;
 import java.io.IOException;
 
 @Singleton
-class QtReOpen
-    implements RestModifyView<ChangeResource, RestoreInput>, UiAction<ChangeResource> {
+class QtReOpen implements RestModifyView<ChangeResource, RestoreInput>, UiAction<ChangeResource> {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 

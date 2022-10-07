@@ -5,8 +5,8 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.gerrit.entities.Change;
-import com.google.gerrit.server.events.PatchSetEvent;
 import com.google.gerrit.extensions.common.InputWithMessage;
+import com.google.gerrit.server.events.PatchSetEvent;
 
 public class QtChangePreCheckEvent extends PatchSetEvent {
   public static final String TYPE = "precheck";
@@ -14,7 +14,6 @@ public class QtChangePreCheckEvent extends PatchSetEvent {
   public String precheckType = "";
   public String platforms = "";
   public boolean onlyBuild = false;
-
 
   public QtChangePreCheckEvent(Change change, InputWithMessage data) {
     super(TYPE, change);

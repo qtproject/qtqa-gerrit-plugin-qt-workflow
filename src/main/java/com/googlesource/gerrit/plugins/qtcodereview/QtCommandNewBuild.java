@@ -5,11 +5,11 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
-import com.google.gerrit.extensions.restapi.AuthException;
-import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.Project;
+import com.google.gerrit.extensions.restapi.AuthException;
+import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
@@ -34,7 +34,8 @@ import org.kohsuke.args4j.Option;
 @CommandMetaData(
     name = "staging-new-build",
     description =
-        "Create unique build branch of the current staging branch and change the gerrit status of the changes to INTEGRATING.")
+        "Create unique build branch of the current staging branch and change the gerrit status of"
+            + " the changes to INTEGRATING.")
 class QtCommandNewBuild extends SshCommand {
 
   @Inject private PermissionBackend permissionBackend;
@@ -116,7 +117,8 @@ class QtCommandNewBuild extends SshCommand {
       Result result =
           qtUtil.createBuildRef(
               git, user.asIdentifiedUser(), projectKey, stagingBranchKey, buildBranchKey);
-      String message = String.format("Added to build '%s' for '%s'", build, destinationKey.shortName());
+      String message =
+          String.format("Added to build '%s' for '%s'", build, destinationKey.shortName());
 
       if (result != Result.NEW && result != Result.FAST_FORWARD) {
         logger.atSevere().log(
@@ -168,12 +170,10 @@ class QtCommandNewBuild extends SshCommand {
           "staging-new-build build '%s' for '%s' created", build, destBranchShortKey.shortName());
 
     } catch (AuthException e) {
-      logger.atSevere().log(
-          "staging-new-build Authentication failed to access repository: %s", e);
+      logger.atSevere().log("staging-new-build Authentication failed to access repository: %s", e);
       throw die("Authentication failed to access repository");
     } catch (PermissionBackendException e) {
-      logger.atSevere().log(
-          "staging-new-build Not enough permissions to access repository %s", e);
+      logger.atSevere().log("staging-new-build Not enough permissions to access repository %s", e);
       throw die("Not enough permissions to access repository");
     } catch (RepositoryNotFoundException e) {
       throw die("project not found");
@@ -181,8 +181,7 @@ class QtCommandNewBuild extends SshCommand {
       logger.atSevere().log("staging-new-build Failed to access repository %s", e);
       throw die("Failed to access repository");
     } catch (QtUtil.BranchNotFoundException e) {
-      logger.atSevere().log(
-          "staging-new-build Failed to access build or staging ref %s", e);
+      logger.atSevere().log("staging-new-build Failed to access build or staging ref %s", e);
       throw die("Failed to access build or staging ref");
     } catch (NoSuchRefException e) {
       logger.atSevere().log("staging-new-build Invalid branch name %s", e);

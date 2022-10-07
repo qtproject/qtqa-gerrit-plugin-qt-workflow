@@ -11,18 +11,18 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.common.data.ParameterizedString;
-import com.google.gerrit.exceptions.StorageException;
-import com.google.gerrit.extensions.api.changes.SubmitInput;
-import com.google.gerrit.extensions.restapi.ResourceConflictException;
-import com.google.gerrit.extensions.restapi.RestApiException;
-import com.google.gerrit.extensions.restapi.RestModifyView;
-import com.google.gerrit.extensions.restapi.Response;
-import com.google.gerrit.extensions.webui.UiAction;
-import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.Change.Status;
+import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
+import com.google.gerrit.exceptions.StorageException;
+import com.google.gerrit.extensions.api.changes.SubmitInput;
+import com.google.gerrit.extensions.restapi.ResourceConflictException;
+import com.google.gerrit.extensions.restapi.Response;
+import com.google.gerrit.extensions.restapi.RestApiException;
+import com.google.gerrit.extensions.restapi.RestModifyView;
+import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.ProjectUtil;
 import com.google.gerrit.server.account.AccountResolver;
@@ -45,7 +45,6 @@ import com.google.gerrit.server.update.UpdateException;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
-
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
@@ -131,7 +130,7 @@ public class QtStage
     Output output;
     logger.atInfo().log("stage request reveived for %s", rsrc.getChange().toString());
 
-    stageLock.lock();  // block processing of parallel stage requests
+    stageLock.lock(); // block processing of parallel stage requests
     try {
       IdentifiedUser submitter = rsrc.getUser().asIdentifiedUser();
       change = rsrc.getChange();
@@ -235,7 +234,8 @@ public class QtStage
       case STAGED:
         qtUtil.postChangeStagedEvent(change);
         logger.atInfo().log(
-            "changeToStaging %s,%s added to %s", change.getId(), change.getKey(), stagingBranchKey.branch());
+            "changeToStaging %s,%s added to %s",
+            change.getId(), change.getKey(), stagingBranchKey.branch());
         return change; // this doesn't return data to client, if needed use ChangeJson to convert it
       default:
         throw new ResourceConflictException("Change is unexpectedly " + change.getStatus());
@@ -250,20 +250,27 @@ public class QtStage
     }
   }
 
-  private void checkParents(Repository repository, RevisionResource resource) throws ResourceConflictException {
+  private void checkParents(Repository repository, RevisionResource resource)
+      throws ResourceConflictException {
     try (final RevWalk rw = new RevWalk(repository)) {
       final PatchSet ps = resource.getPatchSet();
       final RevCommit rc = rw.parseCommit(ObjectId.fromString(ps.commitId().name()));
       if (rc.getParentCount() < 2) {
-          return;
+        return;
       }
       for (final RevCommit parent : rc.getParents()) {
         final List<ChangeData> changes =
-                queryProvider.get().enforceVisibility(true).byProjectCommit(resource.getProject(), parent);
+            queryProvider
+                .get()
+                .enforceVisibility(true)
+                .byProjectCommit(resource.getProject(), parent);
         for (ChangeData cd : changes) {
           final Change change = cd.change();
           if (change.getStatus() != Status.MERGED) {
-            throw new ResourceConflictException(String.format("Can not stage: Parent \"%s\" of a merged commit is not merged.", parent.name()));
+            throw new ResourceConflictException(
+                String.format(
+                    "Can not stage: Parent \"%s\" of a merged commit is not merged.",
+                    parent.name()));
           }
         }
       }
@@ -282,15 +289,15 @@ public class QtStage
       return null; // submit not visible
     }
     try {
-        checkParents(resource);
+      checkParents(resource);
     } catch (ResourceConflictException e) {
-        logger.atWarning().log("Parent(s) check failed. %s", e.getMessage());
-        return null;
+      logger.atWarning().log("Parent(s) check failed. %s", e.getMessage());
+      return null;
     }
     try {
       if (!projectCache
           .get(resource.getProject())
-           .map(ProjectState::statePermitsWrite)
+          .map(ProjectState::statePermitsWrite)
           .orElse(false)) {
         return null; // stage not visible
       }

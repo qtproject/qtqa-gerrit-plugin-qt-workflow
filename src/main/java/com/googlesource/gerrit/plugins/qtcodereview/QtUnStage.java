@@ -7,6 +7,10 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 import static com.google.gerrit.server.project.ProjectCache.illegalState;
 
 import com.google.common.flogger.FluentLogger;
+import com.google.gerrit.entities.BranchNameKey;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.PatchSet;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.AuthException;
@@ -15,10 +19,6 @@ import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
 import com.google.gerrit.extensions.webui.UiAction;
-import com.google.gerrit.entities.BranchNameKey;
-import com.google.gerrit.entities.Change;
-import com.google.gerrit.entities.PatchSet;
-import com.google.gerrit.entities.Project;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.ProjectUtil;
 import com.google.gerrit.server.account.AccountResolver;
@@ -130,8 +130,7 @@ class QtUnStage
           "unstage: change %s revision %s is not current revision",
           change, rsrc.getPatchSet().commitId());
       throw new ResourceConflictException(
-          String.format(
-              "revision %s is not current revision", rsrc.getPatchSet().commitId()));
+          String.format("revision %s is not current revision", rsrc.getPatchSet().commitId()));
     }
 
     final BranchNameKey destBranchShortKey =
@@ -157,7 +156,8 @@ class QtUnStage
 
       change = op.getChange();
       qtUtil.postChangeUnStagedEvent(change);
-      logger.atInfo().log("unstaged %s,%s from %s", change.getId(), change.getKey(), stagingBranchKey.shortName());
+      logger.atInfo().log(
+          "unstaged %s,%s from %s", change.getId(), change.getKey(), stagingBranchKey.shortName());
 
     } catch (ResourceConflictException e) {
       logger.atSevere().log("unstage resource conflict error %s", e);
@@ -201,10 +201,7 @@ class QtUnStage
     }
 
     try {
-      if (!projectCache
-          .get(rsrc.getProject())
-          .map(ProjectState::statePermitsWrite)
-          .orElse(false)) {
+      if (!projectCache.get(rsrc.getProject()).map(ProjectState::statePermitsWrite).orElse(false)) {
         return description;
       }
     } catch (StorageException e) {

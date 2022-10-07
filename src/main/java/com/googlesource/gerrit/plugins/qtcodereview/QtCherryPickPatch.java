@@ -119,10 +119,11 @@ public class QtCherryPickPatch {
         } else {
           logger.atInfo().log("merge of merge created");
           RevCommit commit =
-              QtUtil.merge(committerIdent, git, oi, revWalk, commitToCherryPick,
-                           baseCommit, null, true);
+              QtUtil.merge(
+                  committerIdent, git, oi, revWalk, commitToCherryPick, baseCommit, null, true);
           cherryPickCommit = revWalk.parseCommit(commit);
-          logger.atInfo().log("commit %s merged as %s", commitToCherryPick.name(), cherryPickCommit.name());
+          logger.atInfo().log(
+              "commit %s merged as %s", commitToCherryPick.name(), cherryPickCommit.name());
         }
       } else {
         String commitMessage =

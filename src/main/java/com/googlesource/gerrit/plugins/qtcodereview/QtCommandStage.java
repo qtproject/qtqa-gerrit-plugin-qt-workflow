@@ -5,9 +5,9 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
+import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.IdString;
-import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.server.change.ChangeResource;
 import com.google.gerrit.server.change.RevisionResource;
 import com.google.gerrit.server.restapi.change.ChangesCollection;

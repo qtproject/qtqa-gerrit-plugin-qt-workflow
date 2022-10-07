@@ -5,9 +5,9 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.flogger.FluentLogger;
-import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.Project;
+import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
@@ -74,8 +74,7 @@ class QtCommandRebuildStaging extends SshCommand {
 
       logger.atInfo().log("staging-rebuild done for %s", stagingBranchKey.shortName());
     } catch (AuthException e) {
-      logger.atSevere().log(
-          "staging-rebuild Authentication failed to access repository: %s", e);
+      logger.atSevere().log("staging-rebuild Authentication failed to access repository: %s", e);
       throw die("not authorized");
     } catch (PermissionBackendException e) {
       logger.atSevere().log("staging-rebuild permission error %s", e);
