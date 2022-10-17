@@ -7,17 +7,16 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 import static com.google.gerrit.server.change.ChangeResource.CHANGE_KIND;
 import static com.google.gerrit.server.change.RevisionResource.REVISION_KIND;
 
-import com.google.common.flogger.FluentLogger;
+import com.google.gerrit.extensions.annotations.Exports;
 import com.google.gerrit.extensions.config.FactoryModule;
 import com.google.gerrit.extensions.registration.DynamicSet;
 import com.google.gerrit.extensions.restapi.RestApiModule;
+import com.google.gerrit.server.config.ProjectConfigEntry;
 import com.google.gerrit.server.events.EventTypes;
 import com.google.gerrit.server.git.ChangeMessageModifier;
 import com.google.gerrit.server.mail.send.MailSoyTemplateProvider;
 
 public class QtModule extends FactoryModule {
-
-  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   static {
     EventTypes.register(QtChangeStagedEvent.TYPE, QtChangeStagedEvent.class);
@@ -27,6 +26,11 @@ public class QtModule extends FactoryModule {
 
   @Override
   protected void configure() {
+
+    // Plugin settings
+    bind(ProjectConfigEntry.class)
+        .annotatedWith(Exports.named("showReviewedOnFooter"))
+        .toInstance(new ProjectConfigEntry("Show 'Reviewed-on' footer in commit messages", false));
 
     factory(QtBuildFailedSender.Factory.class);
     factory(QtChangeUpdateOp.Factory.class);

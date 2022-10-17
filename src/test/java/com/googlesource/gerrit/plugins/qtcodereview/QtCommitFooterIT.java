@@ -10,13 +10,14 @@ import static com.google.gerrit.server.project.testing.TestLabels.label;
 import static com.google.gerrit.server.project.testing.TestLabels.value;
 import static com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate.allowLabel;
 
-import com.google.gerrit.acceptance.LightweightPluginDaemonTest;
+import com.google.gerrit.acceptance.GitUtil;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.testsuite.project.ProjectOperations;
 import com.google.gerrit.acceptance.testsuite.request.RequestScopeOperations;
 import com.google.gerrit.entities.LabelType;
+import com.google.gerrit.entities.RefNames;
 import com.google.gerrit.extensions.api.changes.ReviewInput;
 import com.google.gerrit.extensions.api.projects.ProjectInput;
 import com.google.gerrit.extensions.client.SubmitType;
@@ -24,6 +25,8 @@ import com.google.gerrit.extensions.common.ChangeInfo;
 import com.google.gerrit.entities.AccountGroup;
 import com.google.gerrit.server.project.testing.TestLabels;
 import com.google.inject.Inject;
+import org.eclipse.jgit.lib.Config;
+import org.eclipse.jgit.revwalk.RevCommit;
 import org.junit.Test;
 
 @TestPlugin(
@@ -31,7 +34,7 @@ import org.junit.Test;
     sysModule = "com.googlesource.gerrit.plugins.qtcodereview.QtModule",
     sshModule = "com.googlesource.gerrit.plugins.qtcodereview.QtSshModule")
 @UseSsh
-public class QtCommitFooterIT extends LightweightPluginDaemonTest {
+public class QtCommitFooterIT extends QtCodeReviewIT {
   @Inject private ProjectOperations projectOperations;
   @Inject private RequestScopeOperations requestScopeOperations;
 
@@ -85,4 +88,44 @@ public class QtCommitFooterIT extends LightweightPluginDaemonTest {
     assertThat(commitMsg).doesNotContain("Tested-by");
     assertThat(commitMsg).doesNotContain("ChangeLog");
   }
+
+  @Test
+  public void removeCommitFooterLinesKeepReviewedOn() throws Exception {
+
+    RevCommit initialHead = getRemoteHead();
+
+    // Change setting for the project to show 'Reviewed-on' commit message footer
+    Config cfg = new Config();
+    cfg.fromText(projectOperations.project(project).getConfig().toText());
+    cfg.setBoolean("plugin", "gerrit-plugin-qt-workflow", "showReviewedOnFooter", true);
+    GitUtil.fetch(testRepo, RefNames.REFS_CONFIG + ":" + RefNames.REFS_CONFIG);
+    testRepo.reset(RefNames.REFS_CONFIG);
+    PushOneCommit.Result r =
+        pushFactory
+            .create(admin.newIdent(), testRepo, "Subject", "project.config", cfg.toText())
+            .to(RefNames.REFS_CONFIG);
+    r.assertOkStatus();
+
+    AccountGroup.UUID registered = systemGroupBackend.getGroup(REGISTERED_USERS).getUUID();
+
+    projectOperations.project(project).forUpdate()
+        .add(allowLabel(TestLabels.codeReview().getName()).ref("refs/heads/*").group(registered).range(-2, 2))
+        .update();
+
+    testRepo.reset(initialHead);
+    PushOneCommit.Result change = createChange();
+    requestScopeOperations.setApiUser(user.id());
+    ReviewInput input = new ReviewInput();
+    input.label("Code-Review", 2);
+    gApi.changes().id(change.getChangeId()).current().review(input);
+
+    requestScopeOperations.setApiUser(admin.id());
+    gApi.changes().id(change.getChangeId()).current().submit();
+
+    ChangeInfo cf = gApi.changes().id(change.getChangeId()).get(CURRENT_REVISION, CURRENT_COMMIT);
+    String commitMsg = cf.revisions.get(cf.currentRevision).commit.message;
+    assertThat(commitMsg).contains("Reviewed-by");
+    assertThat(commitMsg).contains("Reviewed-on");
+  }
+
 }
