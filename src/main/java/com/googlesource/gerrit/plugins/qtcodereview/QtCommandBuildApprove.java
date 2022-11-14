@@ -269,6 +269,9 @@ class QtCommandBuildApprove extends SshCommand {
       referenceUpdated.fire(
           projectKey, destBranchKey.branch(), oldId, newId, user.asIdentifiedUser().state());
     }
+
+    // return merged sha1 to the caller
+    stdout.println(newId.name());
   }
 
   private void rejectBuildChanges()
