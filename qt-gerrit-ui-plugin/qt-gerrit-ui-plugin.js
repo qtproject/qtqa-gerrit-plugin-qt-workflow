@@ -254,11 +254,9 @@ Gerrit.install(plugin => {
                                         </div>
                                     </div>
                                     <div id="checkboxes" hidden=true>
-                                        <p>Targets can be a bare OS name, or OS with version.
-                                        See <a href="https://testresults.qt.io/coin/doc/properties.html#os">COIN Platforms</a> for available targets.
-                                        If a given target (case-insensitive) matches with an available target, it will be selected for running.
-                                        Linux as target is a special case and matches to all linux distros and versions.</p>
-                                        <input type="text" id="PlatformsInput" rows="1" autocapitalize="none" placeholder="linux,android,qnx">
+                                        <p>Match against os, osversion, arch, compiler or feature.
+                                        See <a href="https://testresults.qt.io/coin/doc/precheck.html">COIN precheck</a> for usage details.</p>
+                                        <input type="text" id="PlatformsInput" rows="1" autocapitalize="none" placeholder="os:android and arch:-x86">
                                     </div>
                                 </div>
                             </div>
