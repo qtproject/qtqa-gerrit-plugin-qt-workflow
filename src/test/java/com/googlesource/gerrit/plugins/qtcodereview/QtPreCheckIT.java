@@ -13,6 +13,7 @@ import com.google.gerrit.acceptance.UseLocalDisk;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.entities.AccountGroup;
 import com.google.gerrit.extensions.common.InputWithMessage;
+import com.googlesource.gerrit.plugins.qtcodereview.QtPrecheckMessage;
 import org.apache.http.HttpStatus;
 import org.junit.Test;
 
@@ -24,11 +25,9 @@ import org.junit.Test;
 @UseSsh
 public class QtPreCheckIT extends QtCodeReviewIT {
 
-  static final String inputDefault = "type:default&buildonly:false&platforms:";
-  static final String inputFull = "type:full&buildonly:true&platforms:";
-  static final String inputCustom = "type:custom&buildonly:false&platforms:linux,android,qnx";
-  static final String inputNull = null;
-  static final String inputBad = "&type:&custom&";
+  static final QtPrecheckMessage inputDefault = new QtPrecheckMessage(false, "default", "");
+  static final QtPrecheckMessage inputFull = new QtPrecheckMessage(true ,"full", "");
+  static final QtPrecheckMessage inputCustom = new QtPrecheckMessage(false, "custom", "os:linux and arch: arm64");
 
   @Test
   public void preCheck_Ok() throws Exception {
@@ -101,25 +100,19 @@ public class QtPreCheckIT extends QtCodeReviewIT {
         .update();
 
     RestResponse response;
-    response = call_REST_API_PreCheck(c.getChangeId(), c.getCommit().getName(), new InputWithMessage(inputFull));
+    response = call_REST_API_PreCheck(c.getChangeId(), c.getCommit().getName(), inputFull);
     response.assertOK();
 
-    response = call_REST_API_PreCheck(c.getChangeId(), c.getCommit().getName(), new InputWithMessage(inputCustom));
-    response.assertOK();
-
-    response = call_REST_API_PreCheck(c.getChangeId(), c.getCommit().getName(), new InputWithMessage(inputNull));
-    response.assertOK();
-
-    response = call_REST_API_PreCheck(c.getChangeId(), c.getCommit().getName(), new InputWithMessage(inputBad));
+    response = call_REST_API_PreCheck(c.getChangeId(), c.getCommit().getName(), inputCustom);
     response.assertOK();
   }
 
   protected RestResponse call_REST_API_PreCheck(String changeId, String revisionId)
       throws Exception {
-    return call_REST_API_PreCheck(changeId,revisionId, new InputWithMessage(inputDefault));
+    return call_REST_API_PreCheck(changeId,revisionId, inputDefault);
   }
 
-  protected RestResponse call_REST_API_PreCheck(String changeId, String revisionId, InputWithMessage input)
+  protected RestResponse call_REST_API_PreCheck(String changeId, String revisionId, QtPrecheckMessage input)
       throws Exception {
     String url =
         "/changes/" + changeId + "/revisions/" + revisionId + "/gerrit-plugin-qt-workflow~precheck";

@@ -28,6 +28,7 @@ import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import com.googlesource.gerrit.plugins.qtcodereview.QtPrecheckMessage;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
@@ -38,7 +39,7 @@ import org.eclipse.jgit.lib.ObjectId;
 
 @Singleton
 public class QtPreCheck
-    implements RestModifyView<RevisionResource, InputWithMessage>, UiAction<RevisionResource> {
+    implements RestModifyView<RevisionResource, QtPrecheckMessage>, UiAction<RevisionResource> {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
   private static final String DEFAULT_TOOLTIP = "Trigger a precheck integration";
@@ -87,7 +88,7 @@ public class QtPreCheck
   }
 
   @Override
-  public Response<Output> apply(RevisionResource rsrc, InputWithMessage in)
+  public Response<Output> apply(RevisionResource rsrc, QtPrecheckMessage in)
       throws RestApiException, RepositoryNotFoundException, IOException, PermissionBackendException,
           UpdateException, ConfigInvalidException {
     logger.atInfo().log("precheck request for %s", rsrc.getChange().toString());
@@ -116,23 +117,14 @@ public class QtPreCheck
     Change change = rsrc.getChange();
     Output output;
     output = new Output(change);
-    if (in.message == null) in.message = "none";
     this.qtUtil.postChangePreCheckEvent(change, rsrc.getPatchSet(), in);
 
     // Generate user friendly message
-    String[] inputs = in.message.split("&");
     StringBuilder msg = new StringBuilder();
-    for (String input : inputs) {
-      String[] values = input.split(":");
-      String property = values[0];
-      if (values.length < 2) {
-        continue;
-      }
-
-      if (msg.length() > 0) {
-        msg.append(", ");
-      }
-      msg.append(property + ": " + values[1]);
+    msg.append("type: " + in.type);
+    msg.append(", buildonly: " + in.onlyBuild);
+    if (in.type.equals("custom")) {
+      msg.append(", input: " + in.platforms);
     }
 
     QtChangeUpdateOp op =

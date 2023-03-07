@@ -132,9 +132,9 @@ Gerrit.install(plugin => {
                     confirmBtn.setAttribute('loading');
 
                     plugin.restApi().post(actions["gerrit-plugin-qt-workflow~precheck"].__url, {
-                        message: "type:" + dialog.querySelector('#typeSelect').value + "&"
-                               + "buildonly:" + dialog.querySelector('#BuildOnlyCheckBox').checked + "&"
-                               + "platforms:" + dialog.querySelector('#PlatformsInput').value
+                            type: dialog.querySelector('#typeSelect').value,
+                            onlyBuild: dialog.querySelector('#BuildOnlyCheckBox').checked,
+                            platforms: dialog.querySelector('#PlatformsInput').value
                         }).then(() => {
                                 confirmBtn.removeAttribute('loading');
                                 confirmBtn.disabled = false;

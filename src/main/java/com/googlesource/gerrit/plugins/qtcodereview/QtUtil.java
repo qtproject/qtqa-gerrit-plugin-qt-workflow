@@ -51,6 +51,7 @@ import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
+import com.googlesource.gerrit.plugins.qtcodereview.QtPrecheckMessage;
 import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.AbstractMap;
@@ -943,7 +944,7 @@ public class QtUtil {
     }
   }
 
-  public void postChangePreCheckEvent(Change change, PatchSet patchSet, InputWithMessage data) {
+  public void postChangePreCheckEvent(Change change, PatchSet patchSet, QtPrecheckMessage data) {
     try {
       ChangeNotes notes = changeNotesFactory.createChecked(change);
       QtChangePreCheckEvent event = new QtChangePreCheckEvent(change, data);
