@@ -947,7 +947,7 @@ public class QtUtil {
   public void postChangePreCheckEvent(Change change, PatchSet patchSet, QtPrecheckMessage data) {
     try {
       ChangeNotes notes = changeNotesFactory.createChecked(change);
-      QtChangePreCheckEvent event = new QtChangePreCheckEvent(change, data);
+      QtChangePreCheckEvent event = new QtChangePreCheckEvent(change, patchSet, data);
       event.change = changeAttributeSupplier(change, notes);
       event.commitID = patchSet.commitId().name();
       eventDispatcher.get().postEvent(event);
