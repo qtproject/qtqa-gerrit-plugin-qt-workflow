@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-22 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 //
 // This plugin provides UI customization for codereview.qt-project.org
 //
@@ -7,12 +7,12 @@
 'use strict';
 
 var BUTTONS = [
-    'gerrit-plugin-qt-workflow~abandon',
-    'gerrit-plugin-qt-workflow~defer',
-    'gerrit-plugin-qt-workflow~reopen',
-    'gerrit-plugin-qt-workflow~stage',
-    'gerrit-plugin-qt-workflow~unstage',
-    'gerrit-plugin-qt-workflow~precheck'
+    { key: 'gerrit-plugin-qt-workflow~abandon', icon: "block" },
+    { key: 'gerrit-plugin-qt-workflow~defer', icon: "watch_later" },
+    { key: 'gerrit-plugin-qt-workflow~reopen', icon: "history" },
+    { key: 'gerrit-plugin-qt-workflow~stage', icon: "done_all" },
+    { key: 'gerrit-plugin-qt-workflow~unstage', icon: "undo" },
+    { key: 'gerrit-plugin-qt-workflow~precheck', icon: "preview" }
 ];
 
 Gerrit.install(plugin => {
@@ -29,7 +29,7 @@ Gerrit.install(plugin => {
     // Customize header
     plugin.hook('header-title',  {replace: true} ).onAttached(element => {
         const css_str = '<style> \
-                          .titleText::before {\
+                          .QtTitleText::before {\
                           background-image: url("/static/logo_qt.png");\
                           background-size: 40px 30px;\
                           background-repeat: no-repeat;\
@@ -41,7 +41,7 @@ Gerrit.install(plugin => {
                         }\
                         </style>';
         const html_str = '<div id="qt-header"> \
-                            <div class="titleText">Code Review</div> \
+                            <div class="QtTitleText">Code Review</div> \
                           </div>';
         var elem = htmlToElement(css_str);
         element.appendChild(elem);
@@ -60,7 +60,7 @@ Gerrit.install(plugin => {
 
         // Place the sanity review label elements inside the new wrapper element.
         // When upgrading to a new Gerrit release use, "console.log(element)" to debug structure of the elements
-        var sanity_elem_root = element.parentNode.host;
+        var sanity_elem_root = element.parentNode;
         var child_elem;
         while (sanity_elem_root.childNodes.length) {
             child_elem = sanity_elem_root.removeChild(sanity_elem_root.childNodes[0]);
@@ -87,16 +87,19 @@ Gerrit.install(plugin => {
         cActions.setActionHidden('revision', 'rebase', true);
 
         // Hide 'Sanity-Review+1' button in header
-        var secondaryActionsElem = cActions.el.root;
-        if (secondaryActionsElem &&
-            secondaryActionsElem.innerHTML &&
-            secondaryActionsElem.innerHTML.indexOf('Sanity-Review+1') != -1) {
-            cActions.hideQuickApproveAction();
+        let secondaryActions = cActions.el.__topLevelSecondaryActions;
+        if (secondaryActions && Array.isArray(secondaryActions)) {
+            secondaryActions.forEach((action) => {
+                if (action.__key === "review" && action.label === "Sanity-Review+1") {
+                    cActions.hideQuickApproveAction();
+                }
+            });
         }
 
         // Remove any existing buttons
         if (plugin.buttons) {
-            BUTTONS.forEach((key) => {
+            BUTTONS.forEach((button) => {
+                let key = button.key;
                 if (typeof plugin.buttons[key] !== 'undefined' && plugin.buttons[key] !== null) {
                     cActions.removeTapListener(plugin.buttons[key], (param) => {} );
                     cActions.remove(plugin.buttons[key]);
@@ -274,14 +277,16 @@ Gerrit.install(plugin => {
         }
 
         // Add buttons based on server response
-        BUTTONS.forEach((key) => {
-            var action = actions[key];
+        BUTTONS.forEach((button) => {
+            let key = button.key;
+            let action = actions[key];
             if (action) {
                 // hide dropdown action
                 cActions.setActionHidden(action.__type, action.__key, true);
 
                 // add button
                 plugin.buttons[key] = cActions.add(action.__type, action.label);
+                cActions.setIcon(plugin.buttons[key], button.icon);
                 cActions.setTitle(plugin.buttons[key], action.title);
                 cActions.setEnabled(plugin.buttons[key], action.enabled===true);
                 if (key === 'gerrit-plugin-qt-workflow~precheck') {
@@ -292,8 +297,6 @@ Gerrit.install(plugin => {
                 }
 
                 if (key === 'gerrit-plugin-qt-workflow~stage') {
-                    // use the submit icon for our stage button
-                    cActions.setIcon(plugin.buttons[key], 'submit');
                     // hide submit button when it would be disabled next to the stage button
                     let submit = actions['submit'];
                     if (!submit.enabled) {

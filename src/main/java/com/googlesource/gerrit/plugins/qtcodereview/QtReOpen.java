@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-22 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -87,7 +87,7 @@ class QtReOpen implements RestModifyView<ChangeResource, RestoreInput>, UiAction
             QtUtil.TAG_REOPENED,
             null);
     try (BatchUpdate u =
-        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
+        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
       u.addOp(rsrc.getId(), op).execute();
     }
 

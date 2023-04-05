@@ -1,4 +1,4 @@
-// Copyright (C) 2019-21 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -215,7 +215,7 @@ public class QtStageIT extends QtCodeReviewIT {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
 
     RestResponse response = qtStageExpectFail(c, initialHead, initialHead, HttpStatus.SC_CONFLICT);
-    assertThat(response.getEntityContent()).contains("needs Code-Review");
+    assertThat(response.getEntityContent()).contains("submit requirement 'Code-Review' is unsatisfied");
   }
 
   @Test

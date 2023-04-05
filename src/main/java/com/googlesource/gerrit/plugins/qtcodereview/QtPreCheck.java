@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2021-22 The Qt Company
+// Copyright (C) 2021-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -136,7 +136,7 @@ public class QtPreCheck
             QtUtil.TAG_CI,
             null);
     try (BatchUpdate u =
-        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
+        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
       u.addOp(change.getId(), op).execute();
     }
     return Response.ok(output);
@@ -153,7 +153,7 @@ public class QtPreCheck
                   new LabelPermission.WithValue(
                       ForUser.SELF, LABEL_CODE_REVIEW, LABEL_CODE_REVIEW_VALUE));
     } catch (PermissionBackendException e) {
-      logger.atInfo().log(e.getMessage());
+      logger.atInfo().log("%s", e.getMessage());
       return null;
     }
 

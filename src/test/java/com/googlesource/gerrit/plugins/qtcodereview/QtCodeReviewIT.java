@@ -1,4 +1,4 @@
-// Copyright (C) 2021-22 The Qt Company
+// Copyright (C) 2021-23 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -188,7 +188,8 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     assertThat(adminSshSession.getError()).isNull();
     RevCommit branchHead = getRemoteHead(project, R_HEADS + branch);
     assertReviewedByFooter(branchHead, true);
-    assertThat(resultStr).isEqualTo(branchHead.name());
+    String shaStr = resultStr.replace("\n","");
+    assertThat(shaStr).isEqualTo(branchHead.name());
   }
 
   protected void QtFailBuild(String branch, String buildId) throws Exception {

@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2021-22 The Qt Company
+// Copyright (C) 2021-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -235,7 +235,7 @@ class QtCommandBuildApprove extends SshCommand {
               "Merge integration " + buildBranch);
     } catch (NoSuchRefException e) {
       message = "Gerrit plugin internal error. Please contact Gerrit Admin.";
-      logger.atInfo().log(e.getMessage());
+      logger.atInfo().log("%s", e.getMessage());
       rejectBuildChanges();
       return;
     } catch (QtUtil.MergeConflictException e) {
@@ -243,7 +243,7 @@ class QtCommandBuildApprove extends SshCommand {
           "Unable to merge this integration because another integration parallel to this one "
               + "successfully merged first and created a conflict in one of the tested changes.\n"
               + "Please review, resolve conflicts if necessary, and restage.";
-      logger.atInfo().log(e.getMessage());
+      logger.atInfo().log("%s", e.getMessage());
       rejectBuildChanges();
       return;
     }
@@ -317,7 +317,7 @@ class QtCommandBuildApprove extends SshCommand {
     // do the db update
     QtChangeUpdateOp op =
         qtUpdateFactory.create(newStatus, oldStatus, changeMessage, null, tag, null);
-    try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
+    try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
       for (Entry<ChangeData, RevCommit> item : list) {
         ChangeData cd = item.getKey();
         Change change = cd.change();
@@ -376,10 +376,8 @@ class QtCommandBuildApprove extends SshCommand {
   }
 
   private void sendMergeEvent(ChangeData changeData) {
-    Timestamp ts = TimeUtil.nowTs();
-
     PatchSet ps = changeData.currentPatchSet();
-    changeMerged.fire(changeData, ps, user.asIdentifiedUser().state(), ps.commitId().name(), ts);
+    changeMerged.fire(changeData, ps, user.asIdentifiedUser().state(), ps.commitId().name(), TimeUtil.now());
   }
 
   private void readMessageParameter() throws UnloggedFailure {

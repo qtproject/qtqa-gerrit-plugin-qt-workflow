@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-22 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 // Modified from
 // https://gerrit.googlesource.com/gerrit/+/refs/heads/stable-2.16/java/com/google/gerrit/server/restapi/change/Abandon.java
 //
@@ -92,7 +92,7 @@ public class QtDefer
             ChangeMessagesUtil.TAG_ABANDON,
             null);
     try (BatchUpdate u =
-        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.nowTs())) {
+        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
       u.addOp(rsrc.getId(), op).execute();
     }
 

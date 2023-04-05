@@ -1,4 +1,4 @@
-// Copyright (C) 2019-21 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -134,7 +134,7 @@ public class QtCommandStageIT extends QtCodeReviewIT {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
 
     String result = qtSshStageExpectFail(c);
-    assertThat(result).contains("needs Code-Review");
+    assertThat(result).contains("submit requirement 'Code-Review' is unsatisfied");
   }
 
   private void qtSshStage(PushOneCommit.Result c) throws Exception {

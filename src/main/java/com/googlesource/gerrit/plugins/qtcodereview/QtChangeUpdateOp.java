@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-21 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -137,13 +137,10 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
     return msg.toString();
   }
 
-  private LabelNormalizer.Result approve(ChangeContext ctx, ChangeUpdate update)
-      throws IOException {
+  private LabelNormalizer.Result approve(ChangeContext ctx, ChangeUpdate update) {
     PatchSet.Id psId = update.getPatchSetId();
     Map<PatchSetApproval.Key, PatchSetApproval> byKey = new HashMap<>();
-    for (PatchSetApproval psa :
-        approvalsUtil.byPatchSet(
-            ctx.getNotes(), psId, ctx.getRevWalk(), ctx.getRepoView().getConfig())) {
+    for (PatchSetApproval psa : approvalsUtil.byPatchSet(ctx.getNotes(), psId)) {
       byKey.put(psa.key(), psa);
     }
 

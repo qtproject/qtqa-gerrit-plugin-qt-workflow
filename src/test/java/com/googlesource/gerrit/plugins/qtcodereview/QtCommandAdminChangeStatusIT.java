@@ -1,4 +1,4 @@
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -43,7 +43,7 @@ public class QtCommandAdminChangeStatusIT extends QtCodeReviewIT {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     String result;
     result = qtAdminChangeStatusExpectFail(c, "invalid", "new", "staged", Change.Status.NEW);
-    assertThat(result).contains("change-id not numeric");
+    assertThat(result).contains("fatal: invalid change-id");
   }
 
   @Test

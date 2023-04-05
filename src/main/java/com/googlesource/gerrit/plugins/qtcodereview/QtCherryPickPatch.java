@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2021-22 The Qt Company
+// Copyright (C) 2021-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -14,6 +14,7 @@ import com.google.gerrit.server.git.CodeReviewCommit;
 import com.google.gerrit.server.git.CodeReviewCommit.CodeReviewRevWalk;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.git.MergeUtil;
+import com.google.gerrit.server.git.MergeUtilFactory;
 import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.project.ProjectState;
@@ -42,7 +43,7 @@ public class QtCherryPickPatch {
   private final BatchUpdate.Factory batchUpdateFactory;
   private final GitRepositoryManager gitManager;
   private final Provider<IdentifiedUser> user;
-  private final MergeUtil.Factory mergeUtilFactory;
+  private final MergeUtilFactory mergeUtilFactory;
   private final ProjectCache projectCache;
   private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
@@ -51,7 +52,7 @@ public class QtCherryPickPatch {
       BatchUpdate.Factory batchUpdateFactory,
       GitRepositoryManager gitManager,
       Provider<IdentifiedUser> user,
-      MergeUtil.Factory mergeUtilFactory,
+      MergeUtilFactory mergeUtilFactory,
       ProjectCache projectCache,
       QtChangeUpdateOp.Factory qtUpdateFactory) {
     this.batchUpdateFactory = batchUpdateFactory;
@@ -149,7 +150,7 @@ public class QtCherryPickPatch {
       }
 
       Timestamp commitTimestamp = new Timestamp(committerIdent.getWhen().getTime());
-      BatchUpdate bu = batchUpdateFactory.create(project, identifiedUser, commitTimestamp);
+      BatchUpdate bu = batchUpdateFactory.create(project, identifiedUser, commitTimestamp.toInstant());
       bu.addOp(
           changeData.getId(),
           qtUpdateFactory.create(newStatus, null, defaultMessage, inputMessage, tag, null));

@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-22 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -145,7 +145,7 @@ class QtCommandNewBuild extends SshCommand {
                 null,
                 QtUtil.TAG_CI,
                 null);
-        try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
+        try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
           for (Entry<ChangeData, RevCommit> item : openChanges) {
             Change change = item.getKey().change();
             if (change.getStatus() == Change.Status.STAGED) {

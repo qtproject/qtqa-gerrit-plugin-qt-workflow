@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-22 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -34,7 +34,6 @@ public class QtBuildFailedSender extends ReplyToChangeSender {
     ccAllApprovals();
     bccStarredBy();
     includeWatchers(NotifyType.ALL_COMMENTS);
-    removeUsersThatIgnoredTheChange();
   }
 
   @Override

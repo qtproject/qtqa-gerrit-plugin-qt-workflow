@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-22 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -20,6 +20,7 @@ import com.google.gerrit.sshd.SshCommand;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import java.util.List;
+import java.util.Optional;
 import org.kohsuke.args4j.Option;
 
 @RequiresCapability(GlobalCapability.ADMINISTRATE_SERVER)
@@ -66,7 +67,7 @@ class QtCommandAdminChangeStatus extends SshCommand {
 
   @Override
   protected void run() throws UnloggedFailure {
-    logger.atInfo().log("admin change-status start " + changeId);
+    logger.atInfo().log("admin change-status start %s", changeId);
 
     try {
       Change.Status to = toStatus(toStr);
@@ -75,9 +76,9 @@ class QtCommandAdminChangeStatus extends SshCommand {
       Change.Status from = toStatus(fromStr);
       if (from == null) throw die("invalid from status");
 
-      Change.Id id;
+      Optional<Change.Id> id;
       try {
-        id = Change.Id.parse(changeId);
+        id = Change.Id.tryParse(changeId);
       } catch (IllegalArgumentException e) {
         if (e.getMessage().contains("invalid change ID")) {
           throw new NumberFormatException();
@@ -85,17 +86,17 @@ class QtCommandAdminChangeStatus extends SshCommand {
           throw e;
         }
       }
-      if (id.get() == 0) throw die("invalid change-id");
+      if (!id.isPresent()) throw die("invalid change-id");
 
       InternalChangeQuery query = queryProvider.get();
-      List<ChangeData> list = query.byLegacyChangeId(id);
+      List<ChangeData> list = query.byLegacyChangeId(id.get());
       if (list.isEmpty()) throw die("change not found");
       if (list.size() > 1) throw die("multiple changes found");
       ChangeData change = list.get(0);
 
       Project.NameKey projectKey = QtUtil.getProjectKey(project);
       QtChangeUpdateOp op = qtUpdateFactory.create(to, null, null, null, null, null);
-      try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
+      try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
         Change c = change.change();
         if (c.getStatus() == from) {
           u.addOp(c.getId(), op);

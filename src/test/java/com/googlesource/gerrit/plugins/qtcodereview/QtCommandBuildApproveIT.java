@@ -1,4 +1,4 @@
-// Copyright (C) 2021-22 The Qt Company
+// Copyright (C) 2021-23 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -517,7 +517,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     assertReviewedByFooter(buildHead, true);
 
     RevCommit updatedHead = getRemoteHead(project, branchRef);
-    assertThat(resultStr).isEqualTo(updatedHead.name());
+    assertThat(resultStr).isEqualTo(updatedHead.name() + "\n");
 
     if (expectMerge) {
       assertThat(updatedHead.getParentCount()).isEqualTo(2);

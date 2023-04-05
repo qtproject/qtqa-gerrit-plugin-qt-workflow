@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2020-22 The Qt Company
+// Copyright (C) 2020-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -199,7 +199,7 @@ public class QtStage
       checkParents(git, rsrc);
 
       changeData = changeDataFactory.create(change);
-      MergeOp.checkSubmitRule(changeData, false);
+      MergeOp.checkSubmitRequirements(changeData);
 
       CodeReviewCommit commit =
           qtCherryPickPatch.cherryPickPatch(
@@ -308,7 +308,7 @@ public class QtStage
 
     ChangeData cd = changeDataFactory.create(resource.getNotes());
     try {
-      MergeOp.checkSubmitRule(cd, false);
+      MergeOp.checkSubmitRequirements(cd);
     } catch (ResourceConflictException e) {
       return null; // stage not visible
     }

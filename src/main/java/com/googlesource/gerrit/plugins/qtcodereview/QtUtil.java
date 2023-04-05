@@ -1,6 +1,6 @@
 // Copyright (C) 2011 The Android Open Source Project
 // Copyright (C) 2014 Digia Plc and/or its subsidiary(-ies).
-// Copyright (C) 2021-22 The Qt Company
+// Copyright (C) 2021-23 The Qt Company
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,6 +38,7 @@ import com.google.gerrit.server.events.EventFactory;
 import com.google.gerrit.server.extensions.events.GitReferenceUpdated;
 import com.google.gerrit.server.git.CodeReviewCommit;
 import com.google.gerrit.server.git.MergeUtil;
+import com.google.gerrit.server.git.MergeUtilFactory;
 import com.google.gerrit.server.notedb.ChangeNotes;
 import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.project.NoSuchRefException;
@@ -53,7 +54,7 @@ import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import com.googlesource.gerrit.plugins.qtcodereview.QtPrecheckMessage;
 import java.io.IOException;
-import java.sql.Timestamp;
+import java.time.ZoneId;
 import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Date;
@@ -61,7 +62,6 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
-import java.util.TimeZone;
 import org.eclipse.jgit.lib.CommitBuilder;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
@@ -99,7 +99,7 @@ public class QtUtil {
   private final ChangeNotes.Factory changeNotesFactory;
   private final DynamicItem<EventDispatcher> eventDispatcher;
   private final EventFactory eventFactory;
-  private final MergeUtil.Factory mergeUtilFactory;
+  private final MergeUtilFactory mergeUtilFactory;
   private final ProjectCache projectCache;
   private final QtCherryPickPatch qtCherryPickPatch;
   private final QtChangeUpdateOp.Factory qtUpdateFactory;
@@ -113,7 +113,7 @@ public class QtUtil {
       ChangeNotes.Factory changeNotesFactory,
       EventFactory eventFactory,
       DynamicItem<EventDispatcher> eventDispatcher,
-      MergeUtil.Factory mergeUtilFactory,
+      MergeUtilFactory mergeUtilFactory,
       ProjectCache projectCache,
       QtCherryPickPatch qtCherryPickPatch,
       QtChangeUpdateOp.Factory qtUpdateFactory,
@@ -402,8 +402,8 @@ public class QtUtil {
       RevWalk revWalk = new RevWalk(git);
       RevCommit branch = revWalk.parseCommit(branchHead);
       RevCommit commit = revWalk.parseCommit(stagingHead);
-      logger.atInfo().log("Branch head: " + branch.name());
-      logger.atInfo().log("Staging head: " + commit.name());
+      logger.atInfo().log("Branch head: %s", branch.name());
+      logger.atInfo().log("Staging head: %s", commit.name());
 
       if (!revWalk.isMergedInto(branch, commit)) return branchHead;
 
@@ -492,7 +492,7 @@ public class QtUtil {
       QtChangeUpdateOp op =
           qtUpdateFactory.create(
               Change.Status.NEW, Change.Status.STAGED, message, null, null, null);
-      try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.nowTs())) {
+      try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
         for (ChangeData item : changes_staged) {
           Change change = item.change();
           logger.atInfo().log("change %s,%s back to NEW", change.getId(), change.getKey());
@@ -662,7 +662,7 @@ public class QtUtil {
       RevCommit mergeTip = revWalk.lookupCommit(destId);
       RevCommit toMerge = revWalk.lookupCommit(srcId);
       PersonIdent committer =
-          user.newCommitterIdent(new Timestamp(System.currentTimeMillis()), TimeZone.getDefault());
+          user.newCommitterIdent(TimeUtil.now(), ZoneId.systemDefault());
 
       RevCommit mergeCommit =
           merge(

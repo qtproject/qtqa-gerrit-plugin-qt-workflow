@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2021 The Qt Company
+// Copyright (C) 2021-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -43,7 +43,7 @@ public class QtEmailSender {
       QtBuildFailedSender cm = qtBuildFailedSenderFactory.create(projectKey, change.getId());
       cm.setFrom(fromAccount);
       cm.setMessageId(messageIdGenerator.fromChangeUpdate(projectKey, change.currentPatchSetId()));
-      cm.setChangeMessage(message, TimeUtil.nowTs());
+      cm.setChangeMessage(message, TimeUtil.now());
       cm.send();
     } catch (Exception e) {
       logger.atWarning().log("Build Failed not sent notification for %s %s", change.getId(), e);

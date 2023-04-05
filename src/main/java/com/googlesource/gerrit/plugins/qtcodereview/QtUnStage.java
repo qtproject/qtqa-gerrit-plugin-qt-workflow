@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2020-22 The Qt Company
+// Copyright (C) 2020-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -149,7 +149,7 @@ class QtUnStage
       QtChangeUpdateOp op =
           qtUpdateFactory.create(
               Change.Status.NEW, Change.Status.STAGED, "Unstaged", null, QtUtil.TAG_CI, null);
-      BatchUpdate u = updateFactory.create(projectKey, submitter, TimeUtil.nowTs());
+      BatchUpdate u = updateFactory.create(projectKey, submitter, TimeUtil.now());
       u.addOp(rsrc.getChange().getId(), op).execute();
 
       qtUtil.rebuildStagingBranch(git, submitter, projectKey, stagingBranchKey, destBranchShortKey);
