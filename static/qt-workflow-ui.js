@@ -83,9 +83,6 @@ Gerrit.install(plugin => {
         var actions = Object.assign({}, revisionActions, changeInfo.actions);
         var cActions = plugin.changeActions();
 
-        // always hide the rebase button
-        cActions.setActionHidden('revision', 'rebase', true);
-
         // Hide 'Sanity-Review+1' button in header
         let secondaryActions = cActions.el.__topLevelSecondaryActions;
         if (secondaryActions && Array.isArray(secondaryActions)) {
