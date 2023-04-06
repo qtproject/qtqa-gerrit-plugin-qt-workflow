@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-Copyright (C) 2018 The Qt Company
+Copyright (C) 2018-2023 The Qt Company
 -->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -10,7 +10,7 @@ Copyright (C) 2018 The Qt Company
   <groupId>com.googlesource.gerrit.plugins</groupId>
   <artifactId>qtcodereview</artifactId>
   <packaging>jar</packaging>
-  <version>2.16</version>
+  <version>3.7.2</version>
   <properties>
     <Gerrit-ApiType>plugin</Gerrit-ApiType>
     <Gerrit-ApiVersion>${project.version}</Gerrit-ApiVersion>
@@ -29,7 +29,7 @@ Copyright (C) 2018 The Qt Company
               <Gerrit-PluginName>gerrit-plugin-qt-workflow</Gerrit-PluginName>
               <Gerrit-Module>com.googlesource.gerrit.plugins.qtcodereview.QtModule</Gerrit-Module>
               <Gerrit-SshModule>com.googlesource.gerrit.plugins.qtcodereview.QtSshModule</Gerrit-SshModule>
-
+              <Gerrit-HttpModule>com.googlesource.gerrit.plugins.qtcodereview.QtHttpModule</Gerrit-HttpModule>
               <Implementation-Vendor>The Qt Company</Implementation-Vendor>
               <Implementation-URL>https://codereview.qt-project.org/p/qtqa/gerrit-plugin-qt-workflow.git</Implementation-URL>
 

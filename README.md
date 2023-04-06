@@ -56,18 +56,11 @@
 
 ## Development
 
-    The plugin contains two parts:
-        * qt-gerrit-ui-plugin.html extends the UI and it is a PolyGerrit plugin.
-        * gerrit-plugin-qt-workflow.jar extends the REST and SSH command APIs. It's type is gerrit-plugin-api.jar.
-
     See:
         * https://gerrit-review.googlesource.com/Documentation/dev-plugins.html
         * https://gerrit-review.googlesource.com/Documentation/pg-plugin-dev.html
         * https://gerrit-review.googlesource.com/Documentation/dev-readme.html
         * https://gerrit-review.googlesource.com/Documentation/dev-bazel.html
-
-    Building the UI Plugin
-         * No need to build, it is all running on the client browser.
 
     Building the Java Plugin
         * have a gerrit checkout and clone the plugin to plugins/gerrit-plugin-qt-workflow (we should add it as submodule when it's done)
@@ -111,7 +104,7 @@
 
 ## Installation
 
-    Copy gerrit-plugin-qt-workflow.jar and qt-gerrit-ui-plugin.html to the gerrit site "plugins" directory.
+    Copy gerrit-plugin-qt-workflow.jar to the gerrit site "plugins" directory.
     NOTE that the plugin depends on the Gerrit internal APIs, so if Gerrit is upgraded to a new version the plugin
     needs to be recompiled against the same version.
 
