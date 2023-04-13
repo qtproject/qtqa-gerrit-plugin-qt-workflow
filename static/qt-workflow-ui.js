@@ -229,16 +229,23 @@ Gerrit.install(plugin => {
                             font-weight: var(--font-weight-bold);
                             padding-right: var(--spacing-m);
                         }
+                        .paragraph {
+                            margin-block-start: 1em;
+                            margin-block-end: 1em;
+                        }
+                        #BuildOnlyCheckBox {
+                            margin: 3px;
+                        }
                     </style>
                     <div id="precheckdialog">
                         <dialog class="main">
                         <form is="iron-form">
                             <div class="overflow-container">
                                 <div style="font-size: 16px;">Precheck</div>
-                                <div><p>Select the precheck type. Default will run targets from precheck.yaml, equal to full if yaml not found.
+                                <div><p class="paragraph">Select the precheck type. Default will run targets from precheck.yaml, equal to full if yaml not found.
                                     Full will run all targets. Custom will allow manual selection of the targets.</p></div>
                                 <div class="input-body">
-                                    <p><label>Precheck type:
+                                    <p class="paragraph"><label>Precheck type:
                                     <select id="typeSelect" style="margin-left: 4px;">
                                         <option value="default" title="Runs targets from precheck.yaml (lower coverage but faster)">Default</option>
                                         <option value="full" title="Runs all targets (high coverage but slower)">Full</option>
@@ -248,13 +255,13 @@ Gerrit.install(plugin => {
                                 </div>
                                 <div style="display: flex; flex-direction: column;">
                                     <div class="input-body">
-                                        <div class=input title="Excludes tests">
+                                        <div class="input" title="Excludes tests">
                                             <input type="checkbox" id="BuildOnlyCheckBox"/>
                                             <label for="BuildOnlyCheckBox">Build only</label>
                                         </div>
                                     </div>
                                     <div id="checkboxes" hidden=true>
-                                        <p>Match against os, osversion, arch, compiler or feature.
+                                        <p class="paragraph">Match against os, osversion, arch, compiler or feature.
                                         See <a href="https://testresults.qt.io/coin/doc/precheck.html">COIN precheck</a> for usage details.</p>
                                         <input type="text" id="PlatformsInput" rows="1" autocapitalize="none" placeholder="os:android and arch:-x86">
                                     </div>
