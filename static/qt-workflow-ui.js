@@ -249,6 +249,7 @@ Gerrit.install(plugin => {
                                     <select id="typeSelect" style="margin-left: 4px;">
                                         <option value="default" title="Runs targets from precheck.yaml (lower coverage but faster)">Default</option>
                                         <option value="full" title="Runs all targets (high coverage but slower)">Full</option>
+                                        <option value="downstream" title="Runs a qt5 precheck with this change as dependency">Downstream qt5</option>
                                         <option value="custom">Custom</option>
                                     </select>
                                     </label></p>
