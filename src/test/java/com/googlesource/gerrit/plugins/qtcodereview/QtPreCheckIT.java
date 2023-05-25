@@ -25,9 +25,9 @@ import org.junit.Test;
 @UseSsh
 public class QtPreCheckIT extends QtCodeReviewIT {
 
-  static final QtPrecheckMessage inputDefault = new QtPrecheckMessage(false, "default", "");
-  static final QtPrecheckMessage inputFull = new QtPrecheckMessage(true ,"full", "");
-  static final QtPrecheckMessage inputCustom = new QtPrecheckMessage(false, "custom", "os:linux and arch: arm64");
+  static final QtPrecheckMessage inputDefault = new QtPrecheckMessage(false, false, "default", "");
+  static final QtPrecheckMessage inputFull = new QtPrecheckMessage(true, false, "full", "");
+  static final QtPrecheckMessage inputCustom = new QtPrecheckMessage(false, true, "custom", "os:linux and arch: arm64");
 
   @Test
   public void preCheck_Ok() throws Exception {

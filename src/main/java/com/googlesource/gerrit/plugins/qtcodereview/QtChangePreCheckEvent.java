@@ -16,12 +16,14 @@ public class QtChangePreCheckEvent extends ChangeEvent {
   public String precheckType = "";
   public String platforms = "";
   public boolean onlyBuild = false;
+  public boolean cherrypick = false;
   public int patchSet = 0;
 
   public QtChangePreCheckEvent(Change change, PatchSet patchSet, QtPrecheckMessage message) {
     super(TYPE, change);
     this.patchSet = patchSet.id().get();
     this.onlyBuild = message.onlyBuild;
+    this.cherrypick = message.cherrypick;
     this.precheckType = message.type;
     this.platforms = message.platforms;
   }

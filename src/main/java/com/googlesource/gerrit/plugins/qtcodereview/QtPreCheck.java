@@ -123,6 +123,7 @@ public class QtPreCheck
     StringBuilder msg = new StringBuilder();
     msg.append("type: " + in.type);
     msg.append(", buildonly: " + in.onlyBuild);
+    msg.append(", cherrypick: " + in.cherrypick);
     if (in.type.equals("custom")) {
       msg.append(", input: " + in.platforms);
     }

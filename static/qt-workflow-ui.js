@@ -134,7 +134,8 @@ Gerrit.install(plugin => {
                     plugin.restApi().post(actions["gerrit-plugin-qt-workflow~precheck"].__url, {
                             type: dialog.querySelector('#typeSelect').value,
                             onlyBuild: dialog.querySelector('#BuildOnlyCheckBox').checked,
-                            platforms: dialog.querySelector('#PlatformsInput').value
+                            cherrypick: dialog.querySelector('#CherrypickCheckBox').checked,
+                            platforms: dialog.querySelector('#PlatformsInput').value,
                         }).then(() => {
                                 confirmBtn.removeAttribute('loading');
                                 confirmBtn.disabled = false;
@@ -233,7 +234,7 @@ Gerrit.install(plugin => {
                             margin-block-start: 1em;
                             margin-block-end: 1em;
                         }
-                        #BuildOnlyCheckBox {
+                        #BuildOnlyCheckBox, #CherrypickCheckBox{
                             margin: 3px;
                         }
                     </style>
@@ -259,6 +260,12 @@ Gerrit.install(plugin => {
                                         <div class="input" title="Excludes tests">
                                             <input type="checkbox" id="BuildOnlyCheckBox"/>
                                             <label for="BuildOnlyCheckBox">Build only</label>
+                                        </div>
+                                    </div>
+                                    <div class="input-body">
+                                        <div class="input" title="Cherry-picks changes instead of checkout">
+                                            <input type="checkbox" id="CherrypickCheckBox"/>
+                                            <label for="CherrypickCheckBox">Cherry-pick</label>
                                         </div>
                                     </div>
                                     <div id="checkboxes" hidden=true>
