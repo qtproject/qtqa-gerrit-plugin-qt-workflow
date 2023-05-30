@@ -122,7 +122,7 @@ public class QtPreCheck
     // Generate user friendly message
     StringBuilder msg = new StringBuilder();
     msg.append("type: " + in.type);
-    msg.append(", buildonly: " + in.onlyBuild);
+    msg.append(", buildonly: " + in.onlybuild);
     msg.append(", cherrypick: " + in.cherrypick);
     if (in.type.equals("custom")) {
       msg.append(", input: " + in.platforms);

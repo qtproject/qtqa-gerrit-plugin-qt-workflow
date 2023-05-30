@@ -133,7 +133,7 @@ Gerrit.install(plugin => {
 
                     plugin.restApi().post(actions["gerrit-plugin-qt-workflow~precheck"].__url, {
                             type: dialog.querySelector('#typeSelect').value,
-                            onlyBuild: dialog.querySelector('#BuildOnlyCheckBox').checked,
+                            onlybuild: dialog.querySelector('#BuildOnlyCheckBox').checked,
                             cherrypick: dialog.querySelector('#CherrypickCheckBox').checked,
                             platforms: dialog.querySelector('#PlatformsInput').value,
                         }).then(() => {
