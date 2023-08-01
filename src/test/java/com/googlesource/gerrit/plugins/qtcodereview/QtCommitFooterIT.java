@@ -3,12 +3,12 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate.allowLabel;
 import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_COMMIT;
 import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_REVISION;
 import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS;
 import static com.google.gerrit.server.project.testing.TestLabels.label;
 import static com.google.gerrit.server.project.testing.TestLabels.value;
-import static com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate.allowLabel;
 
 import com.google.gerrit.acceptance.GitUtil;
 import com.google.gerrit.acceptance.PushOneCommit;
@@ -16,13 +16,13 @@ import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.testsuite.project.ProjectOperations;
 import com.google.gerrit.acceptance.testsuite.request.RequestScopeOperations;
+import com.google.gerrit.entities.AccountGroup;
 import com.google.gerrit.entities.LabelType;
 import com.google.gerrit.entities.RefNames;
 import com.google.gerrit.extensions.api.changes.ReviewInput;
 import com.google.gerrit.extensions.api.projects.ProjectInput;
 import com.google.gerrit.extensions.client.SubmitType;
 import com.google.gerrit.extensions.common.ChangeInfo;
-import com.google.gerrit.entities.AccountGroup;
 import com.google.gerrit.server.project.testing.TestLabels;
 import com.google.inject.Inject;
 import org.eclipse.jgit.lib.Config;
@@ -61,14 +61,21 @@ public class QtCommitFooterIT extends QtCodeReviewIT {
     AccountGroup.UUID registered = systemGroupBackend.getGroup(REGISTERED_USERS).getUUID();
     String heads = "refs/heads/*";
 
-    projectOperations.project(project).forUpdate()
+    projectOperations
+        .project(project)
+        .forUpdate()
         .add(allowLabel(sanity.getName()).ref(heads).group(registered).range(-1, 1))
-        .add(allowLabel(TestLabels.codeReview().getName()).ref(heads).group(registered).range(-2, 2))
+        .add(
+            allowLabel(TestLabels.codeReview().getName()).ref(heads).group(registered).range(-2, 2))
         .add(allowLabel(verified.getName()).ref(heads).group(registered).range(-1, 1))
         .add(allowLabel(changelog.getName()).ref(heads).group(registered).range(-1, 1))
         .update();
 
-    PushOneCommit.Result change = createChange();
+    PushOneCommit.Result change =
+        createChange(
+            "ChangeLog: First line, this should stay\n\nDetailed description\n",
+            "testfile.txt",
+            "dummytext");
     requestScopeOperations.setApiUser(user.id());
     ReviewInput input = new ReviewInput();
     input.label("Code-Review", 2);
@@ -82,11 +89,14 @@ public class QtCommitFooterIT extends QtCodeReviewIT {
 
     ChangeInfo cf = gApi.changes().id(change.getChangeId()).get(CURRENT_REVISION, CURRENT_COMMIT);
     String commitMsg = cf.revisions.get(cf.currentRevision).commit.message;
-    assertThat(commitMsg).contains("Reviewed-by");
-    assertThat(commitMsg).doesNotContain("Reviewed-on");
-    assertThat(commitMsg).doesNotContain("Sanity-Review");
-    assertThat(commitMsg).doesNotContain("Tested-by");
-    assertThat(commitMsg).doesNotContain("ChangeLog");
+    String[] splitCommit =
+        commitMsg.split("\n", 2); // Subject line and the rest of commit separated
+    assertThat(splitCommit[0]).contains("ChangeLog");
+    assertThat(splitCommit[1]).contains("Reviewed-by");
+    assertThat(splitCommit[1]).doesNotContain("Reviewed-on");
+    assertThat(splitCommit[1]).doesNotContain("Sanity-Review");
+    assertThat(splitCommit[1]).doesNotContain("Tested-by");
+    assertThat(splitCommit[1]).doesNotContain("ChangeLog");
   }
 
   @Test
@@ -108,8 +118,14 @@ public class QtCommitFooterIT extends QtCodeReviewIT {
 
     AccountGroup.UUID registered = systemGroupBackend.getGroup(REGISTERED_USERS).getUUID();
 
-    projectOperations.project(project).forUpdate()
-        .add(allowLabel(TestLabels.codeReview().getName()).ref("refs/heads/*").group(registered).range(-2, 2))
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            allowLabel(TestLabels.codeReview().getName())
+                .ref("refs/heads/*")
+                .group(registered)
+                .range(-2, 2))
         .update();
 
     testRepo.reset(initialHead);
@@ -127,5 +143,4 @@ public class QtCommitFooterIT extends QtCodeReviewIT {
     assertThat(commitMsg).contains("Reviewed-by");
     assertThat(commitMsg).contains("Reviewed-on");
   }
-
 }

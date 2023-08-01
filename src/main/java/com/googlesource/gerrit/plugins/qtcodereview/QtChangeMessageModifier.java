@@ -33,12 +33,15 @@ public class QtChangeMessageModifier implements ChangeMessageModifier {
       // Project not found, using default
     }
 
+    boolean first_line = true;
     for (String line : lines) {
-      if ((!line.startsWith("Reviewed-on: ") || showReviewedOn == true)
-          && !line.startsWith("Tested-by: ")
-          && !line.startsWith("Sanity-Review: ")
-          && !line.startsWith("ChangeLog: ")) {
+      if (((!line.startsWith("Reviewed-on: ") || showReviewedOn == true)
+              && !line.startsWith("Tested-by: ")
+              && !line.startsWith("Sanity-Review: ")
+              && !line.startsWith("ChangeLog: "))
+          || first_line) {
         stringBuilder.append(line).append("\n");
+        first_line = false;
       }
     }
     return stringBuilder.toString();
