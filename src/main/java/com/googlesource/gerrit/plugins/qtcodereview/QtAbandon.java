@@ -3,6 +3,7 @@
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.Change;
@@ -23,6 +24,7 @@ import com.google.gerrit.server.permissions.ChangePermission;
 import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -77,17 +79,18 @@ public class QtAbandon
             input.message,
             ChangeMessagesUtil.TAG_ABANDON,
             null);
-    try (BatchUpdate u =
-        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
-      u.addOp(rsrc.getId(), op).execute();
+    try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+      try (BatchUpdate u =
+          updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
+        u.addOp(rsrc.getId(), op).execute();
+      }
+
+      logger.atInfo().log("abandoned change %s,%s", change.getId(), change.getKey());
+
+      change = op.getChange();
+      return Response.ok(json.noOptions().format(change));
     }
-
-    logger.atInfo().log("abandoned change %s,%s", change.getId(), change.getKey());
-
-    change = op.getChange();
-    return Response.ok(json.noOptions().format(change));
   }
-
   @Override
   public UiAction.Description getDescription(ChangeResource rsrc) {
     UiAction.Description description =

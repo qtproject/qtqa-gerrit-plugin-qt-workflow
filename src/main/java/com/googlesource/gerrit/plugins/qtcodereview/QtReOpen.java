@@ -5,6 +5,7 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.gerrit.server.project.ProjectCache.illegalState;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.Change;
@@ -26,6 +27,7 @@ import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -86,16 +88,16 @@ class QtReOpen implements RestModifyView<ChangeResource, RestoreInput>, UiAction
             input.message,
             QtUtil.TAG_REOPENED,
             null);
-    try (BatchUpdate u =
-        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
-      u.addOp(rsrc.getId(), op).execute();
+    try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+      try (BatchUpdate u =
+            updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
+        u.addOp(rsrc.getId(), op).execute();
+      }
+      change = op.getChange();
+      logger.atInfo().log("reopened  %s,%s", change.getId(), change.getKey());
+      return Response.ok(json.noOptions().format(change));
     }
-
-    change = op.getChange();
-    logger.atInfo().log("reopened  %s,%s", change.getId(), change.getKey());
-    return Response.ok(json.noOptions().format(change));
   }
-
   @Override
   public UiAction.Description getDescription(ChangeResource rsrc) {
     UiAction.Description description =

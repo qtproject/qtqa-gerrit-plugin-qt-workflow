@@ -16,6 +16,7 @@ import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.Change.Status;
 import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
+import com.google.gerrit.entities.ProjectUtil;
 import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
@@ -24,7 +25,6 @@ import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
 import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.server.IdentifiedUser;
-import com.google.gerrit.server.ProjectUtil;
 import com.google.gerrit.server.account.AccountResolver;
 import com.google.gerrit.server.change.RevisionResource;
 import com.google.gerrit.server.config.GerritServerConfig;
@@ -161,7 +161,7 @@ public class QtStage
       logger.atSevere().log(
           "stage: change %s status wrong: %s", change.getId(), change.getStatus());
       throw new ResourceConflictException("Change is " + change.getStatus());
-    } else if (!ProjectUtil.branchExists(repoManager, change.getDest())) {
+    } else if (!QtUtil.branchExists(repoManager, change.getDest())) {
       logger.atSevere().log(
           "stage: change %s destination branch \"%s\" not found",
           change, change.getDest().branch());
@@ -183,7 +183,7 @@ public class QtStage
     try {
       git = repoManager.openRepository(projectKey);
       // Check if staging branch exists. Create the staging branch if it does not exist.
-      if (!ProjectUtil.branchExists(repoManager, stagingBranchKey)) {
+      if (!QtUtil.branchExists(repoManager, stagingBranchKey)) {
         Result result = QtUtil.createStagingBranch(git, destBranchKey);
         if (result == null)
           throw new NoSuchRefException("Cannot create staging ref: " + stagingBranchKey.branch());

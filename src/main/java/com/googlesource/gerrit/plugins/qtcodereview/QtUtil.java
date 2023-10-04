@@ -17,6 +17,8 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.gerrit.server.project.ProjectCache.noSuchProject;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.BRANCH_MODIFICATION;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -26,6 +28,7 @@ import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
+import com.google.gerrit.entities.RefNames;
 import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.common.InputWithMessage;
 import com.google.gerrit.extensions.registration.DynamicItem;
@@ -37,6 +40,7 @@ import com.google.gerrit.server.events.EventDispatcher;
 import com.google.gerrit.server.events.EventFactory;
 import com.google.gerrit.server.extensions.events.GitReferenceUpdated;
 import com.google.gerrit.server.git.CodeReviewCommit;
+import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.git.MergeUtil;
 import com.google.gerrit.server.git.MergeUtilFactory;
 import com.google.gerrit.server.notedb.ChangeNotes;
@@ -48,6 +52,7 @@ import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -62,6 +67,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.CommitBuilder;
 import org.eclipse.jgit.lib.Constants;
 import org.eclipse.jgit.lib.ObjectId;
@@ -196,6 +202,17 @@ public class QtUtil {
     return git.getRefDatabase().getRef(branch.branch()) != null;
   }
 
+  public static boolean branchExists(final GitRepositoryManager repoManager, BranchNameKey branch)
+      throws RepositoryNotFoundException, IOException {
+    try (Repository repo = repoManager.openRepository(branch.project())) {
+      boolean exists = repo.getRefDatabase().exactRef(branch.branch()) != null;
+      if (!exists) {
+        exists = repo.getFullBranch().equals(branch.branch())
+            || RefNames.REFS_CONFIG.equals(branch.branch());
+      }
+      return exists;
+    }
+  }
   /**
    * Gets a staging branch for a branch.
    *
@@ -270,16 +287,16 @@ public class QtUtil {
     if (sourceRef == null) {
       throw new NoSuchRefException(stagingBranchName);
     }
+    try (RefUpdateContext ctx = RefUpdateContext.open(BRANCH_MODIFICATION)) {
+      RefUpdate refUpdate = git.updateRef(buildBranchName);
+      refUpdate.setNewObjectId(sourceRef.getObjectId());
+      refUpdate.setForceUpdate(false);
+      RefUpdate.Result result = refUpdate.update();
+      // send ref created event
+      referenceUpdated.fire(projectKey, refUpdate, ReceiveCommand.Type.CREATE, user.state());
 
-    RefUpdate refUpdate = git.updateRef(buildBranchName);
-    refUpdate.setNewObjectId(sourceRef.getObjectId());
-    refUpdate.setForceUpdate(false);
-    RefUpdate.Result result = refUpdate.update();
-
-    // send ref created event
-    referenceUpdated.fire(projectKey, refUpdate, ReceiveCommand.Type.CREATE, user.state());
-
-    return result;
+      return result;
+    }
   }
 
   private static Result updateRef(
@@ -289,18 +306,21 @@ public class QtUtil {
     if (sourceRef == null) {
       throw new NoSuchRefException(newValue);
     }
-
-    return updateRef(git, ref, sourceRef.getObjectId(), force);
+    try (RefUpdateContext ctx = RefUpdateContext.open(BRANCH_MODIFICATION)) {
+      return updateRef(git, ref, sourceRef.getObjectId(), force);
+    }
   }
 
   public static Result updateRef(
       Repository git, final String ref, final ObjectId id, final boolean force)
       throws IOException, NoSuchRefException {
-    RefUpdate refUpdate = git.updateRef(ref);
-    refUpdate.setNewObjectId(id);
-    refUpdate.setForceUpdate(force);
-    RefUpdate.Result result = refUpdate.update();
-    return result;
+    try (RefUpdateContext ctx = RefUpdateContext.open(BRANCH_MODIFICATION)) {
+      RefUpdate refUpdate = git.updateRef(ref);
+      refUpdate.setNewObjectId(id);
+      refUpdate.setForceUpdate(force);
+      RefUpdate.Result result = refUpdate.update();
+      return result;
+    }
   }
 
   private static String getChangeId(RevCommit commit) {
@@ -492,41 +512,42 @@ public class QtUtil {
       QtChangeUpdateOp op =
           qtUpdateFactory.create(
               Change.Status.NEW, Change.Status.STAGED, message, null, null, null);
-      try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
-        for (ChangeData item : changes_staged) {
-          Change change = item.change();
-          logger.atInfo().log("change %s,%s back to NEW", change.getId(), change.getKey());
-          u.addOp(change.getId(), op);
+     try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+        try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
+          for (ChangeData item : changes_staged) {
+            Change change = item.change();
+            logger.atInfo().log("change %s,%s back to NEW", change.getId(), change.getKey());
+            u.addOp(change.getId(), op);
+          }
+          u.execute();
+
+        } catch (UpdateException | RestApiException ex) {
+          logger.atSevere().log("Failed to update change status %s", ex);
         }
-        u.execute();
-
-      } catch (UpdateException | RestApiException ex) {
-        logger.atSevere().log("Failed to update change status %s", ex);
       }
-
       for (ChangeData item : changes_staged) {
         Change change = item.change();
         qtEmailSender.sendBuildFailedEmail(projectKey, change, user.getAccountId(), message);
       }
     }
+    try (RefUpdateContext ctx = RefUpdateContext.open(BRANCH_MODIFICATION)) {
+      try {
+        RefUpdate refUpdate = git.updateRef(stagingBranchName);
+        refUpdate.setNewObjectId(newStageRef);
+        refUpdate.update();
+        logger.atInfo().log("Ref %s points now to %s", stagingBranchKey.branch(), newStageRef.name());
 
-    try {
-      RefUpdate refUpdate = git.updateRef(stagingBranchName);
-      refUpdate.setNewObjectId(newStageRef);
-      refUpdate.update();
-      logger.atInfo().log("Ref %s points now to %s", stagingBranchKey.branch(), newStageRef.name());
-
-      // send ref updated event only if it changed
-      if (!newStageRef.equals(oldStageRef)) {
-        referenceUpdated.fire(
-            projectKey, stagingBranchName, oldStageRef, newStageRef, user.state());
+        // send ref updated event only if it changed
+        if (!newStageRef.equals(oldStageRef)) {
+          referenceUpdated.fire(
+              projectKey, stagingBranchName, oldStageRef, newStageRef, user.state());
+        }
+      } catch (IOException e) {
+        logger.atSevere().log("rebuild %s failed to update ref %s", stagingBranchKey.branch(), e);
+        throw new MergeConflictException("fatal: IOException");
       }
-    } catch (IOException e) {
-      logger.atSevere().log("rebuild %s failed to update ref %s", stagingBranchKey.branch(), e);
-      throw new MergeConflictException("fatal: IOException");
     }
   }
-
   /**
    * Lists not merged changes between branches.
    *
@@ -656,50 +677,51 @@ public class QtUtil {
     if (destId == null) throw new NoSuchRefException("Invalid Revision: " + destination);
 
     RevWalk revWalk = new RevWalk(git);
-    try {
+    try (RefUpdateContext ctx = RefUpdateContext.open(BRANCH_MODIFICATION)) {
+      try {
 
-      ObjectInserter objInserter = git.newObjectInserter();
-      RevCommit mergeTip = revWalk.lookupCommit(destId);
-      RevCommit toMerge = revWalk.lookupCommit(srcId);
-      PersonIdent committer =
-          user.newCommitterIdent(TimeUtil.now(), ZoneId.systemDefault());
+        ObjectInserter objInserter = git.newObjectInserter();
+        RevCommit mergeTip = revWalk.lookupCommit(destId);
+        RevCommit toMerge = revWalk.lookupCommit(srcId);
+        PersonIdent committer =
+            user.newCommitterIdent(TimeUtil.now(), ZoneId.systemDefault());
 
-      RevCommit mergeCommit =
-          merge(
-              committer, git, objInserter, revWalk, toMerge, mergeTip, customCommitMessage, false);
-      logger.atInfo().log("merge commit %s added to %s", srcId.name(), destination.branch());
+        RevCommit mergeCommit =
+            merge(
+                committer, git, objInserter, revWalk, toMerge, mergeTip, customCommitMessage, false);
+        logger.atInfo().log("merge commit %s added to %s", srcId.name(), destination.branch());
 
-      RefUpdate refUpdate = git.updateRef(destination.branch());
-      refUpdate.setNewObjectId(mergeCommit);
-      return refUpdate.update();
-    } catch (Exception e) {
-      logger.atWarning().log("merge failed, %s", e);
-      return null;
-    } finally {
-      revWalk.dispose();
+        RefUpdate refUpdate = git.updateRef(destination.branch());
+        refUpdate.setNewObjectId(mergeCommit);
+        return refUpdate.update();
+      } catch (Exception e) {
+        logger.atWarning().log("merge failed, %s", e);
+        return null;
+      } finally {
+        revWalk.dispose();
+      }
     }
   }
-
   private RefUpdate.Result fastForwardBranch(
       Repository git, String branchName, ObjectId toObjectId) {
 
     RefUpdate.Result result = null;
+    try (RefUpdateContext ctx = RefUpdateContext.open(BRANCH_MODIFICATION)) {
+      try {
+        RefUpdate refUpdate = git.updateRef(branchName);
+        refUpdate.setNewObjectId(toObjectId);
+        refUpdate.setForceUpdate(false);
+        result = refUpdate.update();
+        logger.atInfo().log(
+            "fastforward branch %s to %s, result: %s", branchName, toObjectId.name(), result);
+      } catch (Exception e) {
+        result = null;
+        logger.atWarning().log("fastforward failed for %s: %s", branchName, e);
+      }
 
-    try {
-      RefUpdate refUpdate = git.updateRef(branchName);
-      refUpdate.setNewObjectId(toObjectId);
-      refUpdate.setForceUpdate(false);
-      result = refUpdate.update();
-      logger.atInfo().log(
-          "fastforward branch %s to %s, result: %s", branchName, toObjectId.name(), result);
-    } catch (Exception e) {
-      result = null;
-      logger.atWarning().log("fastforward failed for %s: %s", branchName, e);
+      return result;
     }
-
-    return result;
   }
-
   private List<RevCommit> listCommitsInIntegrationBranch(
       Repository git, ObjectId integrationHeadId, ObjectId targetBranchHeadId) {
 

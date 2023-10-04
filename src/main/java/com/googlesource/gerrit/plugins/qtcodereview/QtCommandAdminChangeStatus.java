@@ -3,6 +3,7 @@
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.common.data.GlobalCapability;
@@ -14,6 +15,7 @@ import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.gerrit.sshd.CommandMetaData;
 import com.google.gerrit.sshd.SshCommand;
@@ -96,16 +98,18 @@ class QtCommandAdminChangeStatus extends SshCommand {
 
       Project.NameKey projectKey = QtUtil.getProjectKey(project);
       QtChangeUpdateOp op = qtUpdateFactory.create(to, null, null, null, null, null);
-      try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
-        Change c = change.change();
-        if (c.getStatus() == from) {
-          u.addOp(c.getId(), op);
-          u.execute();
-        } else {
-          throw die("change status was not " + fromStr);
+      try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+        try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
+          Change c = change.change();
+          if (c.getStatus() == from) {
+            u.addOp(c.getId(), op);
+            u.execute();
+          } else {
+            throw die("change status was not " + fromStr);
+          }
         }
+        logger.atInfo().log("admin change-status done");
       }
-      logger.atInfo().log("admin change-status done");
     } catch (NumberFormatException e) {
       throw die("change-id not numeric");
     } catch (UpdateException | RestApiException e) {

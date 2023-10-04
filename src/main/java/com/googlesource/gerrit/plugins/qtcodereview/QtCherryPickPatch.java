@@ -5,6 +5,7 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.gerrit.server.project.ProjectCache.noSuchProject;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.Change;
@@ -21,6 +22,7 @@ import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.submit.IntegrationConflictException;
 import com.google.gerrit.server.update.BatchUpdate;
+import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
@@ -150,13 +152,15 @@ public class QtCherryPickPatch {
       }
 
       Timestamp commitTimestamp = new Timestamp(committerIdent.getWhen().getTime());
-      BatchUpdate bu = batchUpdateFactory.create(project, identifiedUser, commitTimestamp.toInstant());
-      bu.addOp(
-          changeData.getId(),
-          qtUpdateFactory.create(newStatus, null, defaultMessage, inputMessage, tag, null));
-      bu.execute();
-      logger.atInfo().log("cherrypick done for change %s", changeData.getId());
-      return cherryPickCommit;
+      try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+        BatchUpdate bu = batchUpdateFactory.create(project, identifiedUser, commitTimestamp.toInstant());
+        bu.addOp(
+            changeData.getId(),
+            qtUpdateFactory.create(newStatus, null, defaultMessage, inputMessage, tag, null));
+        bu.execute();
+        logger.atInfo().log("cherrypick done for change %s", changeData.getId());
+        return cherryPickCommit;
+      }
     } catch (Exception e) {
       throw new IntegrationConflictException("Reason: " + e.getMessage());
     }

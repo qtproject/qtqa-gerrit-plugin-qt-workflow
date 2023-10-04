@@ -3,6 +3,7 @@
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.BranchNameKey;
@@ -18,6 +19,7 @@ import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.gerrit.sshd.CommandMetaData;
 import com.google.gerrit.sshd.SshCommand;
@@ -145,24 +147,25 @@ class QtCommandNewBuild extends SshCommand {
                 null,
                 QtUtil.TAG_CI,
                 null);
-        try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
-          for (Entry<ChangeData, RevCommit> item : openChanges) {
-            Change change = item.getKey().change();
-            if (change.getStatus() == Change.Status.STAGED) {
-              logger.atInfo().log(
-                  "staging-new-build     inserted change %s,%s into build '%s' for '%s'",
-                  change.getId(), change.getKey(), build, destinationKey.shortName());
-              u.addOp(change.getId(), op);
-            } else {
-              logger.atInfo().log(
-                  "staging-new-build     change %s, %s is included in build '%s' for '%s'",
-                  change.getId(), change.getKey(), build, destinationKey.shortName());
+        try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+          try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
+            for (Entry<ChangeData, RevCommit> item : openChanges) {
+              Change change = item.getKey().change();
+              if (change.getStatus() == Change.Status.STAGED) {
+                logger.atInfo().log(
+                    "staging-new-build     inserted change %s,%s into build '%s' for '%s'",
+                    change.getId(), change.getKey(), build, destinationKey.shortName());
+                u.addOp(change.getId(), op);
+              } else {
+                logger.atInfo().log(
+                    "staging-new-build     change %s, %s is included in build '%s' for '%s'",
+                    change.getId(), change.getKey(), build, destinationKey.shortName());
+              }
             }
+            u.execute();
           }
-          u.execute();
         }
       }
-
       // reset staging ref back to branch head
       result = QtUtil.createStagingBranch(git, destBranchShortKey);
 

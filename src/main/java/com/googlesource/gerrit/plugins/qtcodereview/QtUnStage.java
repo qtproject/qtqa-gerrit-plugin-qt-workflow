@@ -5,12 +5,14 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.gerrit.server.project.ProjectCache.illegalState;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
+import com.google.gerrit.entities.ProjectUtil;
 import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.AuthException;
@@ -20,7 +22,6 @@ import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
 import com.google.gerrit.extensions.webui.UiAction;
 import com.google.gerrit.server.IdentifiedUser;
-import com.google.gerrit.server.ProjectUtil;
 import com.google.gerrit.server.account.AccountResolver;
 import com.google.gerrit.server.change.RevisionResource;
 import com.google.gerrit.server.git.GitRepositoryManager;
@@ -31,6 +32,7 @@ import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import java.io.IOException;
@@ -119,7 +121,7 @@ class QtUnStage
       logger.atSevere().log(
           "unstage: change %s status wrong %s", change.getId(), change.getStatus());
       throw new ResourceConflictException("change is " + change.getStatus());
-    } else if (!ProjectUtil.branchExists(repoManager, change.getDest())) {
+    } else if (!QtUtil.branchExists(repoManager, change.getDest())) {
       logger.atSevere().log(
           "unstage: change %s destination branch \"%s\" not found",
           change, change.getDest().branch());
@@ -135,46 +137,46 @@ class QtUnStage
 
     final BranchNameKey destBranchShortKey =
         QtUtil.getNameKeyShort(projectKey.get(), QtUtil.R_STAGING, stagingBranchKey.branch());
+    try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+      try {
+        git = repoManager.openRepository(projectKey);
 
-    try {
-      git = repoManager.openRepository(projectKey);
+        ObjectId srcId = git.resolve(patchSet.commitId().name());
+        if (srcId == null) {
+          logger.atSevere().log(
+              "unstage merge: change %s has invalid revision %s", change.getId(), patchSet);
+          throw new ResourceConflictException("Invalid Revision: " + patchSet);
+        }
 
-      ObjectId srcId = git.resolve(patchSet.commitId().name());
-      if (srcId == null) {
-        logger.atSevere().log(
-            "unstage merge: change %s has invalid revision %s", change.getId(), patchSet);
-        throw new ResourceConflictException("Invalid Revision: " + patchSet);
+        QtChangeUpdateOp op =
+            qtUpdateFactory.create(
+                Change.Status.NEW, Change.Status.STAGED, "Unstaged", null, QtUtil.TAG_CI, null);
+        BatchUpdate u = updateFactory.create(projectKey, submitter, TimeUtil.now());
+        u.addOp(rsrc.getChange().getId(), op).execute();
+
+        qtUtil.rebuildStagingBranch(git, submitter, projectKey, stagingBranchKey, destBranchShortKey);
+
+        change = op.getChange();
+        qtUtil.postChangeUnStagedEvent(change);
+        logger.atInfo().log(
+            "unstaged %s,%s from %s", change.getId(), change.getKey(), stagingBranchKey.shortName());
+
+      } catch (ResourceConflictException e) {
+        logger.atSevere().log("unstage resource conflict error %s", e);
+        throw new ResourceConflictException(e.toString());
+      } catch (QtUtil.MergeConflictException e) {
+        logger.atSevere().log("unstage merge conflict error %s", e);
+        throw new IOException(e);
+      } catch (IOException e) {
+        logger.atSevere().log("unstage IOException %s", e);
+        throw new IOException(e);
+      } finally {
+        if (git != null) {
+          git.close();
+        }
       }
-
-      QtChangeUpdateOp op =
-          qtUpdateFactory.create(
-              Change.Status.NEW, Change.Status.STAGED, "Unstaged", null, QtUtil.TAG_CI, null);
-      BatchUpdate u = updateFactory.create(projectKey, submitter, TimeUtil.now());
-      u.addOp(rsrc.getChange().getId(), op).execute();
-
-      qtUtil.rebuildStagingBranch(git, submitter, projectKey, stagingBranchKey, destBranchShortKey);
-
-      change = op.getChange();
-      qtUtil.postChangeUnStagedEvent(change);
-      logger.atInfo().log(
-          "unstaged %s,%s from %s", change.getId(), change.getKey(), stagingBranchKey.shortName());
-
-    } catch (ResourceConflictException e) {
-      logger.atSevere().log("unstage resource conflict error %s", e);
-      throw new ResourceConflictException(e.toString());
-    } catch (QtUtil.MergeConflictException e) {
-      logger.atSevere().log("unstage merge conflict error %s", e);
-      throw new IOException(e);
-    } catch (IOException e) {
-      logger.atSevere().log("unstage IOException %s", e);
-      throw new IOException(e);
-    } finally {
-      if (git != null) {
-        git.close();
-      }
+      return change; // this doesn't return data to client, if needed use ChangeJson to convert it
     }
-
-    return change; // this doesn't return data to client, if needed use ChangeJson to convert it
   }
 
   @Override

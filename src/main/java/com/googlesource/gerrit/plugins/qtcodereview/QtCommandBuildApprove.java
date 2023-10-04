@@ -3,6 +3,7 @@
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.BranchNameKey;
@@ -27,6 +28,7 @@ import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.gerrit.sshd.CommandMetaData;
 import com.google.gerrit.sshd.SshCommand;
@@ -317,33 +319,34 @@ class QtCommandBuildApprove extends SshCommand {
     // do the db update
     QtChangeUpdateOp op =
         qtUpdateFactory.create(newStatus, oldStatus, changeMessage, null, tag, null);
-    try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
-      for (Entry<ChangeData, RevCommit> item : list) {
-        ChangeData cd = item.getKey();
-        Change change = cd.change();
-        if (change.getStatus() == oldStatus) {
-          if (newStatus == Change.Status.MERGED) {
-            ObjectId obj = git.resolve(cd.currentPatchSet().commitId().name());
-            CodeReviewCommit currCommit = new CodeReviewCommit(obj);
-            currCommit.setPatchsetId(cd.currentPatchSet().id());
-            CodeReviewCommit newCommit = new CodeReviewCommit(item.getValue());
-            Change.Id changeId = insertPatchSet(u, git, cd.notes(), newCommit);
-            if (!changeId.equals(cd.getId())) {
-              logger.atWarning().log(
-                  "wrong changeId for new patchSet %s != %s", changeId, cd.getId());
+    try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+      try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
+        for (Entry<ChangeData, RevCommit> item : list) {
+          ChangeData cd = item.getKey();
+          Change change = cd.change();
+          if (change.getStatus() == oldStatus) {
+            if (newStatus == Change.Status.MERGED) {
+              ObjectId obj = git.resolve(cd.currentPatchSet().commitId().name());
+              CodeReviewCommit currCommit = new CodeReviewCommit(obj);
+              currCommit.setPatchsetId(cd.currentPatchSet().id());
+              CodeReviewCommit newCommit = new CodeReviewCommit(item.getValue());
+              Change.Id changeId = insertPatchSet(u, git, cd.notes(), newCommit);
+              if (!changeId.equals(cd.getId())) {
+                logger.atWarning().log(
+                    "wrong changeId for new patchSet %s != %s", changeId, cd.getId());
+              }
+              u.addOp(
+                  changeId,
+                  qtUpdateFactory.create(newStatus, oldStatus, changeMessage, null, tag, currCommit));
+            } else {
+              u.addOp(change.getId(), op);
             }
-            u.addOp(
-                changeId,
-                qtUpdateFactory.create(newStatus, oldStatus, changeMessage, null, tag, currCommit));
-          } else {
-            u.addOp(change.getId(), op);
+            emailingList.add(item);
           }
-          emailingList.add(item);
         }
+        u.execute();
       }
-      u.execute();
-    }
-
+  }
     // do rest
     for (Entry<ChangeData, RevCommit> item : emailingList) {
       ChangeData cd = item.getKey();

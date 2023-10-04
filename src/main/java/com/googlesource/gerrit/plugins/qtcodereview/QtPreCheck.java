@@ -3,6 +3,7 @@
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
@@ -20,11 +21,12 @@ import com.google.gerrit.server.change.RevisionResource;
 import com.google.gerrit.server.config.GerritServerConfig;
 import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.gerrit.server.permissions.LabelPermission;
-import com.google.gerrit.server.permissions.LabelPermission.ForUser;
+import com.google.gerrit.server.permissions.AbstractLabelPermission.ForUser;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
@@ -136,13 +138,14 @@ public class QtPreCheck
             null,
             QtUtil.TAG_CI,
             null);
-    try (BatchUpdate u =
-        updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
-      u.addOp(change.getId(), op).execute();
+    try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+      try (BatchUpdate u =
+          updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
+        u.addOp(change.getId(), op).execute();
+      }
+      return Response.ok(output);
     }
-    return Response.ok(output);
   }
-
   @Override
   public UiAction.Description getDescription(RevisionResource resource) {
     boolean canReview;
