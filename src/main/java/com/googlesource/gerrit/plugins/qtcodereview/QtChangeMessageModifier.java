@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-22 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -38,6 +38,7 @@ public class QtChangeMessageModifier implements ChangeMessageModifier {
       if (((!line.startsWith("Reviewed-on: ") || showReviewedOn == true)
               && !line.startsWith("Tested-by: ")
               && !line.startsWith("Sanity-Review: ")
+              && !line.startsWith("API-Review: ")
               && !line.startsWith("ChangeLog: "))
           || first_line) {
         stringBuilder.append(line).append("\n");

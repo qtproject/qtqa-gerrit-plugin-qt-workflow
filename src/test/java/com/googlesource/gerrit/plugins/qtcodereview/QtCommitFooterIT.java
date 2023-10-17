@@ -1,4 +1,4 @@
-// Copyright (C) 2019-21 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -48,12 +48,15 @@ public class QtCommitFooterIT extends QtCodeReviewIT {
   public void removeCommitFooterLines() throws Exception {
     LabelType sanity =
         label("Sanity-Review", value(1, "Passes"), value(0, "No score"), value(-1, "Failed"));
+    LabelType apireview =
+        label("API-Review", value(1, "Passes"), value(0, "No score"), value(-1, "Failed"), value(-2, "Block"));
     LabelType verified =
         label("Verified", value(1, "Passes"), value(0, "No score"), value(-1, "Failed"));
     LabelType changelog =
         label("ChangeLog", value(1, "Passes"), value(0, "No score"), value(-1, "Failed"));
     try (ProjectConfigUpdate u = updateProject(project)) {
       u.getConfig().getLabelSections().put(sanity.getName(), sanity);
+      u.getConfig().getLabelSections().put(apireview.getName(), apireview);
       u.getConfig().getLabelSections().put(verified.getName(), verified);
       u.getConfig().getLabelSections().put(changelog.getName(), changelog);
       u.save();
@@ -65,6 +68,7 @@ public class QtCommitFooterIT extends QtCodeReviewIT {
         .project(project)
         .forUpdate()
         .add(allowLabel(sanity.getName()).ref(heads).group(registered).range(-1, 1))
+        .add(allowLabel(apireview.getName()).ref(heads).group(registered).range(-2, 1))
         .add(
             allowLabel(TestLabels.codeReview().getName()).ref(heads).group(registered).range(-2, 2))
         .add(allowLabel(verified.getName()).ref(heads).group(registered).range(-1, 1))
@@ -81,6 +85,7 @@ public class QtCommitFooterIT extends QtCodeReviewIT {
     input.label("Code-Review", 2);
     input.label(verified.getName(), 1);
     input.label(sanity.getName(), 1);
+    input.label(apireview.getName(), 1);
     input.label(changelog.getName(), 1);
     gApi.changes().id(change.getChangeId()).current().review(input);
 
@@ -95,6 +100,7 @@ public class QtCommitFooterIT extends QtCodeReviewIT {
     assertThat(splitCommit[1]).contains("Reviewed-by");
     assertThat(splitCommit[1]).doesNotContain("Reviewed-on");
     assertThat(splitCommit[1]).doesNotContain("Sanity-Review");
+    assertThat(splitCommit[1]).doesNotContain("API-Review");
     assertThat(splitCommit[1]).doesNotContain("Tested-by");
     assertThat(splitCommit[1]).doesNotContain("ChangeLog");
   }
