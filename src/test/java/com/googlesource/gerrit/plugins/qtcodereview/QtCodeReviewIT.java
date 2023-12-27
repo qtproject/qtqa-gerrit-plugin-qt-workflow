@@ -11,6 +11,7 @@ import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_REVI
 import static com.google.gerrit.extensions.client.ListChangesOption.DETAILED_LABELS;
 
 import com.google.common.collect.Lists;
+import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.acceptance.LightweightPluginDaemonTest;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
@@ -45,6 +46,7 @@ import org.junit.Test;
     sysModule = "com.googlesource.gerrit.plugins.qtcodereview.QtModule",
     sshModule = "com.googlesource.gerrit.plugins.qtcodereview.QtSshModule")
 public class QtCodeReviewIT extends LightweightPluginDaemonTest {
+  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
   @Inject public ProjectOperations projectOperations;
 
   protected static final String R_HEADS = "refs/heads/";
@@ -61,6 +63,10 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
   @Before
   public void ReduceLogging() throws Exception {
     LogManager.resetConfiguration();
+
+    // Turn off specific logs to have a cleaner test run output
+    Logger.getLogger("org.apache.sshd.server").setLevel(Level.OFF);
+    Logger.getLogger("org.eclipse.jetty.server").setLevel(Level.OFF);
 
     final PatternLayout layout = new PatternLayout();
     layout.setConversionPattern("%-5p %c %x: %m%n");
