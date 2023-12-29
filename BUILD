@@ -15,6 +15,7 @@ gerrit_plugin(
     ],
     resource_jars = [":qt-workflow-ui"],
     resources = glob(["src/main/resources/**/*"]),
+    deps = ["@commons-text//jar"],
 )
 
 gerrit_js_bundle(

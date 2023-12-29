@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019 The Qt Company
+// Copyright (C) 2019-23 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -17,5 +17,6 @@ class QtSshModule extends PluginCommandModule {
     command(QtCommandListStaging.class);
     command(QtCommandRebuildStaging.class);
     command(QtCommandStage.class);
+    command(QtCommandUpdateCiStatus.class);
   }
 }

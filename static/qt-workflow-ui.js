@@ -19,6 +19,12 @@ Gerrit.install(plugin => {
 
     plugin.buttons = null;
 
+    var CiStatusColorElement = null;
+    var CiStatusElement = null;
+    var CiStatusMessage = null;
+    var CiStatusMessageNew = null;
+    var CiStatusColor = null;
+
     function htmlToElement(html) {
         var template = document.createElement('template');
         html = html.trim(); // No white space
@@ -352,5 +358,33 @@ Gerrit.install(plugin => {
                     });
             } else console.log('unexpected error: no action');
         }
+    });
+
+    function updateCiStatusUI() {
+        if (CiStatusColorElement && CiStatusColor) CiStatusColorElement.style.color = CiStatusColor;
+        if (CiStatusElement && CiStatusMessage !== CiStatusMessageNew ) {
+            const elem = document.createElement('div');
+            elem.innerHTML = CiStatusMessageNew.trim(); // No white space;
+            CiStatusElement.parentElement.appendChild(elem);
+            CiStatusElement.nextElementSibling.style.display = "none";
+            CiStatusMessage = CiStatusMessageNew;
+        }
+    }
+
+    plugin.restApi().get('/accounts/self/gerrit-plugin-qt-workflow~cistatus')
+        .then((ok_resp) => {
+            if (ok_resp.message) CiStatusMessageNew = ok_resp.message;
+            if (ok_resp.status_color) CiStatusColor = ok_resp.status_color;
+            updateCiStatusUI();
+        }).catch((failed_resp) => {
+            // use defaults
+        });
+
+    plugin.hook('main-header-ci-status').onAttached(element => {
+        var rootElem = element.parentElement.parentElement.shadowRoot;
+        CiStatusElement = rootElem.querySelector(".itemAction");
+        var button = rootElem.querySelector("gr-button");
+        CiStatusColorElement = button.shadowRoot.querySelector("gr-icon");
+        updateCiStatusUI();
     });
 });
