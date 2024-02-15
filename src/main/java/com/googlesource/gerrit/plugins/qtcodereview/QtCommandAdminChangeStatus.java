@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2019-23 The Qt Company
+// Copyright (C) 2019-24 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -8,9 +8,11 @@ import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdate
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.common.data.GlobalCapability;
 import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
 import com.google.gerrit.extensions.annotations.RequiresCapability;
 import com.google.gerrit.extensions.restapi.RestApiException;
+import com.google.gerrit.server.extensions.events.ChangeMerged;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
 import com.google.gerrit.server.update.BatchUpdate;
@@ -38,6 +40,8 @@ class QtCommandAdminChangeStatus extends SshCommand {
   @Inject private BatchUpdate.Factory updateFactory;
 
   @Inject private QtChangeUpdateOp.Factory qtUpdateFactory;
+
+  @Inject private ChangeMerged changeMerged;
 
   @Option(
       name = "--project",
@@ -107,6 +111,10 @@ class QtCommandAdminChangeStatus extends SshCommand {
           } else {
             throw die("change status was not " + fromStr);
           }
+        }
+        if (to == Change.Status.MERGED) {
+          PatchSet ps = change.currentPatchSet();
+          changeMerged.fire(change, ps, user.asIdentifiedUser().state(), ps.commitId().name(), TimeUtil.now());
         }
         logger.atInfo().log("admin change-status done");
       }

@@ -1,4 +1,4 @@
-// Copyright (C) 2021-23 The Qt Company
+// Copyright (C) 2021-24 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -335,6 +335,10 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
 
   protected void assertRefUpdatedEvents(String refName, RevCommit... expected) throws Exception {
     eventRecorder.assertRefUpdatedEvents(project.get(), refName, expected);
+  }
+
+  protected void assertChangeMergedEvents(String... expected) throws Exception {
+    eventRecorder.assertChangeMergedEvents(project.get(), "refs/heads/master", expected);
   }
 
   protected void resetEvents() {

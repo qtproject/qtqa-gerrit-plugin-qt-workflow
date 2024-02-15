@@ -1,4 +1,4 @@
-// Copyright (C) 2019-23 The Qt Company
+// Copyright (C) 2019-24 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -20,14 +20,26 @@ public class QtCommandAdminChangeStatusIT extends QtCodeReviewIT {
   @Test
   public void New_Staged_Integrating_Merged_Abandoned_Deferred_New() throws Exception {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
-
     String changeId = Integer.toString(c.getChange().getId().get());
+
     qtAdminChangeStatus(c, changeId, "new", "staged", Change.Status.STAGED);
+    assertChangeMergedEvents();
+
     qtAdminChangeStatus(c, changeId, "staged", "integrating", Change.Status.INTEGRATING);
+    assertChangeMergedEvents();
+
     qtAdminChangeStatus(c, changeId, "integrating", "merged", Change.Status.MERGED);
+    assertChangeMergedEvents(c.getChangeId(), c.getCommit().name());
+    resetEvents();
+
     qtAdminChangeStatus(c, changeId, "merged", "abandoned", Change.Status.ABANDONED);
+    assertChangeMergedEvents();
+
     qtAdminChangeStatus(c, changeId, "abandoned", "deferred", Change.Status.DEFERRED);
+    assertChangeMergedEvents();
+
     qtAdminChangeStatus(c, changeId, "deferred", "new", Change.Status.NEW);
+    assertChangeMergedEvents();
   }
 
   @Test
