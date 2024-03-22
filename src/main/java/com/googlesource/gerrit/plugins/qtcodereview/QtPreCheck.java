@@ -1,8 +1,9 @@
 //
-// Copyright (C) 2021-23 The Qt Company
+// Copyright (C) 2021-24 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+
 import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.base.MoreObjects;
@@ -10,18 +11,20 @@ import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.common.data.ParameterizedString;
+import com.google.gerrit.entities.AccountGroup;
 import com.google.gerrit.entities.Change;
-import com.google.gerrit.extensions.common.InputWithMessage;
+import com.google.gerrit.entities.InternalGroup;
+import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.extensions.restapi.RestModifyView;
 import com.google.gerrit.extensions.webui.UiAction;
+import com.google.gerrit.server.account.GroupCache;
 import com.google.gerrit.server.change.RevisionResource;
-import com.google.gerrit.server.config.GerritServerConfig;
 import com.google.gerrit.server.config.PluginConfigFactory;
-import com.google.gerrit.server.permissions.LabelPermission;
 import com.google.gerrit.server.permissions.AbstractLabelPermission.ForUser;
+import com.google.gerrit.server.permissions.LabelPermission;
 import com.google.gerrit.server.permissions.PermissionBackend;
 import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.update.BatchUpdate;
@@ -30,8 +33,8 @@ import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import com.googlesource.gerrit.plugins.qtcodereview.QtPrecheckMessage;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Map;
 import org.eclipse.jgit.errors.ConfigInvalidException;
@@ -49,6 +52,9 @@ public class QtPreCheck
   private static final String LABEL_CODE_REVIEW = "Code-Review";
   private static final short LABEL_CODE_REVIEW_VALUE = 2;
 
+  private String[] disabledProjects;
+  private ArrayList<AccountGroup.UUID> allowedUserGroups;
+
   public static class Output {
     transient Change change;
 
@@ -58,6 +64,7 @@ public class QtPreCheck
   }
 
   private final PermissionBackend permissionBackend;
+  private final GroupCache groupCache;
   private final BatchUpdate.Factory updateFactory;
   private final QtUtil qtUtil;
   private final String label;
@@ -70,23 +77,40 @@ public class QtPreCheck
 
   @Inject
   QtPreCheck(
+      PluginConfigFactory cfgFactory,
+      @PluginName String pluginName,
       PermissionBackend permissionBackend,
-      @GerritServerConfig Config cfg,
+      GroupCache groupCache,
       BatchUpdate.Factory updateFactory,
       QtUtil qtUtil) {
 
+    Config pluginCfg = cfgFactory.getGlobalPluginConfig(pluginName);
+
     this.permissionBackend = permissionBackend;
+    this.groupCache = groupCache;
     this.updateFactory = updateFactory;
     this.qtUtil = qtUtil;
     this.label = "PreCheck";
     this.titlePattern =
         new ParameterizedString(
             MoreObjects.firstNonNull(
-                cfg.getString("precheck", null, "precheckTooltip"), DEFAULT_TOOLTIP));
+                pluginCfg.getString("precheck", null, "precheckTooltip"), DEFAULT_TOOLTIP));
     this.titlePatternDisabled =
         new ParameterizedString(
             MoreObjects.firstNonNull(
-                cfg.getString("precheck", null, "precheckTooltip"), DEFAULT_TOOLTIP_DISABLED));
+                pluginCfg.getString("precheck", null, "precheckTooltip"),
+                DEFAULT_TOOLTIP_DISABLED));
+
+    disabledProjects = pluginCfg.getStringList("precheck", "disabled", "projects");
+    String[] allowedUserGroupNames = pluginCfg.getStringList("precheck", "allowed", "groups");
+
+    allowedUserGroups = new ArrayList<AccountGroup.UUID>();
+    for (String groupName : allowedUserGroupNames) {
+      InternalGroup group = groupCache.get(AccountGroup.nameKey(groupName)).orElse(null);
+      if (group != null) {
+        allowedUserGroups.add(group.getGroupUUID());
+      }
+    }
   }
 
   @Override
@@ -95,22 +119,14 @@ public class QtPreCheck
           UpdateException, ConfigInvalidException {
     logger.atInfo().log("precheck request for %s", rsrc.getChange().toString());
 
-    boolean canReview;
-
-    canReview =
-        rsrc.permissions()
-            .test(
-                new LabelPermission.WithValue(
-                    ForUser.SELF, LABEL_CODE_REVIEW, LABEL_CODE_REVIEW_VALUE));
-
-    if (!canReview) {
+    if (!isPreCheckAllowedForUser(rsrc)) {
       throw new AuthException(
           String.format(
               "Precheck request from user %s without permission, %s",
               rsrc.getUser().getUserName(), rsrc.getChange().toString()));
     }
 
-    if (!isPreCheckAllowed(rsrc)) {
+    if (!isPreCheckAllowedForProject(rsrc)) {
       throw new AuthException(
           String.format(
               "Precheck request for project not allowed, %s", rsrc.getChange().toString()));
@@ -146,31 +162,18 @@ public class QtPreCheck
       return Response.ok(output);
     }
   }
+
   @Override
   public UiAction.Description getDescription(RevisionResource resource) {
-    boolean canReview;
-    try {
-      canReview =
-          resource
-              .permissions()
-              .test(
-                  new LabelPermission.WithValue(
-                      ForUser.SELF, LABEL_CODE_REVIEW, LABEL_CODE_REVIEW_VALUE));
-    } catch (PermissionBackendException e) {
-      logger.atInfo().log("%s", e.getMessage());
-      return null;
-    }
-
-    if (!canReview) {
-      return null;
-    }
 
     Change change = resource.getChange();
-    if (!change.getStatus().isOpen() || !resource.isCurrent()) {
+    if (!change.getStatus().isOpen()
+        || !resource.isCurrent()
+        || !isPreCheckAllowedForUser(resource)) {
       return null; // precheck not visible
     }
 
-    boolean enabled = isPreCheckAllowed(resource);
+    boolean enabled = isPreCheckAllowedForProject(resource);
 
     ObjectId revId = resource.getPatchSet().commitId();
     Map<String, String> params =
@@ -187,12 +190,27 @@ public class QtPreCheck
         .setEnabled(enabled);
   }
 
-  private boolean isPreCheckAllowed(RevisionResource resource) {
-    String[] disabledProjects =
-        pluginCfg
-            .getGlobalPluginConfig("gerrit-plugin-qt-workflow")
-            .getStringList("precheck", "disabled", "projects");
+  private boolean isPreCheckAllowedForUser(RevisionResource resource) {
 
+    if (resource.getUser().getEffectiveGroups().containsAnyOf(allowedUserGroups)) return true;
+
+    boolean canReview;
+    try {
+      canReview =
+          resource
+              .permissions()
+              .test(
+                  new LabelPermission.WithValue(
+                      ForUser.SELF, LABEL_CODE_REVIEW, LABEL_CODE_REVIEW_VALUE));
+    } catch (PermissionBackendException e) {
+      logger.atInfo().log("%s", e.getMessage());
+      return false;
+    }
+
+    return canReview;
+  }
+
+  private boolean isPreCheckAllowedForProject(RevisionResource resource) {
     return !Arrays.asList(disabledProjects).contains(resource.getProject().get());
   }
 }
