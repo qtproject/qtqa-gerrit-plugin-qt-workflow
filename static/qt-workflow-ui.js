@@ -187,6 +187,7 @@ Gerrit.install(plugin => {
                             border: 0px;
                             padding: 16px;
                             box-shadow: 0px 4px 4px 0px rgb(60 64 67 / 30%), 0px 8px 12px 6px rgb(60 64 67 / 15%);
+                            position: absolute;
                         }
                         .overflow-container {
                             min-width: 32em;
@@ -218,6 +219,9 @@ Gerrit.install(plugin => {
                         }
                         .input {
                             display: flex;
+                        }
+                        #precheckdialog {
+                            position: fixed;
                         }
                         #PlatformsInput {
                             font-size: var(--font-size-mono);
