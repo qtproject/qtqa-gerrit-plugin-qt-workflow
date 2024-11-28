@@ -84,6 +84,26 @@ Gerrit.install(plugin => {
         });
     });
 
+    // Show the Security Sensitive banner under the commit message when the hashtag is present
+    plugin.hook('commit-container').onAttached(element => {
+        const hashtag = element.change.hashtags
+            ? element.change.hashtags.includes("Qt-Security change")
+            : false;
+        if (hashtag) {
+            const el = document.createElement('div');
+            el.textContent = "Change affects security critical files";
+            el.style = `color: var(--error-foreground);
+                        background: var(--error-background);
+                        padding: var(--spacing-s) var(--spacing-l);
+                        border: 1px solid darkred;
+                        border-radius: var(--border-radius);
+                        font-size: large;
+                        font-weight: bold;
+                        text-align: center;`;
+            element.appendChild(el);
+        }
+    });
+
     // Customize change view
     plugin.on('show-revision-actions', function(revisionActions, changeInfo) {
         var actions = Object.assign({}, revisionActions, changeInfo.actions);
