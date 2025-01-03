@@ -39,7 +39,6 @@ public class QtModule extends FactoryModule {
         .annotatedWith(Exports.named("showReviewedOnFooter"))
         .toInstance(new ProjectConfigEntry("Show 'Reviewed-on' footer in commit messages", false));
 
-    factory(QtBuildFailedSender.Factory.class);
     factory(QtChangeUpdateOp.Factory.class);
     DynamicSet.bind(binder(), ChangeMessageModifier.class).to(QtChangeMessageModifier.class);
     DynamicSet.bind(binder(), MailSoyTemplateProvider.class)

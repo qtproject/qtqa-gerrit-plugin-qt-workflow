@@ -1,12 +1,18 @@
 //
-// Copyright (C) 2019-23 The Qt Company
+// Copyright (C) 2019-25 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
+import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.sshd.PluginCommandModule;
+import com.google.inject.Inject;
 
 class QtSshModule extends PluginCommandModule {
+  @Inject
+  QtSshModule(@PluginName String pluginName) {
+    super(pluginName);
+  }
 
   @Override
   protected void configureCommands() {

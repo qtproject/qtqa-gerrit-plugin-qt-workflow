@@ -13,11 +13,16 @@ import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.Address;
 import com.google.gerrit.entities.EmailHeader;
 import com.google.gerrit.entities.Permission;
 import com.google.gerrit.testing.FakeEmailSender;
+import com.google.gerrit.testing.FakeEmailSender.Message;
 import org.junit.Before;
+import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 @TestPlugin(
@@ -26,6 +31,7 @@ import org.junit.Test;
     sshModule = "com.googlesource.gerrit.plugins.qtcodereview.QtSshModule")
 @UseSsh
 public class QtEmailSendingIT extends QtCodeReviewIT {
+  private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   @Before
   public void grantPermissions() throws Exception {
@@ -63,6 +69,17 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
     QtNewBuild("master", "test_build_02");
     sender.clear();
     QtFailBuild("master", "test_build_02");
+
+    List<Message> msgs= sender.getMessages();
+    for ( Message msg : msgs) {
+        logger.atInfo().log("----------");
+        ImmutableMap<String, EmailHeader> headers = msg.headers();
+        for (Map.Entry<String, EmailHeader> header : headers.entrySet()) {
+            logger.atInfo().log("%s=%s", header.getKey(), header.getValue());
+        }
+        logger.atInfo().log("body=%s",msg.body());
+        logger.atInfo().log("----------");
+    }
 
     FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "qtbuildfailed").get(0);
     Address expectedTo = Address.create(user.fullName(), user.email());

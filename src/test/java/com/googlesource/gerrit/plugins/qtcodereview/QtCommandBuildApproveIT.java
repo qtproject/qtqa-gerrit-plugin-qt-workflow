@@ -199,6 +199,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
   @Test
   public void parallelBuilds_MergeCommitIntegrationVerify() throws Exception {
+    RevCommit initialHead = getRemoteHead();
 
     // make a change on feature branch
     final PushOneCommit.Result f1 = pushCommit("feature", "f1-commitmsg", "f1-file", "f1-content");
@@ -206,12 +207,12 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     gApi.changes().id(f1.getCommit().getName()).current().submit();
 
     // make a change on master branch
+    testRepo.reset(initialHead);
     final PushOneCommit.Result m1 = pushCommit("master", "m1-commitmsg", "m1-file", "m1-content");
     approve(m1.getChangeId());
     gApi.changes().id(m1.getCommit().getName()).current().submit();
 
     // Start a build
-    RevCommit initialHead = getRemoteHead();
     PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c1.getChangeId());
     QtStage(c1);

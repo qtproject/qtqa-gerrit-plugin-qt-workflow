@@ -1,28 +1,41 @@
 /**
- * Copyright (C) 2022 The Qt Company
+ * Copyright (C) 2022-25 The Qt Company
  */
 
-{namespace com.google.gerrit.server.mail.template}
+{namespace com.google.gerrit.server.mail.template.QtBuildFailedHtml}
+
+import * as mailTemplate from 'com/google/gerrit/server/mail/Private.soy';
 
 /**
  * The .QtBuildFailed template will determine the contents of the email related to a
  * change failed CI.
  */
 
-{template .QtBuildFailedHtml}
+{template QtBuildFailedHtml}
+  {@param change: ?}
   {@param coverLetter: ?}
   {@param email: ?}
+  {@param fromName: ?}
+  {@param patchSet: ?}
+  {let $commentHeaderStyle kind="css"}
+    margin-bottom: 4px;
+  {/let}
+
   <p>
     The change has <strong>failed</strong> CI.
   </p>
 
   {if $email.changeUrl}
     <p>
-      {call .ViewChangeButton data="all" /}
+      {call mailTemplate.ViewChangeButton data="all" /}
     </p>
   {/if}
 
   {if $coverLetter}
-    <div style="white-space:pre-wrap">{$coverLetter}</div>
+    <p style="{$commentHeaderStyle}">
+      <code style="font-family:monospace,monospace">
+        {$coverLetter}
+      </code>
+    </p>
   {/if}
 {/template}
