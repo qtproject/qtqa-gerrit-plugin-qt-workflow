@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2020-23 The Qt Company
+// Copyright (C) 2020-25 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -19,6 +19,7 @@ import com.google.gerrit.entities.Project;
 import com.google.gerrit.entities.ProjectUtil;
 import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
+import com.google.gerrit.extensions.restapi.PreconditionFailedException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestApiException;
@@ -49,6 +50,8 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.regex.Pattern;
+import java.util.regex.Matcher;
 import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.Config;
@@ -196,7 +199,7 @@ public class QtStage
       if (sourceId == null)
         throw new NoSuchRefException("Invalid Revision: " + rsrc.getPatchSet().commitId());
 
-      checkParents(git, rsrc);
+      validateCommit(git, rsrc);
 
       changeData = changeDataFactory.create(change);
       MergeOp.checkSubmitRequirements(changeData);
@@ -242,19 +245,58 @@ public class QtStage
     }
   }
 
-  private void checkParents(RevisionResource resource) throws ResourceConflictException {
+  public static class CommitMessageCheck {
+    public String pattern;
+    public String errorMessage;
+
+    public CommitMessageCheck(String pattern, String errorMessage) {
+      this.pattern = pattern;
+      this.errorMessage = errorMessage;
+    }
+  }
+
+  private void validateCommitMessage(String message)
+      throws PreconditionFailedException {
+
+    Pattern pattern;
+    Matcher matcher;
+    final CommitMessageCheck[] checks = {
+      // Matches two or more line breaks, possibly with spaces between them in end of the string.
+      new CommitMessageCheck("(?:.|\\r?\\n)*(?:[ \\t]*\\r?\\n){2,}[ \\t]*$",
+          "Extra line break found after commit footer."),
+
+      // Match spaces or tabs after a line break in end of the string.
+      new CommitMessageCheck("\\r?\\n[ \\t]+$", "Extra whitepace found after last line break."),
+
+      // Match spaces or tabs before a line break in end of the string.
+      new CommitMessageCheck( ".*[ \\t]+\\r?\\n$", "Extra whitespace found before last line break.")
+    };
+
+    for (CommitMessageCheck check : checks) {
+      pattern = Pattern.compile(check.pattern);
+      matcher = pattern.matcher(message);
+      if (matcher.find())
+        throw new PreconditionFailedException(check.errorMessage);
+    }
+  }
+
+  private void validateCommit(RevisionResource resource) throws ResourceConflictException,
+      PreconditionFailedException {
     try (final Repository repository = repoManager.openRepository(resource.getProject())) {
-      checkParents(repository, resource);
+      validateCommit(repository, resource);
     } catch (IOException e) {
       throw new ResourceConflictException("Can not read repository.", e);
     }
   }
 
-  private void checkParents(Repository repository, RevisionResource resource)
-      throws ResourceConflictException {
+  private void validateCommit(Repository repository, RevisionResource resource)
+      throws ResourceConflictException, PreconditionFailedException {
     try (final RevWalk rw = new RevWalk(repository)) {
       final PatchSet ps = resource.getPatchSet();
       final RevCommit rc = rw.parseCommit(ObjectId.fromString(ps.commitId().name()));
+
+      validateCommitMessage(rc.getFullMessage());
+
       if (rc.getParentCount() < 2) {
         return;
       }
@@ -274,6 +316,8 @@ public class QtStage
           }
         }
       }
+    } catch (PreconditionFailedException e) {
+      throw new ResourceConflictException(e.getMessage());
     } catch (IOException e) {
       throw new ResourceConflictException("Can not read repository.", e);
     }
@@ -289,9 +333,12 @@ public class QtStage
       return null; // submit not visible
     }
     try {
-      checkParents(resource);
+      validateCommit(resource);
     } catch (ResourceConflictException e) {
       logger.atWarning().log("Parent(s) check failed. %s", e.getMessage());
+      return null;
+    } catch (PreconditionFailedException e) {
+      logger.atWarning().log("Commit check failed: %s", e.getMessage());
       return null;
     }
     try {

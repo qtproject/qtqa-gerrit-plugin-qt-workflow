@@ -1,11 +1,15 @@
-// Copyright (C) 2019-23 The Qt Company
+// Copyright (C) 2019-25 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.gerrit.acceptance.GitUtil.pushHead;
+import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_COMMIT;
+import static com.google.gerrit.extensions.client.ListChangesOption.CURRENT_REVISION;
 import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS;
 
 import com.google.common.collect.ImmutableList;
+import com.google.gerrit.acceptance.GitUtil;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
@@ -14,9 +18,13 @@ import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.entities.Permission;
 import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.ChangeMessage;
+import com.google.gerrit.extensions.common.ChangeInfo;
+import com.google.gerrit.extensions.client.ChangeStatus;
 import java.util.ArrayList;
 import org.apache.http.HttpStatus;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.transport.PushResult;
+import org.eclipse.jgit.transport.RemoteRefUpdate;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -151,6 +159,60 @@ public class QtStageIT extends QtCodeReviewIT {
     approve(c.getChangeId());
     stagingHead = qtStage(c, stagingHead);
     assertApproval(c.getChangeId(), admin);
+  }
+
+  private void createAndStageCommit(String message, Integer index, Boolean expectPass)
+      throws Exception  {
+    Integer responseStatus = expectPass ? HttpStatus.SC_OK : HttpStatus.SC_CONFLICT;
+    ChangeStatus changeStatus = expectPass ? ChangeStatus.STAGED : ChangeStatus.NEW;
+    String expectedChangeId = expectPass ?
+        "I000000000000000000000000000000000000100" + String.valueOf(index):
+        "I000000000000000000000000000000000000200" + String.valueOf(index);
+
+    RevCommit rc = commitBuilder().add("a.txt", "1").message(message).create();
+    PushResult r = pushHead(testRepo, "refs/for/master");
+    RemoteRefUpdate refUpdate = r.getRemoteUpdate("refs/for/master");
+    assertThat(refUpdate.getStatus()).isEqualTo(RemoteRefUpdate.Status.OK);
+
+    String changeId = GitUtil.getChangeId(testRepo, refUpdate.getNewObjectId()).get().trim();
+    assertThat(changeId).isEqualTo(expectedChangeId);
+    approve(changeId);
+    ChangeInfo c = gApi.changes().id(changeId).get(CURRENT_REVISION, CURRENT_COMMIT);
+    assertThat(c.status).isEqualTo(ChangeStatus.NEW);
+
+    RestResponse response = call_REST_API_Stage(c.id, c.currentRevision);
+    response.assertStatus(responseStatus);
+    if (!expectPass)
+      assertThat(response.getEntityContent()).contains("Extra ");
+
+    c = gApi.changes().id(changeId).get(CURRENT_REVISION, CURRENT_COMMIT);
+    assertThat(c.status).isEqualTo(changeStatus);
+  }
+
+@Test
+public void errorStage_Validate_Commit_Message() throws Exception {
+
+    String[] validCommitMessages = {
+      "Summary\n\nDetails\nChange-Id: I0000000000000000000000000000000000001000\n",
+      "Summary\n\n\nChange-Id: I0000000000000000000000000000000000001001\n",
+      "Summary\n \n  \nChange-Id: I0000000000000000000000000000000000001002\n",
+      "Summary\n\nChange-Id: I0000000000000000000000000000000000001003\n"
+    };
+
+    String[] inValidCommitMessages = {
+      "Summary\nDetails\nChange-Id: I0000000000000000000000000000000000002000\n\n",
+      "Summary\n\nChange-Id: I0000000000000000000000000000000000002001\n \n",
+      "Summary\n\n\nChange-Id: I0000000000000000000000000000000000002002\n ",
+      "Summary\n \nChange-Id: I0000000000000000000000000000000000002003 \n"
+    };
+
+    for (int i = 0; i < validCommitMessages.length; i++) {
+      createAndStageCommit(validCommitMessages[i], i, true);
+    }
+
+    for (int i = 0; i < inValidCommitMessages.length; i++) {
+      createAndStageCommit(inValidCommitMessages[i], i,  false);
+    }
   }
 
   @Test
