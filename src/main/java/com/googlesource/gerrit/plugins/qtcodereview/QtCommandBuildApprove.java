@@ -81,8 +81,6 @@ class QtCommandBuildApprove extends SshCommand {
 
   @Inject private QtChangeUpdateOp.Factory qtUpdateFactory;
 
-  private final ReentrantLock buildApproveLock = new ReentrantLock();
-
   @Option(
       name = "--project",
       aliases = {"-p"},
@@ -140,11 +138,11 @@ class QtCommandBuildApprove extends SshCommand {
 
   @Override
   protected void run() throws UnloggedFailure {
-    buildApproveLock.lock(); // block processing of parallel requests
+    qtUtil.lockStaging(); // block processing of parallel requests
     try {
       runBuildApprove();
     } finally {
-      buildApproveLock.unlock();
+      qtUtil.unlockStaging();
     }
   }
 

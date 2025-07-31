@@ -77,10 +77,11 @@ class QtCommandNewBuild extends SshCommand {
 
   @Override
   protected void run() throws UnloggedFailure {
-
-    logger.atInfo().log("staging-new-build -p %s -s %s -i %s", project, stagingBranch, build);
-
+    qtUtil.lockStaging();
     try {
+      logger.atInfo().log("staging-new-build -p %s -s %s -i %s", project, stagingBranch, build);
+
+      try {
       Project.NameKey projectKey = Project.nameKey(project);
       git = gitManager.openRepository(projectKey);
 
@@ -196,6 +197,9 @@ class QtCommandNewBuild extends SshCommand {
       if (git != null) {
         git.close();
       }
+    }
+    } finally {
+      qtUtil.unlockStaging();
     }
   }
 }
