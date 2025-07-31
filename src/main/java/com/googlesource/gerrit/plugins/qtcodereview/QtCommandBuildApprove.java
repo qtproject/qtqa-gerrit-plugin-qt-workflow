@@ -138,11 +138,12 @@ class QtCommandBuildApprove extends SshCommand {
 
   @Override
   protected void run() throws UnloggedFailure {
-    qtUtil.lockStaging(); // block processing of parallel requests
+    stagingBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, destBranch);
+    qtUtil.lockStaging(stagingBranchKey.branch()); // block processing of parallel requests
     try {
       runBuildApprove();
     } finally {
-      qtUtil.unlockStaging();
+      qtUtil.unlockStaging(stagingBranchKey.branch());
     }
   }
 
@@ -156,7 +157,6 @@ class QtCommandBuildApprove extends SshCommand {
     projectKey = QtUtil.getProjectKey(project);
     buildBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_BUILDS, buildBranch);
     destBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_HEADS, destBranch);
-    stagingBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, destBranch);
     destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, destBranch);
 
     try {

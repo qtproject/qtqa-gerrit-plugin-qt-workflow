@@ -49,7 +49,6 @@ import com.google.inject.Singleton;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 import org.eclipse.jgit.errors.ConfigInvalidException;
@@ -77,7 +76,6 @@ public class QtStage
     }
   }
 
-  private final ReentrantLock stageLock = new ReentrantLock();
   private final GitRepositoryManager repoManager;
   private final PermissionBackend permissionBackend;
   private final ChangeData.Factory changeDataFactory;
@@ -133,13 +131,13 @@ public class QtStage
     Output output;
     logger.atInfo().log("stage request reveived for %s", rsrc.getChange().toString());
 
-    stageLock.lock(); // block processing of parallel stage requests
+    change = rsrc.getChange();
+    stagingBranchKey = QtUtil.getStagingBranch(change.getDest());
+    qtUtil.lockStaging(stagingBranchKey.branch()); // block processing of parallel stage requests
     try {
       IdentifiedUser submitter = rsrc.getUser().asIdentifiedUser();
-      change = rsrc.getChange();
       projectKey = rsrc.getProject();
       destBranchKey = change.getDest();
-      stagingBranchKey = QtUtil.getStagingBranch(destBranchKey);
 
       rsrc.permissions().check(ChangePermission.QT_STAGE);
       projectCache
@@ -149,7 +147,7 @@ public class QtStage
 
       output = new Output(changeToStaging(rsrc, submitter, input));
     } finally {
-      stageLock.unlock();
+      qtUtil.unlockStaging(stagingBranchKey.branch());
     }
 
     return Response.ok(output);

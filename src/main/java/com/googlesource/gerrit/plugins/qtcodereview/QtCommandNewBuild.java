@@ -77,7 +77,9 @@ class QtCommandNewBuild extends SshCommand {
 
   @Override
   protected void run() throws UnloggedFailure {
-    qtUtil.lockStaging();
+    BranchNameKey stagingBranchKey =
+        QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, stagingBranch);
+    qtUtil.lockStaging(stagingBranchKey.branch());
     try {
       logger.atInfo().log("staging-new-build -p %s -s %s -i %s", project, stagingBranch, build);
 
@@ -86,8 +88,6 @@ class QtCommandNewBuild extends SshCommand {
       git = gitManager.openRepository(projectKey);
 
       BranchNameKey buildBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_BUILDS, build);
-      BranchNameKey stagingBranchKey =
-          QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, stagingBranch);
       BranchNameKey destBranchShortKey =
           QtUtil.getNameKeyShort(project, QtUtil.R_STAGING, stagingBranch);
       BranchNameKey destinationKey = QtUtil.getNameKeyLong(project, QtUtil.R_HEADS, stagingBranch);
@@ -199,7 +199,7 @@ class QtCommandNewBuild extends SshCommand {
       }
     }
     } finally {
-      qtUtil.unlockStaging();
+      qtUtil.unlockStaging(stagingBranchKey.branch());
     }
   }
 }

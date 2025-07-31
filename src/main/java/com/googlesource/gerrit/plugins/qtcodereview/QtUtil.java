@@ -59,6 +59,8 @@ import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import com.googlesource.gerrit.plugins.qtcodereview.QtPrecheckMessage;
 import java.io.IOException;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
 import java.time.ZoneId;
 import java.util.AbstractMap;
@@ -91,7 +93,7 @@ public class QtUtil {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
-  private final ReentrantLock stagingLock = new ReentrantLock();
+  private final ConcurrentMap<String, ReentrantLock> branchLocks = new ConcurrentHashMap<>();
 
   public static final String R_HEADS = "refs/heads/";
   public static final String R_STAGING = "refs/staging/";
@@ -981,11 +983,17 @@ public class QtUtil {
     }
   }
 
-  public void lockStaging() {
-    stagingLock.lock();
+  public void lockStaging(String branchName) {
+    branchLocks.computeIfAbsent(branchName, k -> new ReentrantLock()).lock();
   }
 
-  public void unlockStaging() {
-    stagingLock.unlock();
+  public void unlockStaging(String branchName) {
+    ReentrantLock lock = branchLocks.get(branchName);
+    if (lock != null) {
+      lock.unlock();
+    } else {
+      // This should not happen in a correct try-finally block.
+      logger.atSevere().log("Attempted to unlock a branch that was not locked: %s", branchName);
+    }
   }
 }

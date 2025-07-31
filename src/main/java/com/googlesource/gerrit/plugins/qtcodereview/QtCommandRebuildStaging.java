@@ -55,11 +55,13 @@ class QtCommandRebuildStaging extends SshCommand {
     logger.atInfo().log("staging-rebuild -p %s -b %s", project, branch);
 
     BranchNameKey stagingBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, branch);
-    BranchNameKey destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, branch);
-
+    qtUtil.lockStaging(stagingBranchKey.branch());
     try {
-      Project.NameKey projectKey = Project.nameKey(project);
-      git = gitManager.openRepository(projectKey);
+      BranchNameKey destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, branch);
+
+      try {
+        Project.NameKey projectKey = Project.nameKey(project);
+        git = gitManager.openRepository(projectKey);
 
       permissionBackend
           .user(user)
@@ -87,10 +89,13 @@ class QtCommandRebuildStaging extends SshCommand {
     } catch (QtUtil.MergeConflictException e) {
       logger.atSevere().log("staging-rebuild error %s", e);
       throw die("staging rebuild failed, merge conflict");
-    } finally {
-      if (git != null) {
-        git.close();
+      } finally {
+        if (git != null) {
+          git.close();
+        }
       }
+    } finally {
+      qtUtil.unlockStaging(stagingBranchKey.branch());
     }
   }
 }

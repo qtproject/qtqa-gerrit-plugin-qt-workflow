@@ -105,7 +105,12 @@ class QtUnStage
         .orElseThrow(illegalState(rsrc.getProject()))
         .checkStatePermitsWrite();
 
-    return Response.ok(new Output(removeChangeFromStaging(rsrc, submitter)));
+    qtUtil.lockStaging(stagingBranchKey.branch());
+    try {
+      return Response.ok(new Output(removeChangeFromStaging(rsrc, submitter)));
+    } finally {
+      qtUtil.unlockStaging(stagingBranchKey.branch());
+    }
   }
 
   private Change removeChangeFromStaging(RevisionResource rsrc, IdentifiedUser submitter)
