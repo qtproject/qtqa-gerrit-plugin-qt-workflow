@@ -143,6 +143,11 @@ public class QtCherryPickPatch {
                 0,
                 true, // ignoreIdenticalTree
                 false); // allowConflicts
+
+        if (cherryPickCommit.getTree().equals(baseCommit.getTree())) {
+          throw new IntegrationConflictException("Cannot stage change: The patch set is empty.");
+        }
+
         boolean patchSetNotChanged = cherryPickCommit.equals(commitToCherryPick);
         if (!patchSetNotChanged) {
           logger.atInfo().log(
