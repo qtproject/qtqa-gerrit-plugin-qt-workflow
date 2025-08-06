@@ -89,11 +89,6 @@ public class QtStage
   private final String label;
   private final ParameterizedString titlePattern;
 
-  private Change change;
-  private Project.NameKey projectKey;
-  private BranchNameKey destBranchKey;
-  private BranchNameKey stagingBranchKey;
-
   @Inject
   QtStage(
       GitRepositoryManager repoManager,
@@ -131,13 +126,13 @@ public class QtStage
     Output output;
     logger.atInfo().log("stage request reveived for %s", rsrc.getChange().toString());
 
-    change = rsrc.getChange();
-    stagingBranchKey = QtUtil.getStagingBranch(change.getDest());
+    Change change = rsrc.getChange();
+    BranchNameKey stagingBranchKey = QtUtil.getStagingBranch(change.getDest());
     qtUtil.lockStaging(stagingBranchKey.branch()); // block processing of parallel stage requests
     try {
       IdentifiedUser submitter = rsrc.getUser().asIdentifiedUser();
-      projectKey = rsrc.getProject();
-      destBranchKey = change.getDest();
+      Project.NameKey projectKey = rsrc.getProject();
+      BranchNameKey destBranchKey = change.getDest();
 
       rsrc.permissions().check(ChangePermission.QT_STAGE);
       projectCache
@@ -145,7 +140,10 @@ public class QtStage
           .orElseThrow(illegalState(rsrc.getProject()))
           .checkStatePermitsWrite();
 
-      output = new Output(changeToStaging(rsrc, submitter, input));
+      output =
+          new Output(
+              changeToStaging(
+                  rsrc, submitter, input, change, projectKey, destBranchKey, stagingBranchKey));
     } finally {
       qtUtil.unlockStaging(stagingBranchKey.branch());
     }
@@ -153,7 +151,14 @@ public class QtStage
     return Response.ok(output);
   }
 
-  private Change changeToStaging(RevisionResource rsrc, IdentifiedUser submitter, SubmitInput input)
+  private Change changeToStaging(
+      RevisionResource rsrc,
+      IdentifiedUser submitter,
+      SubmitInput input,
+      Change change,
+      Project.NameKey projectKey,
+      BranchNameKey destBranchKey,
+      BranchNameKey stagingBranchKey)
       throws RestApiException, IOException, UpdateException, ConfigInvalidException,
           PermissionBackendException {
     logger.atInfo().log("changeToStaging starts for %s", change.getId());

@@ -62,11 +62,6 @@ class QtUnStage
   private final QtUtil qtUtil;
   private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
-  private Change change;
-  private Project.NameKey projectKey;
-  private BranchNameKey destBranchKey;
-  private BranchNameKey stagingBranchKey;
-
   @Inject
   QtUnStage(
       GitRepositoryManager repoManager,
@@ -94,10 +89,8 @@ class QtUnStage
 
     IdentifiedUser submitter = rsrc.getUser().asIdentifiedUser();
 
-    change = rsrc.getChange();
-    projectKey = rsrc.getProject();
-    destBranchKey = change.getDest();
-    stagingBranchKey = QtUtil.getStagingBranch(destBranchKey);
+    Change change = rsrc.getChange();
+    BranchNameKey stagingBranchKey = QtUtil.getStagingBranch(change.getDest());
 
     rsrc.permissions().check(ChangePermission.QT_STAGE);
     projectCache
@@ -107,13 +100,23 @@ class QtUnStage
 
     qtUtil.lockStaging(stagingBranchKey.branch());
     try {
-      return Response.ok(new Output(removeChangeFromStaging(rsrc, submitter)));
+      return Response.ok(
+          new Output(
+              removeChangeFromStaging(
+                  rsrc,
+                  submitter,
+                  change,
+                  stagingBranchKey)));
     } finally {
       qtUtil.unlockStaging(stagingBranchKey.branch());
     }
   }
 
-  private Change removeChangeFromStaging(RevisionResource rsrc, IdentifiedUser submitter)
+  private Change removeChangeFromStaging(
+      RevisionResource rsrc,
+      IdentifiedUser submitter,
+      Change change,
+      BranchNameKey stagingBranchKey)
       throws IOException, ResourceConflictException, RestApiException, UpdateException {
 
     Repository git = null;
@@ -198,10 +201,6 @@ class QtUnStage
     }
 
     try {
-      change = rsrc.getChange();
-      projectKey = rsrc.getProject();
-      destBranchKey = change.getDest();
-      stagingBranchKey = QtUtil.getStagingBranch(destBranchKey);
       rsrc.permissions().check(ChangePermission.QT_STAGE);
     } catch (AuthException | PermissionBackendException e) {
       return description;
