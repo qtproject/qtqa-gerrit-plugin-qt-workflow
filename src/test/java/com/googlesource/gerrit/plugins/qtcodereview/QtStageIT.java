@@ -147,7 +147,7 @@ public class QtStageIT extends QtCodeReviewIT {
   }
 
   @Test
-  public void emptyChange_Stage() throws Exception {
+  public void emptyChange_Stage_expectFail() throws Exception {
     RevCommit initialHead = getRemoteHead();
     PushOneCommit.Result c = pushCommit("master", "1st commit", "afile", "");
     approve(c.getChangeId());
@@ -157,8 +157,9 @@ public class QtStageIT extends QtCodeReviewIT {
     // no changes in this commit
     c = pushCommit("master", "no content", "afile", "");
     approve(c.getChangeId());
-    stagingHead = qtStage(c, stagingHead);
-    assertApproval(c.getChangeId(), admin);
+
+    RestResponse response = qtStageExpectFail(c, initialHead, stagingHead, HttpStatus.SC_CONFLICT);
+    assertThat(response.getEntityContent()).contains("Cannot stage change: The patch set is empty");
   }
 
   private void createAndStageCommit(String message, Integer index, Boolean expectPass)
@@ -169,7 +170,7 @@ public class QtStageIT extends QtCodeReviewIT {
         "I000000000000000000000000000000000000100" + String.valueOf(index):
         "I000000000000000000000000000000000000200" + String.valueOf(index);
 
-    RevCommit rc = commitBuilder().add("a.txt", "1").message(message).create();
+    RevCommit rc = commitBuilder().add("a.txt", String.valueOf(index)).message(message).create();
     PushResult r = pushHead(testRepo, "refs/for/master");
     RemoteRefUpdate refUpdate = r.getRemoteUpdate("refs/for/master");
     assertThat(refUpdate.getStatus()).isEqualTo(RemoteRefUpdate.Status.OK);

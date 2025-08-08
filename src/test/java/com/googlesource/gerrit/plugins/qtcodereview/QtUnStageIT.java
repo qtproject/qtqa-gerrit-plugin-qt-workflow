@@ -157,7 +157,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
 
     // Stage another change
     testRepo.reset(initialHead);
-    PushOneCommit.Result c2 = pushCommit("master", "commitmsg3", "file3", "content3");
+    PushOneCommit.Result c2 = pushCommit("master", "commitmsg4", "file4", "content4");
     approve(c2.getChangeId());
     QtStage(c2);
 

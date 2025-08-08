@@ -40,30 +40,6 @@ public class QtCommonFlowsIT extends QtCodeReviewIT {
   }
 
   @Test
-  public void emptyChange_Stage_Integrating_Merged() throws Exception {
-    RevCommit initialHead = getRemoteHead();
-    PushOneCommit.Result c = pushCommit("master", "1st commit", "afile", "");
-    approve(c.getChangeId());
-    QtStage(c);
-
-    // no changes in this commit
-    c = pushCommit("master", "no content", "afile", "");
-    approve(c.getChangeId());
-    QtStage(c);
-    assertStatusStaged(c.getChange().change());
-    RevCommit stagingHead = getRemoteHead(project, "refs/staging/master");
-
-    QtNewBuild("master", "master-build-000");
-    assertStatusIntegrating(c.getChange().change());
-
-    QtApproveBuild("master", "master-build-000");
-    assertStatusMerged(c.getChange().change());
-
-    String gitLog = getRemoteLog("refs/staging/master").toString();
-    assertThat(gitLog).contains(stagingHead.getId().name());
-  }
-
-  @Test
   public void mergeCommit_Stage_Integrating_Merged() throws Exception {
     RevCommit initialHead = getRemoteHead();
 
