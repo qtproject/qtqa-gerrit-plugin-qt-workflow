@@ -261,6 +261,12 @@ public class QtStage
   private void validateCommitMessage(String message)
       throws PreconditionFailedException {
 
+    // Help the regex engine and strip start of the message away.
+    String delimiter = "Change-Id:";
+    int index = message.indexOf(delimiter);
+    if (index == -1) throw new PreconditionFailedException("Change-Id footer missing");
+    String endOfMessage = message.substring(index + delimiter.length());
+
     Pattern pattern;
     Matcher matcher;
     final CommitMessageCheck[] checks = {
@@ -277,7 +283,7 @@ public class QtStage
 
     for (CommitMessageCheck check : checks) {
       pattern = Pattern.compile(check.pattern);
-      matcher = pattern.matcher(message);
+      matcher = pattern.matcher(endOfMessage);
       if (matcher.find())
         throw new PreconditionFailedException(check.errorMessage);
     }
