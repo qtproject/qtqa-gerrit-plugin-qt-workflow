@@ -1,4 +1,4 @@
-// Copyright (C) 2021-23 The Qt Company
+// Copyright (C) 2021-25 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -502,6 +502,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
     RevCommit stagingHeadOld = getRemoteRefHead(project, stagingRef);
     RevCommit initialHead = getRemoteHead(project, branchRef);
+    Integer originalRevision = expectedContent.getPatchSet().number();
     String commandStr;
 
     commandStr = "gerrit-plugin-qt-workflow staging-approve";
@@ -520,16 +521,21 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     RevCommit updatedHead = getRemoteHead(project, branchRef);
     assertThat(resultStr).isEqualTo(updatedHead.name() + "\n");
 
+    ChangeInfo cf = gApi.changes().id(expectedContent.getChangeId()).get(CURRENT_REVISION);
+    Integer currentRevision = cf.currentRevisionNumber;
+
     if (expectMerge) {
       assertThat(updatedHead.getParentCount()).isEqualTo(2);
       assertThat(updatedHead.getName()).isNotEqualTo(expectedContent.getCommit().getName());
       assertThat(updatedHead.getShortMessage()).contains("Merge");
       assertThat(updatedHead.getAuthorIdent().getEmailAddress()).isEqualTo(admin.email());
       assertThat(updatedHead.getCommitterIdent().getEmailAddress()).isEqualTo(admin.email());
+      assertThat(currentRevision).isEqualTo(originalRevision);
     } else {
       assertCherryPick(updatedHead, expectedContent.getCommit(), null);
       assertThat(updatedHead.getAuthorIdent().getEmailAddress()).isEqualTo(user.email());
       assertThat(updatedHead.getCommitterIdent().getEmailAddress()).isEqualTo(user.email());
+      assertThat(currentRevision).isEqualTo(originalRevision + 1);
     }
 
     RevCommit stagingHead = getRemoteRefHead(project, stagingRef);

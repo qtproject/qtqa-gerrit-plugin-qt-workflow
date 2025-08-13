@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2021-23 The Qt Company
+// Copyright (C) 2021-25 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -328,11 +328,17 @@ class QtCommandBuildApprove extends SshCommand {
               CodeReviewCommit currCommit = new CodeReviewCommit(obj);
               currCommit.setPatchsetId(cd.currentPatchSet().id());
               CodeReviewCommit newCommit = new CodeReviewCommit(item.getValue());
-              Change.Id changeId = insertPatchSet(u, git, cd.notes(), newCommit);
-              if (!changeId.equals(cd.getId())) {
-                logger.atWarning().log(
+
+              Change.Id changeId = cd.getId();
+              // Create new patchset only if the commit sha1 has changed
+              if (!currCommit.equals(newCommit)) {
+                changeId = insertPatchSet(u, git, cd.notes(), newCommit);
+                if (!changeId.equals(cd.getId())) {
+                  logger.atWarning().log(
                     "wrong changeId for new patchSet %s != %s", changeId, cd.getId());
-              }
+                }
+              } else currCommit = null;
+
               u.addOp(
                   changeId,
                   qtUpdateFactory.create(newStatus, oldStatus, changeMessage, null, tag, currCommit));
