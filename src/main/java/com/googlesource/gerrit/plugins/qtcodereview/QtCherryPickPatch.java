@@ -26,16 +26,22 @@ import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import org.eclipse.jgit.errors.ConfigInvalidException;
+import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectInserter;
 import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.storage.file.FileBasedConfig;
+import org.eclipse.jgit.util.FS;
+import org.eclipse.jgit.util.SystemReader;
 
 @Singleton
 public class QtCherryPickPatch {
@@ -145,7 +151,30 @@ public class QtCherryPickPatch {
                 false); // allowConflicts
 
         if (cherryPickCommit.getTree().equals(baseCommit.getTree())) {
-          throw new IntegrationConflictException("Cannot stage change: The patch set is empty.");
+          Config cfg;
+          try {
+            FileBasedConfig userConfig = SystemReader.getInstance().openUserConfig(null, FS.DETECTED);
+            userConfig.load();
+            cfg = userConfig;
+          } catch (IOException | ConfigInvalidException e) {
+            logger.atWarning().withCause(e).log("Could not load user gitconfig");
+            cfg = new Config();
+          }
+          String exceptions = cfg.getString("qtcodereview", null, "emptyCommitExceptions");
+          logger.atInfo().log(
+              "Found empty commit exceptions: %s", exceptions);
+          boolean allowed = false;
+          if (exceptions != null && !exceptions.isEmpty()) {
+            String originalCommitMessage = commitToCherryPick.getFullMessage();
+            allowed =
+                Arrays.stream(exceptions.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .anyMatch(originalCommitMessage::contains);
+          }
+          if (!allowed) {
+            throw new IntegrationConflictException("Cannot stage change: The patch set is empty.");
+          }
         }
 
         boolean patchSetNotChanged = cherryPickCommit.equals(commitToCherryPick);

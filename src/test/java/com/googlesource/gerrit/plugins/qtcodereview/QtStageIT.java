@@ -23,8 +23,11 @@ import com.google.gerrit.extensions.client.ChangeStatus;
 import java.util.ArrayList;
 import org.apache.http.HttpStatus;
 import org.eclipse.jgit.revwalk.RevCommit;
+import org.eclipse.jgit.storage.file.FileBasedConfig;
 import org.eclipse.jgit.transport.PushResult;
 import org.eclipse.jgit.transport.RemoteRefUpdate;
+import org.eclipse.jgit.util.FS;
+import org.eclipse.jgit.util.SystemReader;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -144,6 +147,29 @@ public class QtStageIT extends QtCodeReviewIT {
     assertThat(gitLog).contains(f1.getCommit().getId().name());
     assertThat(gitLog).contains(f2.getCommit().getId().name());
     assertThat(gitLog).contains(m.getCommit().getId().name());
+  }
+
+  @Test
+  public void emptyChange_Stage_AllowException() throws Exception {
+
+    // Store exception string
+    FileBasedConfig gitConfig = SystemReader.getInstance().openUserConfig(null, FS.DETECTED);
+    gitConfig.load();
+    gitConfig.setString("qtcodereview", null, "emptyCommitExceptions", "[ChangeLog]");
+    gitConfig.save();
+
+    RevCommit initialHead = getRemoteHead();
+    PushOneCommit.Result c = pushCommit("master", "1st commit]", "afile", "");
+    approve(c.getChangeId());
+    RevCommit stagingHead = qtStage(c);
+    assertApproval(c.getChangeId(), admin);
+
+    // no changes in this commit, but an exception string in commit message
+    c = pushCommit("master", "2nd commit:no content\n[ChangeLog]", "afile", "");
+    approve(c.getChangeId());
+
+    stagingHead = qtStage(c);
+    assertApproval(c.getChangeId(), admin);
   }
 
   @Test
