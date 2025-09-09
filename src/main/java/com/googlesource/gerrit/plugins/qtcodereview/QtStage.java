@@ -223,9 +223,16 @@ public class QtStage
       referenceUpdated.fire(
           projectKey, stagingBranchKey.branch(), destId, commit.toObjectId(), submitter.state());
 
+    } catch (PreconditionFailedException e) {
+      logger.atWarning().log("Commit check failed on stage action: %s", e.getMessage());
+      throw e;
     } catch (IntegrationConflictException e) {
       logger.atInfo().log("stage merge error %s", e);
-      throw new ResourceConflictException(e.getMessage());
+      if (e.getMessage() != null && e.getMessage().contains("The patch set is empty")) {
+        throw new ResourceConflictException("Cannot stage change: The patch set is empty");
+      }
+      throw new ResourceConflictException(
+          "Merge conflict with the destination branch, or with other changes already staged/integrating.");
     } catch (NoSuchRefException e) {
       logger.atSevere().log("stage error %s", e);
       throw new ResourceConflictException(e.getMessage());
@@ -325,8 +332,6 @@ public class QtStage
           }
         }
       }
-    } catch (PreconditionFailedException e) {
-      throw new ResourceConflictException(e.getMessage());
     } catch (IOException e) {
       throw new ResourceConflictException("Can not read repository.", e);
     }
@@ -345,10 +350,18 @@ public class QtStage
       validateCommit(resource);
     } catch (ResourceConflictException e) {
       logger.atWarning().log("Parent(s) check failed. %s", e.getMessage());
-      return null;
+      return new UiAction.Description()
+          .setLabel(label)
+          .setTitle(e.getMessage())
+          .setVisible(true)
+          .setEnabled(false);
     } catch (PreconditionFailedException e) {
       logger.atWarning().log("Commit check failed: %s", e.getMessage());
-      return null;
+      return new UiAction.Description()
+          .setLabel(label)
+          .setTitle(e.getMessage())
+          .setVisible(true)
+          .setEnabled(false);
     }
     try {
       if (!projectCache
@@ -366,7 +379,11 @@ public class QtStage
     try {
       MergeOp.checkSubmitRequirements(cd);
     } catch (ResourceConflictException e) {
-      return null; // stage not visible
+      return new UiAction.Description()
+          .setLabel(label)
+          .setTitle(e.getMessage())
+          .setVisible(true)
+          .setEnabled(false);
     }
 
     ObjectId revId = resource.getPatchSet().commitId();

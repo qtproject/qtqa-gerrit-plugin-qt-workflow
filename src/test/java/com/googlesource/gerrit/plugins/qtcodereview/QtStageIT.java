@@ -190,7 +190,7 @@ public class QtStageIT extends QtCodeReviewIT {
 
   private void createAndStageCommit(String message, Integer index, Boolean expectPass)
       throws Exception  {
-    Integer responseStatus = expectPass ? HttpStatus.SC_OK : HttpStatus.SC_CONFLICT;
+    Integer responseStatus = expectPass ? HttpStatus.SC_OK : HttpStatus.SC_PRECONDITION_FAILED;
     ChangeStatus changeStatus = expectPass ? ChangeStatus.STAGED : ChangeStatus.NEW;
     String expectedChangeId = expectPass ?
         "I000000000000000000000000000000000000100" + String.valueOf(index):
@@ -350,7 +350,9 @@ public void errorStage_Validate_Commit_Message() throws Exception {
     approve(c2.getChangeId());
     RestResponse response =
         qtStageExpectFail(c2, initialHead, stagingHead1, HttpStatus.SC_CONFLICT);
-    assertThat(response.getEntityContent()).contains("merge conflict");
+    assertThat(response.getEntityContent())
+        .contains(
+            "Merge conflict with the destination branch, or with other changes already staged/integrating.");
 
     assertStatusNew(c2.getChange().change());
   }
