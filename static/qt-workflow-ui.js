@@ -137,6 +137,9 @@ Gerrit.install(plugin => {
                 const confirmBtn = dialog.querySelector('#confirmBtn')
                 const cancelBtn = dialog.querySelector('#cancelBtn')
 
+                // Guard against multiple submissions via Ctrl+Enter or repeated clicks.
+                let submitting = false;
+
                 dialog.querySelector('#typeSelect').addEventListener('change', (event) => {
                     const typeSelect = event.currentTarget.value;
                     const checkboxes = dialog.querySelector('#checkboxes');
@@ -149,13 +152,27 @@ Gerrit.install(plugin => {
 
                 // The gerrit plugin popup api does not delete the dom elements
                 // a manual deleting is needed or the ids confuse the scripts.
-                document.addEventListener('iron-overlay-canceled', (event) => {
+                const ironOverlayHandler = (event) => {
                     v.popup.remove();
-                });
+                };
+                document.addEventListener('iron-overlay-canceled', ironOverlayHandler);
 
                 confirmBtn.addEventListener('click', function onOpen() {
-                    confirmBtn.disabled = true
+                    if (submitting) return;
+                    submitting = true;
+
+                    // Preserve original text/color so we can restore later.
+                    const confirmOrigText = confirmBtn.textContent;
+                    const confirmOrigColor = confirmBtn.style.color;
+                    const cancelOrigColor = cancelBtn.style.color;
+
+                    // Update UI to indicate submitting state.
+                    confirmBtn.disabled = true;
+                    cancelBtn.disabled = true;
                     confirmBtn.setAttribute('loading');
+                    confirmBtn.textContent = 'Submitting...';
+                    confirmBtn.style.color = 'var(--deemphasized-text-color)';
+                    cancelBtn.style.color = 'var(--deemphasized-text-color)';
 
                     plugin.restApi().post(actions["gerrit-plugin-qt-workflow~precheck"].__url, {
                             type: dialog.querySelector('#typeSelect').value,
@@ -163,10 +180,16 @@ Gerrit.install(plugin => {
                             cherrypick: dialog.querySelector('#CherrypickCheckBox').checked,
                             platforms: dialog.querySelector('#PlatformsInput').value,
                         }).then(() => {
-                                confirmBtn.removeAttribute('loading');
-                                confirmBtn.disabled = false;
                                 window.location.reload(true);
                         }).catch((failed_resp) => {
+                            // Restore UI so user can retry.
+                            submitting = false;
+                            confirmBtn.removeAttribute('loading');
+                            confirmBtn.disabled = false;
+                            cancelBtn.disabled = false;
+                            confirmBtn.textContent = confirmOrigText;
+                            confirmBtn.style.color = confirmOrigColor;
+                            cancelBtn.style.color = cancelOrigColor;
                             this.dispatchEvent(
                                 new CustomEvent('show-alert', {
                                     detail: {message: failed_resp},
@@ -178,8 +201,23 @@ Gerrit.install(plugin => {
                 });
 
                 cancelBtn.addEventListener('click', function onOpen() {
+                    if (submitting) return;
                     v.close()
                     v.popup.remove();
+                    document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
+                });
+
+                const formEl = dialog.querySelector('#precheckForm') || dialog.querySelector('form');
+                formEl.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    if (!submitting) confirmBtn.click();
+                });
+
+                dialog.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                        e.preventDefault();
+                        if (!submitting) confirmBtn.click();
+                    }
                 });
             });
         }
@@ -270,7 +308,7 @@ Gerrit.install(plugin => {
                     </style>
                     <div id="precheckdialog">
                         <dialog class="main">
-                        <form is="iron-form">
+                        <form is="iron-form" id="precheckForm">
                             <div class="overflow-container">
                                 <div style="font-size: 16px;">Precheck</div>
                                 <div><p class="paragraph">Select the precheck type. Default will run targets from precheck.yaml, equal to full if yaml not found.
@@ -362,16 +400,29 @@ Gerrit.install(plugin => {
             }
             if (button_action) {
                 const buttonEl = this.shadowRoot.querySelector(`[data-action-key="${button_key}"]`);
+                // Preserve original text/color to restore later.
+                buttonEl.dataset._origText = buttonEl.textContent;
+                buttonEl.dataset._origColor = buttonEl.style.color || '';
                 buttonEl.setAttribute('loading', true);
                 buttonEl.disabled = true;
+                // Visually deemphasize while submitting and show status text.
+                buttonEl.textContent = 'Submitting...';
+                buttonEl.style.color = 'var(--deemphasized-text-color)';
+
                 plugin.restApi().post(button_action.__url, {})
                     .then((ok_resp) => {
                         buttonEl.removeAttribute('loading');
                         buttonEl.disabled = false;
+                        // Restore original text/color (best-effort before reload).
+                        buttonEl.textContent = buttonEl.dataset._origText;
+                        buttonEl.style.color = buttonEl.dataset._origColor;
                         window.location.reload(true);
                     }).catch((failed_resp) => {
                         buttonEl.removeAttribute('loading');
                         buttonEl.disabled = false;
+                        // Restore UI so user can retry.
+                        buttonEl.textContent = buttonEl.dataset._origText;
+                        buttonEl.style.color = buttonEl.dataset._origColor;
                         this.dispatchEvent(
                             new CustomEvent('show-alert', {
                                 detail: {message: failed_resp},
