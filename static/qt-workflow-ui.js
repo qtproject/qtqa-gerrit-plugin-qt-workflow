@@ -25,6 +25,292 @@ Gerrit.install(plugin => {
     var CiStatusMessageNew = null;
     var CiStatusColor = null;
 
+    // Ensure precheck dialog component is registered and global overflow listeners are set once.
+    function createPrecheck() {
+        // Avoids defining precheck module twice which would cause exception.
+        // This would happend during some UI actions e.g. opening edit mode.
+        var precheck = customElements.get('precheck-dialog')
+        if (precheck) {
+            return
+        }
+
+        Polymer({
+            is: 'precheck-dialog',
+
+            ready: function() {
+                this.innerHTML = `
+                <style>
+                    .main {
+                        left: 50%;
+                        top: 50%;
+                        transform: translate(-50%, -50%);
+                        display: flex;
+                        border-radius: 4px;
+                        border: 0px;
+                        padding: 16px;
+                        box-shadow: 0px 4px 4px 0px rgb(60 64 67 / 30%), 0px 8px 12px 6px rgb(60 64 67 / 15%);
+                        position: absolute;
+                    }
+                    .overflow-container {
+                        min-width: 32em;
+                        min-height: 12em;
+                    }
+                    .footer {
+                        display: flex;
+                        justify-content: flex-end;
+                        padding-top: var(--spacing-l);
+                    }
+                    paper-button {
+                        color: #1565c0
+                    }
+                    paper-button:hover {
+                        background: #00000016;
+                    }
+                    select {
+                        color: rgb(33, 33, 33);
+                        font-family: var(--font-family, inherit);
+                        font-size: 14px;
+                        border-radius: 4px;
+                        border-color: rgb(218, 220, 224);
+                        background-color: rgb(248, 249, 250);
+                        padding: 4px;
+                        outline: none;
+                    }
+                    .input-body[hidden] {
+                        display: none;
+                    }
+                    .input {
+                        display: flex;
+                    }
+                    #precheckdialog {
+                        position: fixed;
+                    }
+                    #PlatformsInput {
+                        font-size: var(--font-size-mono);
+                        font-family: var(--monospace-font-family);
+                        border: 1px solid var(--border-color);
+                        border-radius: 4px;
+                        margin-top: var(--spacing-s);
+                        padding: 4px;
+                        font-size: 14px;
+                        min-width: 30em;
+                        outline: none;
+                    }
+                    label {
+                        white-space: nowrap;
+                        color: var(--deemphasized-text-color);
+                        font-weight: var(--font-weight-bold);
+                        padding-right: var(--spacing-m);
+                    }
+                    .paragraph {
+                        margin-block-start: 1em;
+                        margin-block-end: 1em;
+                    }
+                    #BuildOnlyCheckBox, #CherrypickCheckBox{
+                        margin: 3px;
+                    }
+                </style>
+                <div id="precheckdialog">
+                    <dialog class="main">
+                    <form is="iron-form" id="precheckForm">
+                        <div class="overflow-container">
+                            <div style="font-size: 16px;">Precheck</div>
+                            <div><p class="paragraph">Select the precheck type. Default will run targets from precheck.yaml, equal to full if yaml not found.
+                                Full will run all targets. Custom will allow manual selection of the targets.</p></div>
+                            <div class="input-body">
+                                <p class="paragraph"><label>Precheck type:
+                                <select id="typeSelect" style="margin-left: 4px;">
+                                    <option value="default" title="Runs targets from precheck.yaml (lower coverage but faster)">Default</option>
+                                    <option value="full" title="Runs all targets (high coverage but slower)">Full</option>
+                                    <option value="downstream" title="Runs a qt5 precheck with this change as dependency">Downstream qt5</option>
+                                    <option value="custom">Custom</option>
+                                </select>
+                                </label></p>
+                            </div>
+                            <div style="display: flex; flex-direction: column;">
+                                <div class="input-body">
+                                    <div class="input" title="Excludes tests">
+                                        <input type="checkbox" id="BuildOnlyCheckBox"/>
+                                        <label for="BuildOnlyCheckBox">Build only</label>
+                                    </div>
+                                </div>
+                                <div class="input-body">
+                                    <div class="input" title="Cherry-picks changes instead of checkout">
+                                        <input type="checkbox" id="CherrypickCheckBox"/>
+                                        <label for="CherrypickCheckBox">Cherry-pick</label>
+                                    </div>
+                                </div>
+                                <div id="checkboxes" hidden=true>
+                                    <p class="paragraph">Match against os, osversion, arch, compiler or feature.
+                                    See <a href="https://testresults.qt.io/coin/doc/precheck.html">COIN precheck</a> for usage details.</p>
+                                    <input type="text" id="PlatformsInput" rows="1" autocapitalize="none" placeholder="os:android and arch:-x86">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <paper-button id="confirmBtn" value="default">Confirm</paper-button>
+                            <paper-button id="cancelBtn" value="default">Cancel</paper-button>
+                        </div>
+                    </form>
+                    </dialog>
+                </div>`;
+            }
+        });
+
+        plugin.registerDynamicCustomComponent('precheck-dialog', 'precheck-dialog');
+    }
+
+    function onPrecheckBtn(c) {
+        plugin.popup('precheck-dialog').then((v) => {
+            const dialog = v.popup.querySelector('#precheckdialog')
+            const confirmBtn = dialog.querySelector('#confirmBtn')
+            const cancelBtn = dialog.querySelector('#cancelBtn')
+
+            // Guard against multiple submissions via Ctrl+Enter or repeated clicks.
+            let submitting = false;
+
+            dialog.querySelector('#typeSelect').addEventListener('change', (event) => {
+                const typeSelect = event.currentTarget.value;
+                const checkboxes = dialog.querySelector('#checkboxes');
+                if (typeSelect === 'custom') {
+                  checkboxes.hidden = false;
+                } else {
+                  checkboxes.hidden = true;
+                }
+            });
+
+            // The gerrit plugin popup api does not delete the dom elements
+            // a manual deleting is needed or the ids confuse the scripts.
+            const ironOverlayHandler = (event) => {
+                v.popup.remove();
+            };
+            document.addEventListener('iron-overlay-canceled', ironOverlayHandler);
+
+            confirmBtn.addEventListener('click', function onOpen() {
+                if (submitting) return;
+                submitting = true;
+
+                // Preserve original text/color so we can restore later.
+                const confirmOrigText = confirmBtn.textContent;
+                const confirmOrigColor = confirmBtn.style.color;
+                const cancelOrigColor = cancelBtn.style.color;
+
+                // Update UI to indicate submitting state.
+                confirmBtn.disabled = true;
+                cancelBtn.disabled = true;
+                confirmBtn.setAttribute('loading');
+                confirmBtn.textContent = 'Submitting...';
+                confirmBtn.style.color = 'var(--deemphasized-text-color)';
+                cancelBtn.style.color = 'var(--deemphasized-text-color)';
+
+                const actions = plugin.__precheckActions || {};
+                const preAction = actions["gerrit-plugin-qt-workflow~precheck"];
+                const url = preAction && preAction.__url;
+
+                if (!url) {
+                    // Restore UI so user can retry.
+                    submitting = false;
+                    confirmBtn.removeAttribute('loading');
+                    confirmBtn.disabled = false;
+                    cancelBtn.disabled = false;
+                    confirmBtn.textContent = confirmOrigText;
+                    confirmBtn.style.color = confirmOrigColor;
+                    cancelBtn.style.color = cancelOrigColor;
+                    this.dispatchEvent(
+                        new CustomEvent('show-alert', {
+                            detail: {message: 'Precheck action is not available.'},
+                            composed: true,
+                            bubbles: true,
+                        })
+                    );
+                    return;
+                }
+
+                plugin.restApi().post(url, {
+                        type: dialog.querySelector('#typeSelect').value,
+                        onlybuild: dialog.querySelector('#BuildOnlyCheckBox').checked,
+                        cherrypick: dialog.querySelector('#CherrypickCheckBox').checked,
+                        platforms: dialog.querySelector('#PlatformsInput').value,
+                    }).then(() => {
+                            window.location.reload(true);
+                    }).catch((failed_resp) => {
+                        // Restore UI so user can retry.
+                        submitting = false;
+                        confirmBtn.removeAttribute('loading');
+                        confirmBtn.disabled = false;
+                        cancelBtn.disabled = false;
+                        confirmBtn.textContent = confirmOrigText;
+                        confirmBtn.style.color = confirmOrigColor;
+                        cancelBtn.style.color = cancelOrigColor;
+                        this.dispatchEvent(
+                            new CustomEvent('show-alert', {
+                                detail: {message: failed_resp},
+                                composed: true,
+                                bubbles: true,
+                            })
+                        );
+                });
+            });
+
+            cancelBtn.addEventListener('click', function onOpen() {
+                if (submitting) return;
+                v.close()
+                v.popup.remove();
+                document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
+            });
+
+            const formEl = dialog.querySelector('#precheckForm') || dialog.querySelector('form');
+            formEl.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (!submitting) confirmBtn.click();
+            });
+
+            dialog.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    if (!submitting) confirmBtn.click();
+                }
+            });
+        });
+    }
+
+    // Register dialog component now (idempotent)
+    createPrecheck();
+
+    // Register global listeners once for overflow actions and fallback clicks.
+    if (!plugin.__precheckTapBound) {
+        plugin.__precheckTapBound = true;
+
+        const precheckTapHandler = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            onPrecheckBtn();
+        };
+
+        document.addEventListener('gerrit-plugin-qt-workflow~precheck-revision-tap', precheckTapHandler, true);
+        document.addEventListener('gerrit-plugin-qt-workflow~precheck-change-tap', precheckTapHandler, true);
+
+        // Fallback for environments not emitting custom tap events.
+        document.addEventListener('click', (e) => {
+            const path = e.composedPath ? e.composedPath() : [e.target];
+            for (let i = 0; i < path.length; i++) {
+                const node = path[i];
+                if (!node || !node.classList || !node.classList.contains) continue;
+                if (node.classList.contains('itemAction')) {
+                    const dataId = node.getAttribute && node.getAttribute('data-id');
+                    if (dataId === 'gerrit-plugin-qt-workflow~precheck-revision') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        onPrecheckBtn();
+                        break;
+                    }
+                }
+            }
+        }, true);
+    }
+
     function htmlToElement(html) {
         var template = document.createElement('template');
         html = html.trim(); // No white space
@@ -107,6 +393,7 @@ Gerrit.install(plugin => {
     // Customize change view
     plugin.on('show-revision-actions', function(revisionActions, changeInfo) {
         var actions = Object.assign({}, revisionActions, changeInfo.actions);
+        plugin.__precheckActions = actions;
         var cActions = plugin.changeActions();
 
         // Hide 'Sanity-Review+1' button in header
@@ -131,247 +418,25 @@ Gerrit.install(plugin => {
             });
         } else plugin.buttons = [];
 
-        function onPrecheckBtn(c) {
-            plugin.popup('precheck-dialog').then((v) => {
-                const dialog = v.popup.querySelector('#precheckdialog')
-                const confirmBtn = dialog.querySelector('#confirmBtn')
-                const cancelBtn = dialog.querySelector('#cancelBtn')
 
-                // Guard against multiple submissions via Ctrl+Enter or repeated clicks.
-                let submitting = false;
-
-                dialog.querySelector('#typeSelect').addEventListener('change', (event) => {
-                    const typeSelect = event.currentTarget.value;
-                    const checkboxes = dialog.querySelector('#checkboxes');
-                    if (typeSelect === 'custom') {
-                      checkboxes.hidden = false;
-                    } else {
-                      checkboxes.hidden = true;
-                    }
-                });
-
-                // The gerrit plugin popup api does not delete the dom elements
-                // a manual deleting is needed or the ids confuse the scripts.
-                const ironOverlayHandler = (event) => {
-                    v.popup.remove();
-                };
-                document.addEventListener('iron-overlay-canceled', ironOverlayHandler);
-
-                confirmBtn.addEventListener('click', function onOpen() {
-                    if (submitting) return;
-                    submitting = true;
-
-                    // Preserve original text/color so we can restore later.
-                    const confirmOrigText = confirmBtn.textContent;
-                    const confirmOrigColor = confirmBtn.style.color;
-                    const cancelOrigColor = cancelBtn.style.color;
-
-                    // Update UI to indicate submitting state.
-                    confirmBtn.disabled = true;
-                    cancelBtn.disabled = true;
-                    confirmBtn.setAttribute('loading');
-                    confirmBtn.textContent = 'Submitting...';
-                    confirmBtn.style.color = 'var(--deemphasized-text-color)';
-                    cancelBtn.style.color = 'var(--deemphasized-text-color)';
-
-                    plugin.restApi().post(actions["gerrit-plugin-qt-workflow~precheck"].__url, {
-                            type: dialog.querySelector('#typeSelect').value,
-                            onlybuild: dialog.querySelector('#BuildOnlyCheckBox').checked,
-                            cherrypick: dialog.querySelector('#CherrypickCheckBox').checked,
-                            platforms: dialog.querySelector('#PlatformsInput').value,
-                        }).then(() => {
-                                window.location.reload(true);
-                        }).catch((failed_resp) => {
-                            // Restore UI so user can retry.
-                            submitting = false;
-                            confirmBtn.removeAttribute('loading');
-                            confirmBtn.disabled = false;
-                            cancelBtn.disabled = false;
-                            confirmBtn.textContent = confirmOrigText;
-                            confirmBtn.style.color = confirmOrigColor;
-                            cancelBtn.style.color = cancelOrigColor;
-                            this.dispatchEvent(
-                                new CustomEvent('show-alert', {
-                                    detail: {message: failed_resp},
-                                    composed: true,
-                                    bubbles: true,
-                                })
-                            );
-                    });
-                });
-
-                cancelBtn.addEventListener('click', function onOpen() {
-                    if (submitting) return;
-                    v.close()
-                    v.popup.remove();
-                    document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
-                });
-
-                const formEl = dialog.querySelector('#precheckForm') || dialog.querySelector('form');
-                formEl.addEventListener('submit', (e) => {
-                    e.preventDefault();
-                    if (!submitting) confirmBtn.click();
-                });
-
-                dialog.addEventListener('keydown', (e) => {
-                    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
-                        e.preventDefault();
-                        if (!submitting) confirmBtn.click();
-                    }
-                });
-            });
-        }
-
-        function createPrecheck() {
-            // Avoids defining precheck module twice which would cause exception.
-            // This would happend during some UI actions e.g. opening edit mode.
-            var precheck = customElements.get('precheck-dialog')
-            if (precheck) {
-                return
-            }
-
-            Polymer({
-                is: 'precheck-dialog',
-
-                ready: function() {
-                    this.innerHTML = `
-                    <style>
-                        .main {
-                            left: 50%;
-                            top: 50%;
-                            transform: translate(-50%, -50%);
-                            display: flex;
-                            border-radius: 4px;
-                            border: 0px;
-                            padding: 16px;
-                            box-shadow: 0px 4px 4px 0px rgb(60 64 67 / 30%), 0px 8px 12px 6px rgb(60 64 67 / 15%);
-                            position: absolute;
-                        }
-                        .overflow-container {
-                            min-width: 32em;
-                            min-height: 12em;
-                        }
-                        .footer {
-                            display: flex;
-                            justify-content: flex-end;
-                            padding-top: var(--spacing-l);
-                        }
-                        paper-button {
-                            color: #1565c0
-                        }
-                        paper-button:hover {
-                            background: #00000016;
-                        }
-                        select {
-                            color: rgb(33, 33, 33);
-                            font-family: var(--font-family, inherit);
-                            font-size: 14px;
-                            border-radius: 4px;
-                            border-color: rgb(218, 220, 224);
-                            background-color: rgb(248, 249, 250);
-                            padding: 4px;
-                            outline: none;
-                        }
-                        .input-body[hidden] {
-                            display: none;
-                        }
-                        .input {
-                            display: flex;
-                        }
-                        #precheckdialog {
-                            position: fixed;
-                        }
-                        #PlatformsInput {
-                            font-size: var(--font-size-mono);
-                            font-family: var(--monospace-font-family);
-                            border: 1px solid var(--border-color);
-                            border-radius: 4px;
-                            margin-top: var(--spacing-s);
-                            padding: 4px;
-                            font-size: 14px;
-                            min-width: 30em;
-                            outline: none;
-                        }
-                        label {
-                            white-space: nowrap;
-                            color: var(--deemphasized-text-color);
-                            font-weight: var(--font-weight-bold);
-                            padding-right: var(--spacing-m);
-                        }
-                        .paragraph {
-                            margin-block-start: 1em;
-                            margin-block-end: 1em;
-                        }
-                        #BuildOnlyCheckBox, #CherrypickCheckBox{
-                            margin: 3px;
-                        }
-                    </style>
-                    <div id="precheckdialog">
-                        <dialog class="main">
-                        <form is="iron-form" id="precheckForm">
-                            <div class="overflow-container">
-                                <div style="font-size: 16px;">Precheck</div>
-                                <div><p class="paragraph">Select the precheck type. Default will run targets from precheck.yaml, equal to full if yaml not found.
-                                    Full will run all targets. Custom will allow manual selection of the targets.</p></div>
-                                <div class="input-body">
-                                    <p class="paragraph"><label>Precheck type:
-                                    <select id="typeSelect" style="margin-left: 4px;">
-                                        <option value="default" title="Runs targets from precheck.yaml (lower coverage but faster)">Default</option>
-                                        <option value="full" title="Runs all targets (high coverage but slower)">Full</option>
-                                        <option value="downstream" title="Runs a qt5 precheck with this change as dependency">Downstream qt5</option>
-                                        <option value="custom">Custom</option>
-                                    </select>
-                                    </label></p>
-                                </div>
-                                <div style="display: flex; flex-direction: column;">
-                                    <div class="input-body">
-                                        <div class="input" title="Excludes tests">
-                                            <input type="checkbox" id="BuildOnlyCheckBox"/>
-                                            <label for="BuildOnlyCheckBox">Build only</label>
-                                        </div>
-                                    </div>
-                                    <div class="input-body">
-                                        <div class="input" title="Cherry-picks changes instead of checkout">
-                                            <input type="checkbox" id="CherrypickCheckBox"/>
-                                            <label for="CherrypickCheckBox">Cherry-pick</label>
-                                        </div>
-                                    </div>
-                                    <div id="checkboxes" hidden=true>
-                                        <p class="paragraph">Match against os, osversion, arch, compiler or feature.
-                                        See <a href="https://testresults.qt.io/coin/doc/precheck.html">COIN precheck</a> for usage details.</p>
-                                        <input type="text" id="PlatformsInput" rows="1" autocapitalize="none" placeholder="os:android and arch:-x86">
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="footer">
-                                <paper-button id="confirmBtn" value="default">Confirm</paper-button>
-                                <paper-button id="cancelBtn" value="default">Cancel</paper-button>
-                            </div>
-                        </form>
-                        </dialog>
-                    </div>`;
-                }
-            });
-
-            plugin.registerDynamicCustomComponent('precheck-dialog', 'precheck-dialog');
-        }
 
         // Add buttons based on server response
         BUTTONS.forEach((button) => {
             let key = button.key;
             let action = actions[key];
             if (action) {
-                // hide dropdown action
-                cActions.setActionHidden(action.__type, action.__key, true);
-
                 // add button
                 plugin.buttons[key] = cActions.add(action.__type, action.label);
+
+                // hide dropdown action (only after button is created)
+                cActions.setActionHidden(action.__type, action.__key, true);
                 cActions.setIcon(plugin.buttons[key], button.icon);
                 cActions.setTitle(plugin.buttons[key], action.title);
                 cActions.setEnabled(plugin.buttons[key], action.enabled===true);
                 if (key === 'gerrit-plugin-qt-workflow~precheck') {
                     createPrecheck()
                     cActions.addTapListener(plugin.buttons[key], onPrecheckBtn);
+
                 } else {
                     cActions.addTapListener(plugin.buttons[key], buttonEventCallback);
                 }
