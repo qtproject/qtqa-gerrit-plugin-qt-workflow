@@ -14,7 +14,7 @@ import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
 import com.google.gerrit.entities.ProjectUtil;
 import com.google.gerrit.exceptions.StorageException;
-import com.google.gerrit.extensions.api.changes.SubmitInput;
+import com.google.gerrit.extensions.api.changes.RestoreInput;
 import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.Response;
@@ -41,7 +41,7 @@ import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.Repository;
 
 class QtUnStage
-    implements RestModifyView<RevisionResource, SubmitInput>, UiAction<RevisionResource> {
+    implements RestModifyView<RevisionResource, RestoreInput>, UiAction<RevisionResource> {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
@@ -81,7 +81,7 @@ class QtUnStage
   }
 
   @Override
-  public Response<Output> apply(RevisionResource rsrc, SubmitInput input)
+  public Response<Output> apply(RevisionResource rsrc, RestoreInput input)
       throws RestApiException, IOException, UpdateException, PermissionBackendException,
           ConfigInvalidException {
 
@@ -105,6 +105,7 @@ class QtUnStage
               removeChangeFromStaging(
                   rsrc,
                   submitter,
+                  input,
                   change,
                   stagingBranchKey)));
     } finally {
@@ -115,6 +116,7 @@ class QtUnStage
   private Change removeChangeFromStaging(
       RevisionResource rsrc,
       IdentifiedUser submitter,
+      RestoreInput input,
       Change change,
       BranchNameKey stagingBranchKey)
       throws IOException, ResourceConflictException, RestApiException, UpdateException {
@@ -158,7 +160,7 @@ class QtUnStage
 
         QtChangeUpdateOp op =
             qtUpdateFactory.create(
-                Change.Status.NEW, Change.Status.STAGED, "Unstaged", null, QtUtil.TAG_CI, null);
+                Change.Status.NEW, Change.Status.STAGED, "Unstaged", input.message, QtUtil.TAG_CI, null);
         BatchUpdate u = updateFactory.create(projectKey, submitter, TimeUtil.now());
         u.addOp(rsrc.getChange().getId(), op).execute();
 

@@ -649,7 +649,8 @@ Gerrit.install(plugin => {
                 const actionsWithDialog = [
                     'gerrit-plugin-qt-workflow~defer',
                     'gerrit-plugin-qt-workflow~reopen',
-                    'gerrit-plugin-qt-workflow~abandon'
+                    'gerrit-plugin-qt-workflow~abandon',
+                    'gerrit-plugin-qt-workflow~unstage'
                 ];
 
                 if (actionsWithDialog.includes(button_index)) {

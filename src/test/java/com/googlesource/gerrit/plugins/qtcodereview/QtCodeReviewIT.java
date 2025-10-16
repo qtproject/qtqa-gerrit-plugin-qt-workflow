@@ -169,6 +169,13 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     return response;
   }
 
+  protected RestResponse call_REST_API_UnStage(String changeId, String revisionId, com.google.gerrit.extensions.api.changes.RestoreInput input)
+      throws Exception {
+    String url =
+        "/changes/" + changeId + "/revisions/" + revisionId + "/gerrit-plugin-qt-workflow~unstage";
+    return userRestSession.post(url, input);
+  }
+
   protected void QtNewBuild(String branch, String buildId) throws Exception {
     String commandStr;
     commandStr = "gerrit-plugin-qt-workflow staging-new-build";

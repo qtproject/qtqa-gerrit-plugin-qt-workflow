@@ -47,6 +47,29 @@ public class QtUnStageIT extends QtCodeReviewIT {
   }
 
   @Test
+  public void singleChange_UnStage_With_Input_Message() throws Exception {
+    RevCommit initialHead = getRemoteHead();
+    PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
+    approve(c.getChangeId());
+    QtStage(c);
+
+    com.google.gerrit.extensions.api.changes.RestoreInput restoreInput =
+        new com.google.gerrit.extensions.api.changes.RestoreInput();
+    restoreInput.message = "myunstagenote";
+
+    String changeId = c.getChangeId();
+    RestResponse response =
+        call_REST_API_UnStage(changeId, getCurrentPatchId(c), restoreInput);
+    response.assertOK();
+
+    assertStatusNew(c.getChange().change());
+    ArrayList<ChangeMessage> messages = new ArrayList(c.getChange().messages());
+    String lastMessage = messages.get(messages.size() - 1).getMessage();
+    assertThat(lastMessage).contains(UNSTAGED_MSG);
+    assertThat(lastMessage).contains("myunstagenote");
+  }
+
+  @Test
   public void multiChange_UnStage_NoFastForwardOnStagingRefRebuild() throws Exception {
     RevCommit initialHead = getRemoteHead();
     PushOneCommit.Result c1 = pushCommit("master", "commitmsg1", "file1", "content1");
