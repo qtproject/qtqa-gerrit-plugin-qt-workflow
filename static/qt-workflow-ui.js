@@ -25,6 +25,186 @@ Gerrit.install(plugin => {
     var CiStatusMessageNew = null;
     var CiStatusColor = null;
 
+    // Ensure comment dialog component is registered.
+    function createCommentDialog() {
+        var commentDialog = customElements.get('comment-dialog')
+        if (commentDialog) {
+            return
+        }
+
+        Polymer({
+            is: 'comment-dialog',
+
+            ready: function() {
+                this.innerHTML = `
+                <style>
+                    .main {
+                        left: 50%;
+                        top: 50%;
+                        transform: translate(-50%, -50%);
+                        display: flex;
+                        border-radius: 4px;
+                        border: 0px;
+                        padding: 16px;
+                        box-shadow: 0px 4px 4px 0px rgb(60 64 67 / 30%), 0px 8px 12px 6px rgb(60 64 67 / 15%);
+                        position: absolute;
+                    }
+                    .overflow-container {
+                        min-width: 32em;
+                        min-height: 8em;
+                    }
+                    .footer {
+                        display: flex;
+                        justify-content: flex-end;
+                        padding-top: var(--spacing-l);
+                    }
+                    paper-button {
+                        color: #1565c0
+                    }
+                    paper-button:hover {
+                        background: #00000016;
+                    }
+                    #commentdialog {
+                        position: fixed;
+                    }
+                    #CommentInput {
+                        font-size: var(--font-size-mono);
+                        font-family: var(--monospace-font-family);
+                        border: 1px solid var(--border-color);
+                        border-radius: 4px;
+                        margin-top: var(--spacing-s);
+                        padding: 8px;
+                        font-size: 14px;
+                        min-width: 30em;
+                        min-height: 4em;
+                        outline: none;
+                        resize: vertical;
+                    }
+                    label {
+                        white-space: nowrap;
+                        color: var(--deemphasized-text-color);
+                        font-weight: var(--font-weight-bold);
+                        padding-right: var(--spacing-m);
+                    }
+                    .paragraph {
+                        margin-block-start: 1em;
+                        margin-block-end: 1em;
+                    }
+                    .dialog-title {
+                        font-size: 16px;
+                        margin-bottom: var(--spacing-m);
+                    }
+                </style>
+                <div id="commentdialog">
+                    <dialog class="main">
+                    <form is="iron-form" id="commentForm">
+                        <div class="overflow-container">
+                            <div class="dialog-title" id="dialogTitle">Add Comment</div>
+                            <div>
+                                <label for="CommentInput">Comment (optional):</label>
+                                <textarea id="CommentInput" rows="3" autocapitalize="sentences" placeholder="Enter your comment here..."></textarea>
+                            </div>
+                        </div>
+                        <div class="footer">
+                            <paper-button id="confirmBtn" value="default">Confirm</paper-button>
+                            <paper-button id="cancelBtn" value="default">Cancel</paper-button>
+                        </div>
+                    </form>
+                    </dialog>
+                </div>`;
+            }
+        });
+
+        plugin.registerDynamicCustomComponent('comment-dialog', 'comment-dialog');
+    }
+
+    function onCommentActionBtn(actionUrl, actionTitle) {
+        plugin.popup('comment-dialog').then((v) => {
+            const dialog = v.popup.querySelector('#commentdialog')
+            const confirmBtn = dialog.querySelector('#confirmBtn')
+            const cancelBtn = dialog.querySelector('#cancelBtn')
+            const titleEl = dialog.querySelector('#dialogTitle')
+            const commentInput = dialog.querySelector('#CommentInput')
+
+            // Set dialog title
+            titleEl.textContent = actionTitle;
+
+            // Guard against multiple submissions via Ctrl+Enter or repeated clicks.
+            let submitting = false;
+
+            // The gerrit plugin popup api does not delete the dom elements
+            // a manual deleting is needed or the ids confuse the scripts.
+            const ironOverlayHandler = (event) => {
+                v.popup.remove();
+            };
+            document.addEventListener('iron-overlay-canceled', ironOverlayHandler);
+
+            confirmBtn.addEventListener('click', function onConfirm() {
+                if (submitting) return;
+                submitting = true;
+
+                // Preserve original text/color so we can restore later.
+                const confirmOrigText = confirmBtn.textContent;
+                const confirmOrigColor = confirmBtn.style.color;
+                const cancelOrigColor = cancelBtn.style.color;
+
+                // Update UI to indicate submitting state.
+                confirmBtn.disabled = true;
+                cancelBtn.disabled = true;
+                confirmBtn.setAttribute('loading');
+                confirmBtn.textContent = 'Submitting...';
+                confirmBtn.style.color = 'var(--deemphasized-text-color)';
+                cancelBtn.style.color = 'var(--deemphasized-text-color)';
+
+                const message = commentInput.value.trim();
+                const payload = message ? { message: message } : {};
+
+                plugin.restApi().post(actionUrl, payload).then(() => {
+                    window.location.reload(true);
+                }).catch((failed_resp) => {
+                    // Restore UI so user can retry.
+                    submitting = false;
+                    confirmBtn.removeAttribute('loading');
+                    confirmBtn.disabled = false;
+                    cancelBtn.disabled = false;
+                    confirmBtn.textContent = confirmOrigText;
+                    confirmBtn.style.color = confirmOrigColor;
+                    cancelBtn.style.color = cancelOrigColor;
+                    this.dispatchEvent(
+                        new CustomEvent('show-alert', {
+                            detail: {message: failed_resp},
+                            composed: true,
+                            bubbles: true,
+                        })
+                    );
+                });
+            });
+
+            cancelBtn.addEventListener('click', function onCancel() {
+                if (submitting) return;
+                v.close()
+                v.popup.remove();
+                document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
+            });
+
+            const formEl = dialog.querySelector('#commentForm') || dialog.querySelector('form');
+            formEl.addEventListener('submit', (e) => {
+                e.preventDefault();
+                if (!submitting) confirmBtn.click();
+            });
+
+            dialog.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    if (!submitting) confirmBtn.click();
+                }
+            });
+
+            // Focus the textarea
+            commentInput.focus();
+        });
+    }
+
     // Ensure precheck dialog component is registered and global overflow listeners are set once.
     function createPrecheck() {
         // Avoids defining precheck module twice which would cause exception.
@@ -274,7 +454,8 @@ Gerrit.install(plugin => {
         });
     }
 
-    // Register dialog component now (idempotent)
+    // Register dialog components now (idempotent)
+    createCommentDialog();
     createPrecheck();
 
     // Register global listeners once for overflow actions and fallback clicks.
@@ -464,6 +645,21 @@ Gerrit.install(plugin => {
                 }
             }
             if (button_action) {
+                // Check if this action should show a comment dialog
+                const actionsWithDialog = [
+                    'gerrit-plugin-qt-workflow~defer',
+                    'gerrit-plugin-qt-workflow~reopen',
+                    'gerrit-plugin-qt-workflow~abandon'
+                ];
+
+                if (actionsWithDialog.includes(button_index)) {
+                    // Show comment dialog for these actions
+                    createCommentDialog();
+                    onCommentActionBtn(button_action.__url, button_action.title);
+                    return;
+                }
+
+                // For other actions, proceed with immediate post (e.g., stage, unstage)
                 const buttonEl = this.shadowRoot.querySelector(`[data-action-key="${button_key}"]`);
                 // Preserve original text/color to restore later.
                 buttonEl.dataset._origText = buttonEl.textContent;
