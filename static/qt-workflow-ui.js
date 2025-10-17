@@ -43,10 +43,12 @@ Gerrit.install(plugin => {
                         top: 50%;
                         transform: translate(-50%, -50%);
                         display: flex;
-                        border-radius: 4px;
-                        border: 0px;
-                        padding: 16px;
-                        box-shadow: 0px 4px 4px 0px rgb(60 64 67 / 30%), 0px 8px 12px 6px rgb(60 64 67 / 15%);
+                        border-radius: var(--border-radius);
+                        border: 1px solid var(--border-color);
+                        padding: var(--spacing-xl);
+                        box-shadow: var(--elevation-level-3);
+                        background-color: var(--dialog-background-color);
+                        color: var(--primary-text-color);
                         position: absolute;
                     }
                     .overflow-container {
@@ -66,13 +68,13 @@ Gerrit.install(plugin => {
                     }
                     .footer-buttons {
                         display: flex;
-                        gap: 4px;
+                        gap: var(--spacing-s);
                     }
                     paper-button {
-                        color: #1565c0
+                        color: var(--primary-button-background-color);
                     }
                     paper-button:hover {
-                        background: #00000016;
+                        background: var(--hover-background-color);
                     }
                     #commentdialog {
                         position: fixed;
@@ -81,14 +83,18 @@ Gerrit.install(plugin => {
                         font-size: var(--font-size-mono);
                         font-family: var(--monospace-font-family);
                         border: 1px solid var(--border-color);
-                        border-radius: 4px;
+                        border-radius: var(--border-radius);
                         margin-top: var(--spacing-s);
-                        padding: 8px;
-                        font-size: 14px;
+                        padding: var(--spacing-m);
+                        background-color: var(--view-background-color);
+                        color: var(--primary-text-color);
                         min-width: 30em;
                         min-height: 4em;
                         outline: none;
                         resize: vertical;
+                    }
+                    #CommentInput:focus {
+                        border-color: var(--input-focus-border-color);
                     }
                     label {
                         white-space: nowrap;
@@ -101,7 +107,9 @@ Gerrit.install(plugin => {
                         margin-block-end: 1em;
                     }
                     .dialog-title {
-                        font-size: 16px;
+                        font-size: var(--font-size-h3);
+                        font-weight: var(--font-weight-bold);
+                        color: var(--primary-text-color);
                         margin-bottom: var(--spacing-m);
                     }
                     kbd {
@@ -129,8 +137,8 @@ Gerrit.install(plugin => {
                                 <kbd>Ctrl+Enter</kbd> to confirm
                             </div>
                             <div class="footer-buttons">
-                                <paper-button id="confirmBtn" value="default">Confirm</paper-button>
                                 <paper-button id="cancelBtn" value="default">Cancel</paper-button>
+                                <paper-button id="confirmBtn" value="default">Confirm</paper-button>
                             </div>
                         </div>
                     </form>
@@ -260,10 +268,12 @@ Gerrit.install(plugin => {
                         top: 50%;
                         transform: translate(-50%, -50%);
                         display: flex;
-                        border-radius: 4px;
-                        border: 0px;
-                        padding: 16px;
-                        box-shadow: 0px 4px 4px 0px rgb(60 64 67 / 30%), 0px 8px 12px 6px rgb(60 64 67 / 15%);
+                        border-radius: var(--border-radius);
+                        border: 1px solid var(--border-color);
+                        padding: var(--spacing-xl);
+                        box-shadow: var(--elevation-level-3);
+                        background-color: var(--dialog-background-color);
+                        color: var(--primary-text-color);
                         position: absolute;
                     }
                     .overflow-container {
@@ -283,23 +293,26 @@ Gerrit.install(plugin => {
                     }
                     .footer-buttons {
                         display: flex;
-                        gap: 4px;
+                        gap: var(--spacing-s);
                     }
                     paper-button {
-                        color: #1565c0
+                        color: var(--primary-button-background-color);
                     }
                     paper-button:hover {
-                        background: #00000016;
+                        background: var(--hover-background-color);
                     }
                     select {
-                        color: rgb(33, 33, 33);
-                        font-family: var(--font-family, inherit);
-                        font-size: 14px;
-                        border-radius: 4px;
-                        border-color: rgb(218, 220, 224);
-                        background-color: rgb(248, 249, 250);
-                        padding: 4px;
+                        color: var(--primary-text-color);
+                        font-family: var(--font-family);
+                        font-size: var(--font-size-normal);
+                        border-radius: var(--border-radius);
+                        border: 1px solid var(--border-color);
+                        background-color: var(--background-color-secondary);
+                        padding: var(--spacing-s);
                         outline: none;
+                    }
+                    select:focus {
+                        border-color: var(--input-focus-border-color);
                     }
                     .input-body[hidden] {
                         display: none;
@@ -314,12 +327,16 @@ Gerrit.install(plugin => {
                         font-size: var(--font-size-mono);
                         font-family: var(--monospace-font-family);
                         border: 1px solid var(--border-color);
-                        border-radius: 4px;
+                        border-radius: var(--border-radius);
                         margin-top: var(--spacing-s);
-                        padding: 4px;
-                        font-size: 14px;
+                        padding: var(--spacing-m);
+                        background-color: var(--view-background-color);
+                        color: var(--primary-text-color);
                         min-width: 30em;
                         outline: none;
+                    }
+                    #PlatformsInput:focus {
+                        border-color: var(--input-focus-border-color);
                     }
                     label {
                         white-space: nowrap;
@@ -330,6 +347,12 @@ Gerrit.install(plugin => {
                     .paragraph {
                         margin-block-start: 1em;
                         margin-block-end: 1em;
+                    }
+                    .dialog-title {
+                        font-size: var(--font-size-h3);
+                        font-weight: var(--font-weight-bold);
+                        color: var(--primary-text-color);
+                        margin-bottom: var(--spacing-m);
                     }
                     #BuildOnlyCheckBox, #CherrypickCheckBox{
                         margin: 3px;
@@ -348,12 +371,12 @@ Gerrit.install(plugin => {
                     <dialog class="main">
                     <form is="iron-form" id="precheckForm">
                         <div class="overflow-container">
-                            <div style="font-size: 16px;">Precheck</div>
+                            <div class="dialog-title">Precheck</div>
                             <div><p class="paragraph">Select the precheck type. Default will run targets from precheck.yaml, equal to full if yaml not found.
                                 Full will run all targets. Custom will allow manual selection of the targets.</p></div>
                             <div class="input-body">
                                 <p class="paragraph"><label>Precheck type:
-                                <select id="typeSelect" style="margin-left: 4px;">
+                                <select id="typeSelect" style="margin-left: var(--spacing-s);">
                                     <option value="default" title="Runs targets from precheck.yaml (lower coverage but faster)">Default</option>
                                     <option value="full" title="Runs all targets (high coverage but slower)">Full</option>
                                     <option value="downstream" title="Runs a qt5 precheck with this change as dependency">Downstream qt5</option>
@@ -386,8 +409,8 @@ Gerrit.install(plugin => {
                                 <kbd>Ctrl+Enter</kbd> to confirm
                             </div>
                             <div class="footer-buttons">
-                                <paper-button id="confirmBtn" value="default">Confirm</paper-button>
                                 <paper-button id="cancelBtn" value="default">Cancel</paper-button>
+                                <paper-button id="confirmBtn" value="default">Confirm</paper-button>
                             </div>
                         </div>
                     </form>
