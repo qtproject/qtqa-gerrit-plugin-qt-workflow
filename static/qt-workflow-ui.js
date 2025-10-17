@@ -55,8 +55,18 @@ Gerrit.install(plugin => {
                     }
                     .footer {
                         display: flex;
-                        justify-content: flex-end;
+                        justify-content: space-between;
+                        align-items: center;
                         padding-top: var(--spacing-l);
+                    }
+                    .shortcuts-hint {
+                        flex: 1;
+                        font-size: 0.85em;
+                        color: var(--deemphasized-text-color);
+                    }
+                    .footer-buttons {
+                        display: flex;
+                        gap: 4px;
                     }
                     paper-button {
                         color: #1565c0
@@ -94,6 +104,15 @@ Gerrit.install(plugin => {
                         font-size: 16px;
                         margin-bottom: var(--spacing-m);
                     }
+                    kbd {
+                        background: var(--background-color-secondary, #f7f7f7);
+                        border: 1px solid var(--border-color, #ccc);
+                        border-radius: 3px;
+                        padding: 1px 4px;
+                        font-family: monospace;
+                        font-size: 0.85em;
+                        color: var(--deemphasized-text-color);
+                    }
                 </style>
                 <div id="commentdialog">
                     <dialog class="main">
@@ -106,8 +125,13 @@ Gerrit.install(plugin => {
                             </div>
                         </div>
                         <div class="footer">
-                            <paper-button id="confirmBtn" value="default">Confirm</paper-button>
-                            <paper-button id="cancelBtn" value="default">Cancel</paper-button>
+                            <div class="shortcuts-hint">
+                                <kbd>Ctrl+Enter</kbd> to confirm
+                            </div>
+                            <div class="footer-buttons">
+                                <paper-button id="confirmBtn" value="default">Confirm</paper-button>
+                                <paper-button id="cancelBtn" value="default">Cancel</paper-button>
+                            </div>
                         </div>
                     </form>
                     </dialog>
@@ -248,8 +272,18 @@ Gerrit.install(plugin => {
                     }
                     .footer {
                         display: flex;
-                        justify-content: flex-end;
+                        justify-content: space-between;
+                        align-items: center;
                         padding-top: var(--spacing-l);
+                    }
+                    .shortcuts-hint {
+                        flex: 1;
+                        font-size: 0.85em;
+                        color: var(--deemphasized-text-color);
+                    }
+                    .footer-buttons {
+                        display: flex;
+                        gap: 4px;
                     }
                     paper-button {
                         color: #1565c0
@@ -300,6 +334,15 @@ Gerrit.install(plugin => {
                     #BuildOnlyCheckBox, #CherrypickCheckBox{
                         margin: 3px;
                     }
+                    kbd {
+                        background: var(--background-color-secondary, #f7f7f7);
+                        border: 1px solid var(--border-color, #ccc);
+                        border-radius: 3px;
+                        padding: 1px 4px;
+                        font-family: monospace;
+                        font-size: 0.85em;
+                        color: var(--deemphasized-text-color);
+                    }
                 </style>
                 <div id="precheckdialog">
                     <dialog class="main">
@@ -339,8 +382,13 @@ Gerrit.install(plugin => {
                             </div>
                         </div>
                         <div class="footer">
-                            <paper-button id="confirmBtn" value="default">Confirm</paper-button>
-                            <paper-button id="cancelBtn" value="default">Cancel</paper-button>
+                            <div class="shortcuts-hint">
+                                <kbd>Ctrl+Enter</kbd> to confirm
+                            </div>
+                            <div class="footer-buttons">
+                                <paper-button id="confirmBtn" value="default">Confirm</paper-button>
+                                <paper-button id="cancelBtn" value="default">Cancel</paper-button>
+                            </div>
                         </div>
                     </form>
                     </dialog>
