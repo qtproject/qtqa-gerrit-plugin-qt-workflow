@@ -135,7 +135,16 @@ Gerrit.install(plugin => {
             // The gerrit plugin popup api does not delete the dom elements
             // a manual deleting is needed or the ids confuse the scripts.
             const ironOverlayHandler = (event) => {
+                // Only handle events for THIS specific popup to prevent cross-dialog interference
+                if (event.target !== v.popup && !v.popup.contains(event.target)) {
+                    return;
+                }
+                if (submitting) {
+                    event.preventDefault();
+                    return;
+                }
                 v.popup.remove();
+                document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
             };
             document.addEventListener('iron-overlay-canceled', ironOverlayHandler);
 
@@ -160,6 +169,8 @@ Gerrit.install(plugin => {
                 const payload = message ? { message: message } : {};
 
                 plugin.restApi().post(actionUrl, payload).then(() => {
+                    // Clean up event listener before reload
+                    document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
                     window.location.reload(true);
                 }).catch((failed_resp) => {
                     // Restore UI so user can retry.
@@ -340,8 +351,22 @@ Gerrit.install(plugin => {
         plugin.registerDynamicCustomComponent('precheck-dialog', 'precheck-dialog');
     }
 
+    // Track the currently open precheck dialog
+    let activePrecheckPopup = null;
+
     function onPrecheckBtn(c) {
+        // Clean up any existing precheck dialog before opening a new one
+        if (activePrecheckPopup) {
+            try {
+                if (activePrecheckPopup.remove) activePrecheckPopup.remove();
+                activePrecheckPopup = null;
+            } catch (e) {
+                // Ignore cleanup errors
+            }
+        }
+
         plugin.popup('precheck-dialog').then((v) => {
+            activePrecheckPopup = v.popup;
             const dialog = v.popup.querySelector('#precheckdialog')
             const confirmBtn = dialog.querySelector('#confirmBtn')
             const cancelBtn = dialog.querySelector('#cancelBtn')
@@ -362,9 +387,65 @@ Gerrit.install(plugin => {
             // The gerrit plugin popup api does not delete the dom elements
             // a manual deleting is needed or the ids confuse the scripts.
             const ironOverlayHandler = (event) => {
+                // Only handle events for THIS specific popup to prevent cross-dialog interference
+                if (event.target !== v.popup && !v.popup.contains(event.target)) {
+                    return;
+                }
+                if (submitting) {
+                    event.preventDefault();
+                    return;
+                }
+                // Confirm cancellation to prevent accidental dismissal
+                const shouldCancel = confirm('Are you sure you want to discard this precheck configuration?');
+                if (!shouldCancel) {
+                    event.preventDefault();
+                    return;
+                }
                 v.popup.remove();
+                activePrecheckPopup = null;
+                document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
+                document.removeEventListener('keydown', escapeKeyHandler, true);
             };
             document.addEventListener('iron-overlay-canceled', ironOverlayHandler);
+
+            // Global Escape key handler to catch Escape presses even when dialog doesn't have focus
+            const escapeKeyHandler = (event) => {
+                if (event.key !== 'Escape') return;
+
+                // Check if our dialog popup is still in the DOM and visible
+                if (!activePrecheckPopup) {
+                    return;
+                }
+
+                // Check if popup is in the document (might be in shadow DOM)
+                if (!activePrecheckPopup.isConnected) {
+                    return;
+                }
+
+                const computedStyle = window.getComputedStyle(activePrecheckPopup);
+                if (computedStyle.display === 'none' || computedStyle.visibility === 'hidden') {
+                    return;
+                }
+
+                event.preventDefault();
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+
+                if (submitting) {
+                    return;
+                }
+
+                // Confirm cancellation to prevent accidental dismissal
+                const shouldCancel = confirm('Are you sure you want to discard this precheck configuration?');
+                if (shouldCancel) {
+                    if (v.close) v.close();
+                    if (activePrecheckPopup.remove) activePrecheckPopup.remove();
+                    activePrecheckPopup = null;
+                    document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
+                    document.removeEventListener('keydown', escapeKeyHandler, true);
+                }
+            };
+            document.addEventListener('keydown', escapeKeyHandler, true);
 
             confirmBtn.addEventListener('click', function onOpen() {
                 if (submitting) return;
@@ -412,6 +493,10 @@ Gerrit.install(plugin => {
                         cherrypick: dialog.querySelector('#CherrypickCheckBox').checked,
                         platforms: dialog.querySelector('#PlatformsInput').value,
                     }).then(() => {
+                            // Clean up event listeners before reload
+                            activePrecheckPopup = null;
+                            document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
+                            document.removeEventListener('keydown', escapeKeyHandler, true);
                             window.location.reload(true);
                     }).catch((failed_resp) => {
                         // Restore UI so user can retry.
@@ -434,9 +519,16 @@ Gerrit.install(plugin => {
 
             cancelBtn.addEventListener('click', function onOpen() {
                 if (submitting) return;
+
+                // Confirm cancellation to prevent accidental dismissal
+                const shouldCancel = confirm('Are you sure you want to discard this precheck configuration?');
+                if (!shouldCancel) return;
+
                 v.close()
                 v.popup.remove();
+                activePrecheckPopup = null;
                 document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
+                document.removeEventListener('keydown', escapeKeyHandler, true);
             });
 
             const formEl = dialog.querySelector('#precheckForm') || dialog.querySelector('form');
