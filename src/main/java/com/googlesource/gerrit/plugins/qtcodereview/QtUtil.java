@@ -204,7 +204,7 @@ public class QtUtil {
 
   public static boolean branchExists(Repository git, final BranchNameKey branch)
       throws IOException {
-    return git.getRefDatabase().getRef(branch.branch()) != null;
+    return git.getRefDatabase().findRef(branch.branch()) != null;
   }
 
   public static boolean branchExists(final GitRepositoryManager repoManager, BranchNameKey branch)
@@ -288,7 +288,7 @@ public class QtUtil {
       buildBranchName = R_BUILDS + newBranch.branch();
     }
 
-    Ref sourceRef = git.getRefDatabase().getRef(stagingBranchName);
+    Ref sourceRef = git.getRefDatabase().findRef(stagingBranchName);
     if (sourceRef == null) {
       throw new NoSuchRefException(stagingBranchName);
     }
@@ -307,7 +307,7 @@ public class QtUtil {
   private static Result updateRef(
       Repository git, final String ref, final String newValue, final boolean force)
       throws IOException, NoSuchRefException {
-    Ref sourceRef = git.getRefDatabase().getRef(newValue);
+    Ref sourceRef = git.getRefDatabase().findRef(newValue);
     if (sourceRef == null) {
       throw new NoSuchRefException(newValue);
     }
@@ -571,9 +571,9 @@ public class QtUtil {
     RevWalk revWalk = new RevWalk(git);
 
     try {
-      Ref ref = git.getRefDatabase().getRef(branch.branch());
+      Ref ref = git.getRefDatabase().findRef(branch.branch());
       if (ref == null) throw new BranchNotFoundException("No such branch: " + branch);
-      Ref refDest = git.getRefDatabase().getRef(destination.branch());
+      Ref refDest = git.getRefDatabase().findRef(destination.branch());
       if (refDest == null) throw new BranchNotFoundException("No such branch: " + destination);
       RevCommit firstCommit = revWalk.parseCommit(ref.getObjectId());
       revWalk.markStart(firstCommit);
@@ -675,7 +675,7 @@ public class QtUtil {
       String customCommitMessage)
       throws NoSuchRefException, IOException, MergeConflictException {
 
-    Ref destRef = git.getRefDatabase().getRef(destination.branch());
+    Ref destRef = git.getRefDatabase().findRef(destination.branch());
     if (destRef == null) throw new NoSuchRefException("No such branch: " + destination);
 
     ObjectId destId = git.resolve(destination.branch());
@@ -797,7 +797,9 @@ public class QtUtil {
                 revWalk,
                 0,
                 true, // ignoreIdenticalTree
-                false); // allowConflicts
+                false, // allowConflicts
+                false, // diff3Format
+                git.createAttributesNodeProvider());
         objInserter.flush();
         logger.atInfo().log(
             "created cherrypick commit %s from %s", cherryPickCommit.name(), commit.name());
@@ -869,7 +871,7 @@ public class QtUtil {
       sourceId = git.resolve(integrationBranch.branch());
       if (sourceId == null) throw new NoSuchRefException("Invalid Revision: " + integrationBranch);
 
-      Ref targetRef = git.getRefDatabase().getRef(targetBranch.branch());
+      Ref targetRef = git.getRefDatabase().findRef(targetBranch.branch());
       if (targetRef == null) throw new NoSuchRefException("No such branch: " + targetBranch);
 
       targetId = git.resolve(targetBranch.branch());

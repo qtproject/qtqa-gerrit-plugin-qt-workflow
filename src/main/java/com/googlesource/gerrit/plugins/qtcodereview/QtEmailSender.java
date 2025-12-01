@@ -18,6 +18,7 @@ import com.google.gerrit.server.mail.send.OutgoingEmail;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 
 @Singleton
@@ -35,7 +36,7 @@ public class QtEmailSender {
     try {
       ChangeEmail changeEmail =
           emailFactories.createChangeEmail(
-              projectKey, change.getId(), emailFactories.createMergedChangeEmail(Optional.empty()));
+              projectKey, change.getId(), emailFactories.createMergedChangeEmail(Optional.empty(), List.of()));
       OutgoingEmail outgoingEmail = emailFactories.createOutgoingEmail(CHANGE_MERGED, changeEmail);
       if (fromAccount != null) {
         outgoingEmail.setFrom(fromAccount);

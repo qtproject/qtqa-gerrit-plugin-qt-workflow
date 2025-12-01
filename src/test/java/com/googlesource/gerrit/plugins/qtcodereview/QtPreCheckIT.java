@@ -78,7 +78,7 @@ public class QtPreCheckIT extends QtCodeReviewIT {
       name = "precheck.disabled.projects",
       values = {
         "qt/qt5",
-        "com.googlesource.gerrit.plugins.qtcodereview.QtPreCheckIT_errorPreCheck_Not_Allowed_project"
+        "com.googlesource.gerrit.plugins.qtcodereview.QtPreCheckIT_errorPreCheck_Not_Alloweddefault_project"
       })
   public void errorPreCheck_Not_Allowed() throws Exception {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");

@@ -89,9 +89,9 @@ public class QtCherryPickPatch {
         ObjectReader reader = oi.newReader();
         CodeReviewRevWalk revWalk = CodeReviewCommit.newRevWalk(reader)) {
 
-      if (!git.hasObject(sourceId))
+      if (!git.getObjectDatabase().has(sourceId))
         throw new NoSuchRefException("Invalid source objectId: " + sourceId);
-      if (!git.hasObject(destId))
+      if (!git.getObjectDatabase().has(destId))
         throw new NoSuchRefException("Invalid destination objectid: " + destId);
 
       RevCommit baseCommit = revWalk.parseCommit(destId);
@@ -148,7 +148,9 @@ public class QtCherryPickPatch {
                 revWalk,
                 0,
                 true, // ignoreIdenticalTree
-                false); // allowConflicts
+                false, // allowConflicts
+                false, // diff3Format
+                git.createAttributesNodeProvider());
 
         if (cherryPickCommit.getTree().equals(baseCommit.getTree())) {
           Config cfg;
