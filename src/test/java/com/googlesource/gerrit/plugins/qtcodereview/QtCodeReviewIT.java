@@ -249,18 +249,19 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
 
   protected void assertCherryPick(RevCommit head, RevCommit source, RevCommit base) throws Exception {
     // Fetch all commit data
-    Repository repo = repoManager.openRepository(project);
-    RevWalk revWalk = new RevWalk(repo);
-    source = revWalk.parseCommit(source);
-    head = revWalk.parseCommit(head);
+    try (final Repository repo = repoManager.openRepository(project);
+        RevWalk revWalk = new RevWalk(repo)) {
+      source = revWalk.parseCommit(source);
+      head = revWalk.parseCommit(head);
 
-    assertThat(head).isNotEqualTo(source);
-    assertThat(head.getName()).isNotEqualTo(source.getName());
-    assertThat(head.getShortMessage()).isEqualTo(source.getShortMessage());
-    assertThat(head.getFooterLines("Change-Id")).isEqualTo(source.getFooterLines("Change-Id"));
-    assertThat(head.getParentCount()).isEqualTo(1);
+      assertThat(head).isNotEqualTo(source);
+      assertThat(head.getName()).isNotEqualTo(source.getName());
+      assertThat(head.getShortMessage()).isEqualTo(source.getShortMessage());
+      assertThat(head.getFooterLines("Change-Id")).isEqualTo(source.getFooterLines("Change-Id"));
+      assertThat(head.getParentCount()).isEqualTo(1);
 
-    if (base != null) assertThat(head.getParent(0)).isEqualTo(base);
+      if (base != null) assertThat(head.getParent(0)).isEqualTo(base);
+    }
   }
 
   private void assertStatus(Change change, ChangeStatus status, boolean approved, boolean footer)
@@ -401,9 +402,10 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
   }
 
   protected RevCommit loadCommit(RevCommit commit) throws Exception {
-      Repository repo = repoManager.openRepository(project);
-      RevWalk revWalk = new RevWalk(repo);
+    try (Repository repo = repoManager.openRepository(project);
+        RevWalk revWalk = new RevWalk(repo) ) {
       return revWalk.parseCommit(commit);
+    }
   }
 
 }

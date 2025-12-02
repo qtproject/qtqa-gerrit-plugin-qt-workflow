@@ -121,7 +121,6 @@ class QtUnStage
       BranchNameKey stagingBranchKey)
       throws IOException, ResourceConflictException, RestApiException, UpdateException {
 
-    Repository git = null;
     final Project.NameKey projectKey = rsrc.getProject();
     PatchSet patchSet = rsrc.getPatchSet();
 
@@ -148,8 +147,7 @@ class QtUnStage
     final BranchNameKey destBranchShortKey =
         QtUtil.getNameKeyShort(projectKey.get(), QtUtil.R_STAGING, stagingBranchKey.branch());
     try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
-      try {
-        git = repoManager.openRepository(projectKey);
+      try (Repository git = repoManager.openRepository(projectKey)) {
 
         ObjectId srcId = git.resolve(patchSet.commitId().name());
         if (srcId == null) {
@@ -161,9 +159,9 @@ class QtUnStage
         QtChangeUpdateOp op =
             qtUpdateFactory.create(
                 Change.Status.NEW, Change.Status.STAGED, "Unstaged", input.message, QtUtil.TAG_CI, null);
-        BatchUpdate u = updateFactory.create(projectKey, submitter, TimeUtil.now());
-        u.addOp(rsrc.getChange().getId(), op).execute();
-
+        try (BatchUpdate u = updateFactory.create(projectKey, submitter, TimeUtil.now())) {
+          u.addOp(rsrc.getChange().getId(), op).execute();
+        }
         qtUtil.rebuildStagingBranch(git, submitter, projectKey, stagingBranchKey, destBranchShortKey);
 
         change = op.getChange();
@@ -180,10 +178,6 @@ class QtUnStage
       } catch (IOException e) {
         logger.atSevere().log("unstage IOException %s", e);
         throw new IOException(e);
-      } finally {
-        if (git != null) {
-          git.close();
-        }
       }
       return change; // this doesn't return data to client, if needed use ChangeJson to convert it
     }

@@ -181,13 +181,11 @@ public class QtStage
           String.format("Revision %s is not current.", rsrc.getPatchSet().commitId()));
     }
 
-    Repository git = null;
     ObjectId destId = null;
     ObjectId sourceId = null;
     ChangeData changeData;
 
-    try {
-      git = repoManager.openRepository(projectKey);
+    try (Repository git = repoManager.openRepository(projectKey)) {
       // Check if staging branch exists. Create the staging branch if it does not exist.
       if (!QtUtil.branchExists(repoManager, stagingBranchKey)) {
         Result result = QtUtil.createStagingBranch(git, destBranchKey);
@@ -236,10 +234,6 @@ public class QtStage
     } catch (NoSuchRefException e) {
       logger.atSevere().log("stage error %s", e);
       throw new ResourceConflictException(e.getMessage());
-    } finally {
-      if (git != null) {
-        git.close();
-      }
     }
 
     change = changeData.reloadChange();

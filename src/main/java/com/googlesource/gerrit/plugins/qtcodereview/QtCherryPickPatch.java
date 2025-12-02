@@ -189,11 +189,13 @@ public class QtCherryPickPatch {
 
       Timestamp commitTimestamp = new Timestamp(committerIdent.getWhen().getTime());
       try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
-        BatchUpdate bu = batchUpdateFactory.create(project, identifiedUser, commitTimestamp.toInstant());
-        bu.addOp(
-            changeData.getId(),
-            qtUpdateFactory.create(newStatus, null, defaultMessage, inputMessage, tag, null));
-        bu.execute();
+        try (BatchUpdate bu = batchUpdateFactory.create(project, identifiedUser, commitTimestamp.toInstant())) {
+          bu.addOp(
+              changeData.getId(),
+              qtUpdateFactory.create(newStatus, null, defaultMessage, inputMessage, tag, null));
+          bu.execute();
+        }
+
         logger.atInfo().log("cherrypick done for change %s", changeData.getId());
         return cherryPickCommit;
       }
