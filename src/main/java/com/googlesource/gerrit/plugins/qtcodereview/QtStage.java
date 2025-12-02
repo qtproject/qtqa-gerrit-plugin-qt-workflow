@@ -187,7 +187,7 @@ public class QtStage
 
     try (Repository git = repoManager.openRepository(projectKey)) {
       // Check if staging branch exists. Create the staging branch if it does not exist.
-      if (!QtUtil.branchExists(repoManager, stagingBranchKey)) {
+      if (!QtUtil.branchExists(git, stagingBranchKey)) {
         Result result = QtUtil.createStagingBranch(git, destBranchKey);
         if (result == null)
           throw new NoSuchRefException("Cannot create staging ref: " + stagingBranchKey.branch());
