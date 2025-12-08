@@ -787,8 +787,7 @@ Gerrit.install(plugin => {
 
                 if (key === 'gerrit-plugin-qt-workflow~stage') {
                     // hide submit button when it would be disabled next to the stage button
-                    let submit = actions['submit'];
-                    if (!submit.enabled) {
+                    if (actions['submit'] && !actions['submit'].enabled) {
                         cActions.setActionHidden('revision', 'submit', true);
                     }
                 }
