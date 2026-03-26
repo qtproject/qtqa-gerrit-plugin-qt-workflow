@@ -57,8 +57,6 @@ class QtCommandRebuildStaging extends SshCommand {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
-  private Repository git;
-
   @Override
   protected void run() throws UnloggedFailure {
     logger.atInfo().log("staging-rebuild -p %s -b %s", project, branch);
@@ -67,41 +65,35 @@ class QtCommandRebuildStaging extends SshCommand {
     qtUtil.lockStaging(stagingBranchKey.branch());
     try {
       BranchNameKey destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, branch);
+      Project.NameKey projectKey = Project.nameKey(project);
 
-      try {
-        Project.NameKey projectKey = Project.nameKey(project);
-        git = gitManager.openRepository(projectKey);
+      try (Repository git = gitManager.openRepository(projectKey)) {
+        permissionBackend
+            .user(user)
+            .project(projectKey)
+            .ref(destBranchShortKey.branch())
+            .check(RefPermission.UPDATE);
 
-      permissionBackend
-          .user(user)
-          .project(projectKey)
-          .ref(destBranchShortKey.branch())
-          .check(RefPermission.UPDATE);
+        if (git.resolve(stagingBranchKey.branch()) == null) throw die("branch staging ref not found");
 
-      if (git.resolve(stagingBranchKey.branch()) == null) throw die("branch staging ref not found");
+        qtUtil.rebuildStagingBranch(
+            git, user.asIdentifiedUser(), projectKey, stagingBranchKey, destBranchShortKey);
 
-      qtUtil.rebuildStagingBranch(
-          git, user.asIdentifiedUser(), projectKey, stagingBranchKey, destBranchShortKey);
-
-      logger.atInfo().log("staging-rebuild done for %s", stagingBranchKey.shortName());
-    } catch (AuthException e) {
-      logger.atSevere().log("staging-rebuild Authentication failed to access repository: %s", e);
-      throw die("not authorized");
-    } catch (PermissionBackendException e) {
-      logger.atSevere().log("staging-rebuild permission error %s", e);
-    } catch (RepositoryNotFoundException e) {
-      logger.atSevere().log("staging-rebuild repository not found: %s", e);
-      throw die("project not found");
-    } catch (IOException e) {
-      logger.atSevere().log("staging-rebuild IOException %s", e);
-      throw die(e.getMessage());
-    } catch (QtUtil.MergeConflictException e) {
-      logger.atSevere().log("staging-rebuild error %s", e);
-      throw die("staging rebuild failed, merge conflict");
-      } finally {
-        if (git != null) {
-          git.close();
-        }
+        logger.atInfo().log("staging-rebuild done for %s", stagingBranchKey.shortName());
+      } catch (AuthException e) {
+        logger.atSevere().log("staging-rebuild Authentication failed to access repository: %s", e);
+        throw die("not authorized");
+      } catch (PermissionBackendException e) {
+        logger.atSevere().log("staging-rebuild permission error %s", e);
+      } catch (RepositoryNotFoundException e) {
+        logger.atSevere().log("staging-rebuild repository not found: %s", e);
+        throw die("project not found");
+      } catch (IOException e) {
+        logger.atSevere().log("staging-rebuild IOException %s", e);
+        throw die(e.getMessage());
+      } catch (QtUtil.MergeConflictException e) {
+        logger.atSevere().log("staging-rebuild error %s", e);
+        throw die("staging rebuild failed, merge conflict");
       }
     } finally {
       qtUtil.unlockStaging(stagingBranchKey.branch());

@@ -83,8 +83,6 @@ class QtCommandNewBuild extends SshCommand {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
-  private Repository git;
-
   @Override
   protected void run() throws UnloggedFailure {
     BranchNameKey stagingBranchKey =
@@ -93,14 +91,13 @@ class QtCommandNewBuild extends SshCommand {
     try {
       logger.atInfo().log("staging-new-build -p %s -s %s -i %s", project, stagingBranch, build);
 
-      try {
       Project.NameKey projectKey = Project.nameKey(project);
-      git = gitManager.openRepository(projectKey);
 
-      BranchNameKey buildBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_BUILDS, build);
-      BranchNameKey destBranchShortKey =
-          QtUtil.getNameKeyShort(project, QtUtil.R_STAGING, stagingBranch);
-      BranchNameKey destinationKey = QtUtil.getNameKeyLong(project, QtUtil.R_HEADS, stagingBranch);
+      try (Repository git = gitManager.openRepository(projectKey)) {
+        BranchNameKey buildBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_BUILDS, build);
+        BranchNameKey destBranchShortKey =
+            QtUtil.getNameKeyShort(project, QtUtil.R_STAGING, stagingBranch);
+        BranchNameKey destinationKey = QtUtil.getNameKeyLong(project, QtUtil.R_HEADS, stagingBranch);
 
       // Check required permissions
       permissionBackend
@@ -183,31 +180,27 @@ class QtCommandNewBuild extends SshCommand {
       logger.atInfo().log(
           "staging-new-build build '%s' for '%s' created", build, destBranchShortKey.shortName());
 
-    } catch (AuthException e) {
-      logger.atSevere().log("staging-new-build Authentication failed to access repository: %s", e);
-      throw die("Authentication failed to access repository");
-    } catch (PermissionBackendException e) {
-      logger.atSevere().log("staging-new-build Not enough permissions to access repository %s", e);
-      throw die("Not enough permissions to access repository");
-    } catch (RepositoryNotFoundException e) {
-      throw die("project not found");
-    } catch (IOException e) {
-      logger.atSevere().log("staging-new-build Failed to access repository %s", e);
-      throw die("Failed to access repository");
-    } catch (QtUtil.BranchNotFoundException e) {
-      logger.atSevere().log("staging-new-build Failed to access build or staging ref %s", e);
-      throw die("Failed to access build or staging ref");
-    } catch (NoSuchRefException e) {
-      logger.atSevere().log("staging-new-build Invalid branch name %s", e);
-      throw die("Invalid branch name");
-    } catch (UpdateException | RestApiException e) {
-      logger.atSevere().log("staging-new-build failed to update change status %s", e);
-      throw die("Failed to update change status");
-    } finally {
-      if (git != null) {
-        git.close();
+      } catch (AuthException e) {
+        logger.atSevere().log("staging-new-build Authentication failed to access repository: %s", e);
+        throw die("Authentication failed to access repository");
+      } catch (PermissionBackendException e) {
+        logger.atSevere().log("staging-new-build Not enough permissions to access repository %s", e);
+        throw die("Not enough permissions to access repository");
+      } catch (RepositoryNotFoundException e) {
+        throw die("project not found");
+      } catch (IOException e) {
+        logger.atSevere().log("staging-new-build Failed to access repository %s", e);
+        throw die("Failed to access repository");
+      } catch (QtUtil.BranchNotFoundException e) {
+        logger.atSevere().log("staging-new-build Failed to access build or staging ref %s", e);
+        throw die("Failed to access build or staging ref");
+      } catch (NoSuchRefException e) {
+        logger.atSevere().log("staging-new-build Invalid branch name %s", e);
+        throw die("Invalid branch name");
+      } catch (UpdateException | RestApiException e) {
+        logger.atSevere().log("staging-new-build failed to update change status %s", e);
+        throw die("Failed to update change status");
       }
-    }
     } finally {
       qtUtil.unlockStaging(stagingBranchKey.branch());
     }
