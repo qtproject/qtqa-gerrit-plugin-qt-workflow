@@ -17,8 +17,8 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.gerrit.server.project.ProjectCache.noSuchProject;
-import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.BRANCH_MODIFICATION;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
@@ -30,7 +30,6 @@ import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
 import com.google.gerrit.entities.RefNames;
 import com.google.gerrit.exceptions.StorageException;
-import com.google.gerrit.extensions.common.InputWithMessage;
 import com.google.gerrit.extensions.registration.DynamicItem;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.server.ChangeMessagesUtil;
@@ -59,11 +58,7 @@ import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
-import com.googlesource.gerrit.plugins.qtcodereview.QtPrecheckMessage;
 import java.io.IOException;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
-import java.util.concurrent.locks.ReentrantLock;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.util.AbstractMap;
@@ -72,6 +67,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.locks.ReentrantLock;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.CommitBuilder;
 import org.eclipse.jgit.lib.Constants;
@@ -222,12 +220,14 @@ public class QtUtil {
     try (Repository repo = repoManager.openRepository(branch.project())) {
       boolean exists = repo.getRefDatabase().exactRef(branch.branch()) != null;
       if (!exists) {
-        exists = repo.getFullBranch().equals(branch.branch())
-            || RefNames.REFS_CONFIG.equals(branch.branch());
+        exists =
+            repo.getFullBranch().equals(branch.branch())
+                || RefNames.REFS_CONFIG.equals(branch.branch());
       }
       return exists;
     }
   }
+
   /**
    * Gets a staging branch for a branch.
    *
@@ -388,7 +388,8 @@ public class QtUtil {
       throw new IOException("arranging change order failed: " + e.getMessage(), e);
     }
 
-    if (count == 200) throw new InvalidChangeStatus("arranging change order failed: too many commits");
+    if (count == 200)
+      throw new InvalidChangeStatus("arranging change order failed: too many commits");
 
     return results;
   }
@@ -520,7 +521,10 @@ public class QtUtil {
       logger.atInfo().log("changes to be cherry-picked: %s", changeStr);
 
       newStageRef = pickChangesToStagingRef(git, projectKey, changes_to_cherrypick, newStageRef);
-    } catch (IOException | NoSuchRefException | IntegrationConflictException | InvalidChangeStatus e) {
+    } catch (IOException
+        | NoSuchRefException
+        | IntegrationConflictException
+        | InvalidChangeStatus e) {
       logger.atSevere().log(
           "rebuild staging ref %s failed: %s", stagingBranchKey.branch(), e.getMessage());
       newStageRef = branchRef;
@@ -529,7 +533,7 @@ public class QtUtil {
       QtChangeUpdateOp op =
           qtUpdateFactory.create(
               Change.Status.NEW, Change.Status.STAGED, message, null, null, null);
-     try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+      try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
         try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
           for (ChangeData item : changes_staged) {
             Change change = item.change();
@@ -552,7 +556,8 @@ public class QtUtil {
         RefUpdate refUpdate = git.updateRef(stagingBranchName);
         refUpdate.setNewObjectId(newStageRef);
         refUpdate.update();
-        logger.atInfo().log("Ref %s points now to %s", stagingBranchKey.branch(), newStageRef.name());
+        logger.atInfo().log(
+            "Ref %s points now to %s", stagingBranchKey.branch(), newStageRef.name());
 
         // send ref updated event only if it changed
         if (!newStageRef.equals(oldStageRef)) {
@@ -565,6 +570,7 @@ public class QtUtil {
       }
     }
   }
+
   /**
    * Lists not merged changes between branches.
    *
@@ -700,12 +706,18 @@ public class QtUtil {
         ObjectInserter objInserter = git.newObjectInserter();
         RevCommit mergeTip = revWalk.lookupCommit(destId);
         RevCommit toMerge = revWalk.lookupCommit(srcId);
-        PersonIdent committer =
-            user.newCommitterIdent(TimeUtil.now(), ZoneId.systemDefault());
+        PersonIdent committer = user.newCommitterIdent(TimeUtil.now(), ZoneId.systemDefault());
 
         RevCommit mergeCommit =
             merge(
-                committer, git, objInserter, revWalk, toMerge, mergeTip, customCommitMessage, false);
+                committer,
+                git,
+                objInserter,
+                revWalk,
+                toMerge,
+                mergeTip,
+                customCommitMessage,
+                false);
         logger.atInfo().log("merge commit %s added to %s", srcId.name(), destination.branch());
 
         RefUpdate refUpdate = git.updateRef(destination.branch());
@@ -719,6 +731,7 @@ public class QtUtil {
       }
     }
   }
+
   private RefUpdate.Result fastForwardBranch(
       Repository git, String branchName, ObjectId toObjectId) {
 
@@ -739,6 +752,7 @@ public class QtUtil {
       return result;
     }
   }
+
   private List<RevCommit> listCommitsInIntegrationBranch(
       Repository git, ObjectId integrationHeadId, ObjectId targetBranchHeadId) {
 
@@ -919,9 +933,14 @@ public class QtUtil {
       List<Map.Entry<ChangeData, RevCommit>> mergedCommits =
           listChangesNotMerged(git, integrationBranch, targetBranch);
       result = mergeBranches(user, git, integrationBranch, targetBranch, customCommitMessage);
-      if (result != RefUpdate.Result.FAST_FORWARD) throw new MergeConflictException("Merge conflict");
+      if (result != RefUpdate.Result.FAST_FORWARD)
+        throw new MergeConflictException("Merge conflict");
       return mergedCommits;
-    } catch (IOException | NoSuchRefException | MergeConflictException | BranchNotFoundException | InvalidChangeStatus e) {
+    } catch (IOException
+        | NoSuchRefException
+        | MergeConflictException
+        | BranchNotFoundException
+        | InvalidChangeStatus e) {
       result = null;
       logger.atWarning().log(
           "Merging integration %s to %s failed: %s",

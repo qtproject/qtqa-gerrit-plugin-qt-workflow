@@ -3,6 +3,7 @@
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+
 import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
@@ -123,7 +124,8 @@ class QtCommandAdminChangeStatus extends SshCommand {
         }
         if (to == Change.Status.MERGED) {
           PatchSet ps = change.currentPatchSet();
-          changeMerged.fire(change, ps, user.asIdentifiedUser().state(), ps.commitId().name(), TimeUtil.now());
+          changeMerged.fire(
+              change, ps, user.asIdentifiedUser().state(), ps.commitId().name(), TimeUtil.now());
         }
         logger.atInfo().log("admin change-status done");
       }

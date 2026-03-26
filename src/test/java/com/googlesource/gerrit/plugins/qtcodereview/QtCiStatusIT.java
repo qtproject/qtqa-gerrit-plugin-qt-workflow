@@ -7,14 +7,13 @@ import static com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate.a
 import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS;
 import static com.google.gerrit.server.permissions.DefaultPermissionMappings.pluginCapabilityName;
 
-import com.google.gerrit.acceptance.config.GlobalPluginConfig;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseLocalDisk;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.config.GlobalPluginConfig;
 import com.google.gerrit.extensions.api.access.PluginPermission;
 import com.google.gerrit.extensions.webui.TopMenu.MenuEntry;
-import com.google.inject.Inject;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
@@ -130,8 +129,10 @@ public class QtCiStatusIT extends QtCodeReviewIT {
 
   @Test
   @UseLocalDisk
-  @GlobalPluginConfig(pluginName = "gerrit-plugin-qt-workflow", name = "gerrit-plugin-qt-workflow.ciMenuEnabled",
-    value = "true")
+  @GlobalPluginConfig(
+      pluginName = "gerrit-plugin-qt-workflow",
+      name = "gerrit-plugin-qt-workflow.ciMenuEnabled",
+      value = "true")
   public void topMenuVisible() throws Exception {
     List<MenuEntry> topMenuItems = gApi.config().server().topMenus();
     assertThat(topMenuItems.get(0).name).isEqualTo("CI-Status");

@@ -8,8 +8,8 @@ import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.extensions.client.MenuItem;
 import com.google.gerrit.extensions.webui.TopMenu;
 import com.google.gerrit.extensions.webui.TopMenu.MenuEntry;
-import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.gerrit.server.CurrentUser;
+import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
@@ -28,7 +28,10 @@ public class QtCiStatusTopMenu implements TopMenu {
   private final boolean ciMenuEnabled;
 
   @Inject
-  public QtCiStatusTopMenu(PluginConfigFactory cfgFactory, @PluginName String pluginName, Provider<CurrentUser> userProvider) {
+  public QtCiStatusTopMenu(
+      PluginConfigFactory cfgFactory,
+      @PluginName String pluginName,
+      Provider<CurrentUser> userProvider) {
     this.pluginName = pluginName;
     this.userProvider = userProvider;
     menuEntries = new ArrayList<TopMenu.MenuEntry>();

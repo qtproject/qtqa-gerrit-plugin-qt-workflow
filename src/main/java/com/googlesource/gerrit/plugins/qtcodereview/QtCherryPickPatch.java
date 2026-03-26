@@ -11,6 +11,7 @@ import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.Project;
 import com.google.gerrit.extensions.annotations.PluginName;
+import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.server.IdentifiedUser;
 import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.gerrit.server.git.CodeReviewCommit;
@@ -18,12 +19,11 @@ import com.google.gerrit.server.git.CodeReviewCommit.CodeReviewRevWalk;
 import com.google.gerrit.server.git.GitRepositoryManager;
 import com.google.gerrit.server.git.MergeUtil;
 import com.google.gerrit.server.git.MergeUtilFactory;
+import com.google.gerrit.server.project.NoSuchProjectException;
 import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.query.change.ChangeData;
-import com.google.gerrit.extensions.restapi.RestApiException;
-import com.google.gerrit.server.project.NoSuchProjectException;
 import com.google.gerrit.server.submit.IntegrationConflictException;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
@@ -159,14 +159,15 @@ public class QtCherryPickPatch {
                 git.createAttributesNodeProvider());
 
         if (cherryPickCommit.getTree().equals(baseCommit.getTree())) {
-          logger.atInfo().log("Found empty commit exceptions: %s",
-              Arrays.toString(emptyCommitExceptions));
+          logger.atInfo().log(
+              "Found empty commit exceptions: %s", Arrays.toString(emptyCommitExceptions));
           boolean allowed = false;
           if (emptyCommitExceptions.length > 0) {
             String originalCommitMessage = commitToCherryPick.getFullMessage();
-            allowed = Arrays.stream(emptyCommitExceptions)
-                .filter(s -> !s.isEmpty())
-                .anyMatch(originalCommitMessage::contains);
+            allowed =
+                Arrays.stream(emptyCommitExceptions)
+                    .filter(s -> !s.isEmpty())
+                    .anyMatch(originalCommitMessage::contains);
           }
           if (!allowed) {
             throw new IntegrationConflictException("Cannot stage change: The patch set is empty.");
@@ -195,7 +196,12 @@ public class QtCherryPickPatch {
       }
     } catch (IntegrationConflictException e) {
       throw e;
-    } catch (IOException | NoSuchRefException | UpdateException | RestApiException | QtUtil.MergeConflictException | NoSuchProjectException e) {
+    } catch (IOException
+        | NoSuchRefException
+        | UpdateException
+        | RestApiException
+        | QtUtil.MergeConflictException
+        | NoSuchProjectException e) {
       throw new IntegrationConflictException("Reason: " + e.getMessage());
     }
   }

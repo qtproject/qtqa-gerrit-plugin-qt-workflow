@@ -9,8 +9,8 @@ import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
-import com.google.gerrit.entities.Permission;
 import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.Permission;
 import org.eclipse.jgit.revwalk.RevCommit;
 import org.junit.Before;
 import org.junit.Test;
@@ -24,7 +24,14 @@ public class QtCommandStageIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test
@@ -110,9 +117,23 @@ public class QtCommandStageIT extends QtCodeReviewIT {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c.getChangeId());
 
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.ABANDON)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
     QtDefer(c);
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.deny(Permission.ABANDON)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
 
     String result = qtSshStageExpectFail(c);
     assertThat(result).contains("Change is DEFERRED");
@@ -120,13 +141,27 @@ public class QtCommandStageIT extends QtCodeReviewIT {
 
   @Test
   public void error_NoPermission() throws Exception {
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.deny(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c.getChangeId());
 
     String result = qtSshStageExpectFail(c);
     assertThat(result).contains("not permitted");
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test

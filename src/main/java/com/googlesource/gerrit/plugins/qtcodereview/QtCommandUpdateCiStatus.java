@@ -17,12 +17,10 @@ import org.kohsuke.args4j.Option;
  * A command to upload ci server queue information, which can be shown on Gerrit UI Json format of
  * the queue info: [ { name: string, running: number, queue: number, load: number }, ... ]
  *
- *  name:       Name of the hardware pool
- *  running:    Number of running jobs
- *  queue:      Number of jobs waiting in queue
- *  load:       Enum value: 0 = normal load, 1 = high load, 2 = very high load
+ * <p>name: Name of the hardware pool running: Number of running jobs queue: Number of jobs waiting
+ * in queue load: Enum value: 0 = normal load, 1 = high load, 2 = very high load
  *
- *  NOTE: Current json parser in use doesn't accept any whitespaces in the json string.
+ * <p>NOTE: Current json parser in use doesn't accept any whitespaces in the json string.
  *
  * <p>For example$ ssh -p 29418 localhost gerrit-plugin-qt-workflow ci-status-update -i "jsonstring"
  */

@@ -90,7 +90,7 @@ class QtReOpen implements RestModifyView<ChangeResource, RestoreInput>, UiAction
             null);
     try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
       try (BatchUpdate u =
-            updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
+          updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
         u.addOp(rsrc.getId(), op).execute();
       }
       change = op.getChange();
@@ -98,6 +98,7 @@ class QtReOpen implements RestModifyView<ChangeResource, RestoreInput>, UiAction
       return Response.ok(json.noOptions().format(change));
     }
   }
+
   @Override
   public UiAction.Description getDescription(ChangeResource rsrc) {
     UiAction.Description description =

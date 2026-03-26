@@ -36,7 +36,9 @@ public class QtEmailSender {
     try {
       ChangeEmail changeEmail =
           emailFactories.createChangeEmail(
-              projectKey, change.getId(), emailFactories.createMergedChangeEmail(Optional.empty(), List.of()));
+              projectKey,
+              change.getId(),
+              emailFactories.createMergedChangeEmail(Optional.empty(), List.of()));
       OutgoingEmail outgoingEmail = emailFactories.createOutgoingEmail(CHANGE_MERGED, changeEmail);
       if (fromAccount != null) {
         outgoingEmail.setFrom(fromAccount);

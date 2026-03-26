@@ -23,9 +23,25 @@ public class QtCommandListStagingIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid())).update();
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid())).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid()))
+        .update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid()))
+        .update();
   }
 
   @Test

@@ -107,8 +107,13 @@ public class QtAddMembers implements RestModifyView<GroupResource, Input> {
 
   @Override
   public Response<List<AccountInfo>> apply(GroupResource resource, Input input)
-      throws AuthException, MethodNotAllowedException, UnprocessableEntityException, IOException,
-          ConfigInvalidException, ResourceNotFoundException, PermissionBackendException {
+      throws AuthException,
+          MethodNotAllowedException,
+          UnprocessableEntityException,
+          IOException,
+          ConfigInvalidException,
+          ResourceNotFoundException,
+          PermissionBackendException {
     GroupDescription.Internal internalGroup =
         resource
             .asInternalGroup()

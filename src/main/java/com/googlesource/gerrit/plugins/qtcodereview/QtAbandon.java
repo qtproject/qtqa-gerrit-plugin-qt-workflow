@@ -3,6 +3,7 @@
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+
 import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
@@ -91,6 +92,7 @@ public class QtAbandon
       return Response.ok(json.noOptions().format(change));
     }
   }
+
   @Override
   public UiAction.Description getDescription(ChangeResource rsrc) {
     UiAction.Description description =

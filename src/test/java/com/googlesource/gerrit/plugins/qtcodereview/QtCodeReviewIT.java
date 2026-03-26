@@ -19,13 +19,13 @@ import com.google.gerrit.acceptance.TestAccount;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.testsuite.project.ProjectOperations;
 import com.google.gerrit.common.FooterConstants;
+import com.google.gerrit.entities.Change;
+import com.google.gerrit.entities.Project;
 import com.google.gerrit.extensions.api.changes.CherryPickInput;
 import com.google.gerrit.extensions.client.ChangeStatus;
 import com.google.gerrit.extensions.common.ApprovalInfo;
 import com.google.gerrit.extensions.common.ChangeInfo;
 import com.google.gerrit.extensions.common.LabelInfo;
-import com.google.gerrit.entities.Change;
-import com.google.gerrit.entities.Project;
 import com.google.inject.Inject;
 import java.util.List;
 import org.apache.log4j.ConsoleAppender;
@@ -87,12 +87,14 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     // Generate 100+ commits to match more like production environment
     RevCommit parent = getRemoteHead();
     for (int i = 0; i <= 101; i++) {
-      RevCommit c = testRepo.commit()
-          .message("a commit " + String.valueOf(i))
-          .add("afile" + String.valueOf(i), "somecontent")
-          .parent(parent)
-          .insertChangeId()
-          .create();
+      RevCommit c =
+          testRepo
+              .commit()
+              .message("a commit " + String.valueOf(i))
+              .add("afile" + String.valueOf(i), "somecontent")
+              .parent(parent)
+              .insertChangeId()
+              .create();
       testRepo.reset(c);
       assertPushOk(pushHead(testRepo, "refs/heads/master", false), "refs/heads/master");
       parent = c;
@@ -137,20 +139,23 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     return response;
   }
 
-  protected ChangeInfo cherryPick(final PushOneCommit.Result c, final String branch) throws Exception {
-    // If the commit message does not specify a Change-Id, a new one is picked for the destination change.
+  protected ChangeInfo cherryPick(final PushOneCommit.Result c, final String branch)
+      throws Exception {
+    // If the commit message does not specify a Change-Id, a new one is picked for the destination
+    // change.
     final CherryPickInput input = new CherryPickInput();
     input.message = "CHERRY" + c.getCommit().getFullMessage();
     input.destination = branch;
 
-    final RestResponse response = call_REST_API_CherryPick(c.getChangeId(), c.getCommit().getName(), input);
+    final RestResponse response =
+        call_REST_API_CherryPick(c.getChangeId(), c.getCommit().getName(), input);
     response.assertOK();
     return newGson().fromJson(response.getReader(), ChangeInfo.class);
   }
 
   protected RestResponse call_REST_API_CherryPick(
-    final String changeId, final String revisionId, final CherryPickInput input)
-        throws Exception {
+      final String changeId, final String revisionId, final CherryPickInput input)
+      throws Exception {
     final String url = "/changes/" + changeId + "/revisions/" + revisionId + "/cherrypick";
     return userRestSession.post(url, input);
   }
@@ -169,7 +174,10 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     return response;
   }
 
-  protected RestResponse call_REST_API_UnStage(String changeId, String revisionId, com.google.gerrit.extensions.api.changes.RestoreInput input)
+  protected RestResponse call_REST_API_UnStage(
+      String changeId,
+      String revisionId,
+      com.google.gerrit.extensions.api.changes.RestoreInput input)
       throws Exception {
     String url =
         "/changes/" + changeId + "/revisions/" + revisionId + "/gerrit-plugin-qt-workflow~unstage";
@@ -201,7 +209,7 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     assertThat(adminSshSession.getError()).isNull();
     RevCommit branchHead = getRemoteHead(project, R_HEADS + branch);
     assertReviewedByFooter(branchHead, true);
-    String shaStr = resultStr.replace("\n","");
+    String shaStr = resultStr.replace("\n", "");
     assertThat(shaStr).isEqualTo(branchHead.name());
   }
 
@@ -247,7 +255,8 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     return result;
   }
 
-  protected void assertCherryPick(RevCommit head, RevCommit source, RevCommit base) throws Exception {
+  protected void assertCherryPick(RevCommit head, RevCommit source, RevCommit base)
+      throws Exception {
     // Fetch all commit data
     try (final Repository repo = repoManager.openRepository(project);
         RevWalk revWalk = new RevWalk(repo)) {
@@ -403,9 +412,8 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
 
   protected RevCommit loadCommit(RevCommit commit) throws Exception {
     try (Repository repo = repoManager.openRepository(project);
-        RevWalk revWalk = new RevWalk(repo) ) {
+        RevWalk revWalk = new RevWalk(repo)) {
       return revWalk.parseCommit(commit);
     }
   }
-
 }

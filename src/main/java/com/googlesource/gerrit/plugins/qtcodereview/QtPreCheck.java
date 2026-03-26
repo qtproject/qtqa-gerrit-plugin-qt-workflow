@@ -114,8 +114,12 @@ public class QtPreCheck
 
   @Override
   public Response<Output> apply(RevisionResource rsrc, QtPrecheckMessage in)
-      throws RestApiException, RepositoryNotFoundException, IOException, PermissionBackendException,
-          UpdateException, ConfigInvalidException {
+      throws RestApiException,
+          RepositoryNotFoundException,
+          IOException,
+          PermissionBackendException,
+          UpdateException,
+          ConfigInvalidException {
     logger.atInfo().log("precheck request for %s", rsrc.getChange().toString());
 
     if (!isPreCheckAllowedForUser(rsrc)) {

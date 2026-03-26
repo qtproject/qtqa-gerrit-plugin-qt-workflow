@@ -35,10 +35,7 @@ class QtCommandStage extends SshCommand {
 
   @Inject
   QtCommandStage(
-      QtStage qtStage,
-      ChangesCollection changes,
-      PatchSetParser psParser,
-      Revisions revisions) {
+      QtStage qtStage, ChangesCollection changes, PatchSetParser psParser, Revisions revisions) {
     this.qtStage = qtStage;
     this.changes = changes;
     this.psParser = psParser;
@@ -75,7 +72,11 @@ class QtCommandStage extends SshCommand {
         IdString id = IdString.fromDecoded(patchSet.commitId().name());
         RevisionResource r = revisions.parse(c, id);
         qtStage.apply(r, new SubmitInput());
-      } catch (RestApiException | IOException | PermissionBackendException | UpdateException | ConfigInvalidException e) {
+      } catch (RestApiException
+          | IOException
+          | PermissionBackendException
+          | UpdateException
+          | ConfigInvalidException e) {
         ok = false;
         writeError("error", e.getMessage() + "\n");
       }

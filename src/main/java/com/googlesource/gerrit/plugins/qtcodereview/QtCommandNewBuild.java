@@ -3,6 +3,7 @@
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+
 import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
@@ -97,94 +98,97 @@ class QtCommandNewBuild extends SshCommand {
         BranchNameKey buildBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_BUILDS, build);
         BranchNameKey destBranchShortKey =
             QtUtil.getNameKeyShort(project, QtUtil.R_STAGING, stagingBranch);
-        BranchNameKey destinationKey = QtUtil.getNameKeyLong(project, QtUtil.R_HEADS, stagingBranch);
+        BranchNameKey destinationKey =
+            QtUtil.getNameKeyLong(project, QtUtil.R_HEADS, stagingBranch);
 
-      // Check required permissions
-      permissionBackend
-          .user(user)
-          .project(projectKey)
-          .ref(destinationKey.branch())
-          .check(RefPermission.UPDATE);
-      permissionBackend
-          .user(user)
-          .project(projectKey)
-          .ref(buildBranchKey.branch())
-          .check(RefPermission.CREATE);
+        // Check required permissions
+        permissionBackend
+            .user(user)
+            .project(projectKey)
+            .ref(destinationKey.branch())
+            .check(RefPermission.UPDATE);
+        permissionBackend
+            .user(user)
+            .project(projectKey)
+            .ref(buildBranchKey.branch())
+            .check(RefPermission.CREATE);
 
-      if (QtUtil.branchExists(git, buildBranchKey)) {
-        logger.atSevere().log(
-            "staging-new-build Target build '%s' already exists", buildBranchKey.branch());
-        throw die("Target build already exists!");
-      }
-
-      if (!QtUtil.branchExists(git, stagingBranchKey)) {
-        logger.atSevere().log(
-            "staging-new-build staging ref '%s' not found", stagingBranchKey.branch());
-        throw die("Staging ref not found!");
-      }
-
-      // Create build reference.
-      Result result =
-          qtUtil.createBuildRef(
-              git, user.asIdentifiedUser(), projectKey, stagingBranchKey, buildBranchKey);
-      String message =
-          String.format("Added to build '%s' for '%s'", build, destinationKey.shortName());
-
-      if (result != Result.NEW && result != Result.FAST_FORWARD) {
-        logger.atSevere().log(
-            "staging-new-build failed to create new build ref '%s' result %s",
-            buildBranchKey.branch(), result);
-        throw new UnloggedFailure(1, "fatal: failed to create new build ref: " + result);
-      } else {
-        // list the changes in staging branch but missing from the destination branch
-        List<Entry<ChangeData, RevCommit>> openChanges =
-            qtUtil.listChangesNotMerged(git, buildBranchKey, destBranchShortKey);
-
-        // Make sure that there are changes in the staging branch.
-        if (openChanges.isEmpty()) {
+        if (QtUtil.branchExists(git, buildBranchKey)) {
           logger.atSevere().log(
-              "staging-new-build No changes in staging branch %s.", stagingBranchKey.branch());
-          throw die("No changes in staging branch. Not creating a build reference");
+              "staging-new-build Target build '%s' already exists", buildBranchKey.branch());
+          throw die("Target build already exists!");
         }
 
-        QtChangeUpdateOp op =
-            qtUpdateFactory.create(
-                Change.Status.INTEGRATING,
-                Change.Status.STAGED,
-                message,
-                null,
-                QtUtil.TAG_CI,
-                null);
-        try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
-          try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
-            for (Entry<ChangeData, RevCommit> item : openChanges) {
-              Change change = item.getKey().change();
-              if (change.getStatus() == Change.Status.STAGED) {
-                logger.atInfo().log(
-                    "staging-new-build     inserted change %s,%s into build '%s' for '%s'",
-                    change.getId(), change.getKey(), build, destinationKey.shortName());
-                u.addOp(change.getId(), op);
-              } else {
-                logger.atInfo().log(
-                    "staging-new-build     change %s, %s is included in build '%s' for '%s'",
-                    change.getId(), change.getKey(), build, destinationKey.shortName());
+        if (!QtUtil.branchExists(git, stagingBranchKey)) {
+          logger.atSevere().log(
+              "staging-new-build staging ref '%s' not found", stagingBranchKey.branch());
+          throw die("Staging ref not found!");
+        }
+
+        // Create build reference.
+        Result result =
+            qtUtil.createBuildRef(
+                git, user.asIdentifiedUser(), projectKey, stagingBranchKey, buildBranchKey);
+        String message =
+            String.format("Added to build '%s' for '%s'", build, destinationKey.shortName());
+
+        if (result != Result.NEW && result != Result.FAST_FORWARD) {
+          logger.atSevere().log(
+              "staging-new-build failed to create new build ref '%s' result %s",
+              buildBranchKey.branch(), result);
+          throw new UnloggedFailure(1, "fatal: failed to create new build ref: " + result);
+        } else {
+          // list the changes in staging branch but missing from the destination branch
+          List<Entry<ChangeData, RevCommit>> openChanges =
+              qtUtil.listChangesNotMerged(git, buildBranchKey, destBranchShortKey);
+
+          // Make sure that there are changes in the staging branch.
+          if (openChanges.isEmpty()) {
+            logger.atSevere().log(
+                "staging-new-build No changes in staging branch %s.", stagingBranchKey.branch());
+            throw die("No changes in staging branch. Not creating a build reference");
+          }
+
+          QtChangeUpdateOp op =
+              qtUpdateFactory.create(
+                  Change.Status.INTEGRATING,
+                  Change.Status.STAGED,
+                  message,
+                  null,
+                  QtUtil.TAG_CI,
+                  null);
+          try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+            try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
+              for (Entry<ChangeData, RevCommit> item : openChanges) {
+                Change change = item.getKey().change();
+                if (change.getStatus() == Change.Status.STAGED) {
+                  logger.atInfo().log(
+                      "staging-new-build     inserted change %s,%s into build '%s' for '%s'",
+                      change.getId(), change.getKey(), build, destinationKey.shortName());
+                  u.addOp(change.getId(), op);
+                } else {
+                  logger.atInfo().log(
+                      "staging-new-build     change %s, %s is included in build '%s' for '%s'",
+                      change.getId(), change.getKey(), build, destinationKey.shortName());
+                }
               }
+              u.execute();
             }
-            u.execute();
           }
         }
-      }
-      // reset staging ref back to branch head
-      result = QtUtil.createStagingBranch(git, destBranchShortKey);
+        // reset staging ref back to branch head
+        result = QtUtil.createStagingBranch(git, destBranchShortKey);
 
-      logger.atInfo().log(
-          "staging-new-build build '%s' for '%s' created", build, destBranchShortKey.shortName());
+        logger.atInfo().log(
+            "staging-new-build build '%s' for '%s' created", build, destBranchShortKey.shortName());
 
       } catch (AuthException e) {
-        logger.atSevere().log("staging-new-build Authentication failed to access repository: %s", e);
+        logger.atSevere().log(
+            "staging-new-build Authentication failed to access repository: %s", e);
         throw die("Authentication failed to access repository");
       } catch (PermissionBackendException e) {
-        logger.atSevere().log("staging-new-build Not enough permissions to access repository %s", e);
+        logger.atSevere().log(
+            "staging-new-build Not enough permissions to access repository %s", e);
         throw die("Not enough permissions to access repository");
       } catch (RepositoryNotFoundException e) {
         throw die("project not found");

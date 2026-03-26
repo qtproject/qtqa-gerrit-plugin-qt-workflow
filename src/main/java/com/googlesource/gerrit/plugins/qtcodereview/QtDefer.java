@@ -18,6 +18,7 @@
 // limitations under the License.
 
 package com.googlesource.gerrit.plugins.qtcodereview;
+
 import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.flogger.FluentLogger;
@@ -94,10 +95,10 @@ public class QtDefer
             ChangeMessagesUtil.TAG_ABANDON,
             null);
     try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
-        try (BatchUpdate u =
-            updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
-          u.addOp(rsrc.getId(), op).execute();
-        }
+      try (BatchUpdate u =
+          updateFactory.create(change.getProject(), rsrc.getUser(), TimeUtil.now())) {
+        u.addOp(rsrc.getId(), op).execute();
+      }
     }
     change = op.getChange();
     logger.atInfo().log("deferred %s,%s", change.getId(), change.getKey());

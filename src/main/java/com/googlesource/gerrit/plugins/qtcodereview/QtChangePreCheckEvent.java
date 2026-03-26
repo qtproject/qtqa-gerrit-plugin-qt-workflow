@@ -6,9 +6,7 @@ package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.PatchSet;
-import com.google.gerrit.extensions.common.InputWithMessage;
 import com.google.gerrit.server.events.ChangeEvent;
-import com.googlesource.gerrit.plugins.qtcodereview.QtPrecheckMessage;
 
 public class QtChangePreCheckEvent extends ChangeEvent {
   public static final String TYPE = "precheck";

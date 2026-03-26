@@ -39,9 +39,7 @@ class QtCommandListStaging extends SshCommand {
 
   @Inject
   QtCommandListStaging(
-      PermissionBackend permissionBackend,
-      GitRepositoryManager gitManager,
-      QtUtil qtUtil) {
+      PermissionBackend permissionBackend, GitRepositoryManager gitManager, QtUtil qtUtil) {
     this.permissionBackend = permissionBackend;
     this.gitManager = gitManager;
     this.qtUtil = qtUtil;

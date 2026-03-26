@@ -17,11 +17,11 @@ import com.google.gerrit.acceptance.UseLocalDisk;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.config.GlobalPluginConfig;
 import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
-import com.google.gerrit.entities.Permission;
 import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.ChangeMessage;
-import com.google.gerrit.extensions.common.ChangeInfo;
+import com.google.gerrit.entities.Permission;
 import com.google.gerrit.extensions.client.ChangeStatus;
+import com.google.gerrit.extensions.common.ChangeInfo;
 import java.util.ArrayList;
 import org.apache.http.HttpStatus;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -43,8 +43,22 @@ public class QtStageIT extends QtCodeReviewIT {
   public void SetDefaultPermissions() throws Exception {
     createBranch(BranchNameKey.create(project, "feature"));
 
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/feature").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.QT_STAGE)
+                .ref("refs/heads/feature")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test
@@ -187,12 +201,13 @@ public class QtStageIT extends QtCodeReviewIT {
   }
 
   private void createAndStageCommit(String message, Integer index, Boolean expectPass)
-      throws Exception  {
+      throws Exception {
     Integer responseStatus = expectPass ? HttpStatus.SC_OK : HttpStatus.SC_PRECONDITION_FAILED;
     ChangeStatus changeStatus = expectPass ? ChangeStatus.STAGED : ChangeStatus.NEW;
-    String expectedChangeId = expectPass ?
-        "I000000000000000000000000000000000000100" + String.valueOf(index):
-        "I000000000000000000000000000000000000200" + String.valueOf(index);
+    String expectedChangeId =
+        expectPass
+            ? "I000000000000000000000000000000000000100" + String.valueOf(index)
+            : "I000000000000000000000000000000000000200" + String.valueOf(index);
 
     RevCommit rc = commitBuilder().add("a.txt", String.valueOf(index)).message(message).create();
     PushResult r = pushHead(testRepo, "refs/for/master");
@@ -207,15 +222,14 @@ public class QtStageIT extends QtCodeReviewIT {
 
     RestResponse response = call_REST_API_Stage(c.id, c.currentRevision);
     response.assertStatus(responseStatus);
-    if (!expectPass)
-      assertThat(response.getEntityContent()).contains("Extra ");
+    if (!expectPass) assertThat(response.getEntityContent()).contains("Extra ");
 
     c = gApi.changes().id(changeId).get(CURRENT_REVISION, CURRENT_COMMIT);
     assertThat(c.status).isEqualTo(changeStatus);
   }
 
-@Test
-public void errorStage_Validate_Commit_Message() throws Exception {
+  @Test
+  public void errorStage_Validate_Commit_Message() throws Exception {
 
     String[] validCommitMessages = {
       "Summary\n\nDetails\nChange-Id: I0000000000000000000000000000000000001000\n",
@@ -236,13 +250,20 @@ public void errorStage_Validate_Commit_Message() throws Exception {
     }
 
     for (int i = 0; i < inValidCommitMessages.length; i++) {
-      createAndStageCommit(inValidCommitMessages[i], i,  false);
+      createAndStageCommit(inValidCommitMessages[i], i, false);
     }
   }
 
   @Test
   public void errorStage_No_Permission() throws Exception {
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.deny(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
 
     RevCommit initialHead = getRemoteHead();
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
@@ -251,7 +272,14 @@ public void errorStage_Validate_Commit_Message() throws Exception {
     RestResponse response = qtStageExpectFail(c, initialHead, initialHead, HttpStatus.SC_FORBIDDEN);
     assertThat(response.getEntityContent()).contains("not permitted");
 
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test
@@ -260,9 +288,23 @@ public void errorStage_Validate_Commit_Message() throws Exception {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     approve(c.getChangeId());
 
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.ABANDON)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
     QtDefer(c);
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.deny(Permission.ABANDON)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
 
     RestResponse response = qtStageExpectFail(c, initialHead, initialHead, HttpStatus.SC_CONFLICT);
     assertThat(response.getEntityContent()).contains("Change is DEFERRED");
@@ -302,7 +344,8 @@ public void errorStage_Validate_Commit_Message() throws Exception {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
 
     RestResponse response = qtStageExpectFail(c, initialHead, initialHead, HttpStatus.SC_CONFLICT);
-    assertThat(response.getEntityContent()).contains("submit requirement 'Code-Review' is unsatisfied");
+    assertThat(response.getEntityContent())
+        .contains("submit requirement 'Code-Review' is unsatisfied");
   }
 
   @Test
@@ -350,7 +393,8 @@ public void errorStage_Validate_Commit_Message() throws Exception {
         qtStageExpectFail(c2, initialHead, stagingHead1, HttpStatus.SC_CONFLICT);
     assertThat(response.getEntityContent())
         .contains(
-            "Merge conflict with the destination branch, or with other changes already staged/integrating.");
+            "Merge conflict with the destination branch, or with other changes already"
+                + " staged/integrating.");
 
     assertStatusNew(c2.getChange().change());
   }

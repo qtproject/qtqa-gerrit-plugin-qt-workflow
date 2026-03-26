@@ -26,7 +26,14 @@ public class QtReOpenIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.ABANDON)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test
@@ -60,10 +67,24 @@ public class QtReOpenIT extends QtCodeReviewIT {
     PushOneCommit.Result c = pushCommit("master", "commitmsg1", "file1", "content1");
     QtDefer(c);
 
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.deny(Permission.ABANDON)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
     RestResponse response = qtReOpenExpectFail(c, HttpStatus.SC_FORBIDDEN);
     assertThat(response.getEntityContent()).isEqualTo("restore not permitted");
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.ABANDON)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test

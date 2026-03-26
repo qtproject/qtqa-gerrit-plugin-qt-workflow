@@ -16,7 +16,6 @@ import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.Change.Status;
 import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
-import com.google.gerrit.entities.ProjectUtil;
 import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.PreconditionFailedException;
@@ -119,8 +118,12 @@ public class QtStage
 
   @Override
   public Response<Output> apply(RevisionResource rsrc, SubmitInput input)
-      throws RestApiException, RepositoryNotFoundException, IOException, PermissionBackendException,
-          UpdateException, ConfigInvalidException {
+      throws RestApiException,
+          RepositoryNotFoundException,
+          IOException,
+          PermissionBackendException,
+          UpdateException,
+          ConfigInvalidException {
 
     Output output;
     logger.atInfo().log("stage request reveived for %s", rsrc.getChange().toString());
@@ -158,7 +161,10 @@ public class QtStage
       Project.NameKey projectKey,
       BranchNameKey destBranchKey,
       BranchNameKey stagingBranchKey)
-      throws RestApiException, IOException, UpdateException, ConfigInvalidException,
+      throws RestApiException,
+          IOException,
+          UpdateException,
+          ConfigInvalidException,
           PermissionBackendException {
     logger.atInfo().log("changeToStaging starts for %s", change.getId());
 
@@ -229,7 +235,8 @@ public class QtStage
         throw new ResourceConflictException("Cannot stage change: The patch set is empty");
       }
       throw new ResourceConflictException(
-          "Merge conflict with the destination branch, or with other changes already staged/integrating.");
+          "Merge conflict with the destination branch, or with other changes already"
+              + " staged/integrating.");
     } catch (NoSuchRefException e) {
       logger.atSevere().log("stage error %s", e);
       throw new ResourceConflictException(e.getMessage());
@@ -266,17 +273,14 @@ public class QtStage
 
     // Match spaces or tabs after a line break in end of the string.
     new CommitMessageCheck(
-        Pattern.compile("\\r?\\n[ \\t]+$"),
-        "Extra whitepace found after last line break."),
+        Pattern.compile("\\r?\\n[ \\t]+$"), "Extra whitepace found after last line break."),
 
     // Match spaces or tabs before a line break in end of the string.
     new CommitMessageCheck(
-        Pattern.compile(".*[ \\t]+\\r?\\n$"),
-        "Extra whitespace found before last line break.")
+        Pattern.compile(".*[ \\t]+\\r?\\n$"), "Extra whitespace found before last line break.")
   };
 
-  private void validateCommitMessage(String message)
-      throws PreconditionFailedException {
+  private void validateCommitMessage(String message) throws PreconditionFailedException {
 
     // Help the regex engine and strip start of the message away.
     String delimiter = "Change-Id:";
@@ -290,8 +294,8 @@ public class QtStage
     }
   }
 
-  private void validateCommit(RevisionResource resource) throws ResourceConflictException,
-      PreconditionFailedException {
+  private void validateCommit(RevisionResource resource)
+      throws ResourceConflictException, PreconditionFailedException {
     try (final Repository repository = repoManager.openRepository(resource.getProject())) {
       validateCommit(repository, resource);
     } catch (IOException e) {

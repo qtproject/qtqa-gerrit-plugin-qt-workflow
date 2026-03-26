@@ -8,21 +8,21 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate.allowLabel;
 import static com.google.gerrit.server.group.SystemGroupBackend.REGISTERED_USERS;
 
+import com.google.common.collect.ImmutableMap;
+import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.Address;
 import com.google.gerrit.entities.EmailHeader;
 import com.google.gerrit.entities.Permission;
 import com.google.gerrit.testing.FakeEmailSender;
 import com.google.gerrit.testing.FakeEmailSender.Message;
-import org.junit.Before;
 import java.util.List;
 import java.util.Map;
+import org.junit.Before;
 import org.junit.Test;
 
 @TestPlugin(
@@ -35,11 +35,29 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
 
   @Before
   public void grantPermissions() throws Exception {
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid())).update();
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid())).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid()))
+        .update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid()))
+        .update();
 
-    projectOperations.project(project).forUpdate()
+    projectOperations
+        .project(project)
+        .forUpdate()
         .add(allowLabel("Sanity-Review").ref("refs/*").group(REGISTERED_USERS).range(-2, 2))
         .update();
   }
@@ -70,15 +88,15 @@ public class QtEmailSendingIT extends QtCodeReviewIT {
     sender.clear();
     QtFailBuild("master", "test_build_02");
 
-    List<Message> msgs= sender.getMessages();
-    for ( Message msg : msgs) {
-        logger.atInfo().log("----------");
-        ImmutableMap<String, EmailHeader> headers = msg.headers();
-        for (Map.Entry<String, EmailHeader> header : headers.entrySet()) {
-            logger.atInfo().log("%s=%s", header.getKey(), header.getValue());
-        }
-        logger.atInfo().log("body=%s",msg.body());
-        logger.atInfo().log("----------");
+    List<Message> msgs = sender.getMessages();
+    for (Message msg : msgs) {
+      logger.atInfo().log("----------");
+      ImmutableMap<String, EmailHeader> headers = msg.headers();
+      for (Map.Entry<String, EmailHeader> header : headers.entrySet()) {
+        logger.atInfo().log("%s=%s", header.getKey(), header.getValue());
+      }
+      logger.atInfo().log("body=%s", msg.body());
+      logger.atInfo().log("----------");
     }
 
     FakeEmailSender.Message m = sender.getMessages(c.getChangeId(), "qtbuildfailed").get(0);

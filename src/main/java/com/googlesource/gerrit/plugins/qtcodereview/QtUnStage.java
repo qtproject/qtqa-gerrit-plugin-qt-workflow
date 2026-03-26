@@ -12,7 +12,6 @@ import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
-import com.google.gerrit.entities.ProjectUtil;
 import com.google.gerrit.exceptions.StorageException;
 import com.google.gerrit.extensions.api.changes.RestoreInput;
 import com.google.gerrit.extensions.restapi.AuthException;
@@ -82,7 +81,10 @@ class QtUnStage
 
   @Override
   public Response<Output> apply(RevisionResource rsrc, RestoreInput input)
-      throws RestApiException, IOException, UpdateException, PermissionBackendException,
+      throws RestApiException,
+          IOException,
+          UpdateException,
+          PermissionBackendException,
           ConfigInvalidException {
 
     logger.atInfo().log("unstage %s", rsrc.getChange().toString());
@@ -101,13 +103,7 @@ class QtUnStage
     qtUtil.lockStaging(stagingBranchKey.branch());
     try {
       return Response.ok(
-          new Output(
-              removeChangeFromStaging(
-                  rsrc,
-                  submitter,
-                  input,
-                  change,
-                  stagingBranchKey)));
+          new Output(removeChangeFromStaging(rsrc, submitter, input, change, stagingBranchKey)));
     } finally {
       qtUtil.unlockStaging(stagingBranchKey.branch());
     }
@@ -158,16 +154,23 @@ class QtUnStage
 
         QtChangeUpdateOp op =
             qtUpdateFactory.create(
-                Change.Status.NEW, Change.Status.STAGED, "Unstaged", input.message, QtUtil.TAG_CI, null);
+                Change.Status.NEW,
+                Change.Status.STAGED,
+                "Unstaged",
+                input.message,
+                QtUtil.TAG_CI,
+                null);
         try (BatchUpdate u = updateFactory.create(projectKey, submitter, TimeUtil.now())) {
           u.addOp(rsrc.getChange().getId(), op).execute();
         }
-        qtUtil.rebuildStagingBranch(git, submitter, projectKey, stagingBranchKey, destBranchShortKey);
+        qtUtil.rebuildStagingBranch(
+            git, submitter, projectKey, stagingBranchKey, destBranchShortKey);
 
         change = op.getChange();
         qtUtil.postChangeUnStagedEvent(change);
         logger.atInfo().log(
-            "unstaged %s,%s from %s", change.getId(), change.getKey(), stagingBranchKey.shortName());
+            "unstaged %s,%s from %s",
+            change.getId(), change.getKey(), stagingBranchKey.shortName());
 
       } catch (ResourceConflictException e) {
         logger.atSevere().log("unstage resource conflict error %s", e);

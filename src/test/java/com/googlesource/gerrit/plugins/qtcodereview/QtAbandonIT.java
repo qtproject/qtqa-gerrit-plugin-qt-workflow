@@ -10,9 +10,9 @@ import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
+import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.Permission;
 import com.google.gerrit.extensions.api.changes.AbandonInput;
-import com.google.gerrit.entities.Change;
 import org.apache.http.HttpStatus;
 import org.junit.Before;
 import org.junit.Test;
@@ -26,7 +26,14 @@ public class QtAbandonIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.ABANDON)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test
@@ -60,10 +67,24 @@ public class QtAbandonIT extends QtCodeReviewIT {
 
     QtDefer(c);
 
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.deny(Permission.ABANDON)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
     RestResponse response = qtAbandonExpectFail(c, HttpStatus.SC_FORBIDDEN);
     assertThat(response.getEntityContent()).isEqualTo("abandon not permitted");
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.ABANDON).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.ABANDON)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test

@@ -11,9 +11,9 @@ import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
-import com.google.gerrit.entities.Permission;
 import com.google.gerrit.entities.BranchNameKey;
 import com.google.gerrit.entities.ChangeMessage;
+import com.google.gerrit.entities.Permission;
 import java.util.ArrayList;
 import org.apache.http.HttpStatus;
 import org.eclipse.jgit.revwalk.RevCommit;
@@ -32,7 +32,14 @@ public class QtUnStageIT extends QtCodeReviewIT {
   @Before
   public void SetDefaultPermissions() throws Exception {
     createBranch(BranchNameKey.create(project, "feature"));
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test
@@ -58,8 +65,7 @@ public class QtUnStageIT extends QtCodeReviewIT {
     restoreInput.message = "myunstagenote";
 
     String changeId = c.getChangeId();
-    RestResponse response =
-        call_REST_API_UnStage(changeId, getCurrentPatchId(c), restoreInput);
+    RestResponse response = call_REST_API_UnStage(changeId, getCurrentPatchId(c), restoreInput);
     response.assertOK();
 
     assertStatusNew(c.getChange().change());
@@ -308,12 +314,26 @@ public class QtUnStageIT extends QtCodeReviewIT {
     approve(c.getChangeId());
     QtStage(c);
 
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.deny(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
 
     RestResponse response = qtUnStageExpectFail(c, HttpStatus.SC_FORBIDDEN);
     assertThat(response.getEntityContent()).contains("not permitted");
 
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test

@@ -74,7 +74,8 @@ class QtCommandRebuildStaging extends SshCommand {
             .ref(destBranchShortKey.branch())
             .check(RefPermission.UPDATE);
 
-        if (git.resolve(stagingBranchKey.branch()) == null) throw die("branch staging ref not found");
+        if (git.resolve(stagingBranchKey.branch()) == null)
+          throw die("branch staging ref not found");
 
         qtUtil.rebuildStagingBranch(
             git, user.asIdentifiedUser(), projectKey, stagingBranchKey, destBranchShortKey);

@@ -23,9 +23,25 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
 
   @Before
   public void SetDefaultPermissions() throws Exception {
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.QT_STAGE).ref("refs/heads/master").group(REGISTERED_USERS)).update();
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid())).update();
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid())).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.QT_STAGE)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(TestProjectUpdate.allow(Permission.PUSH).ref("refs/staging/*").group(adminGroupUuid()))
+        .update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.CREATE).ref("refs/builds/*").group(adminGroupUuid()))
+        .update();
   }
 
   @Test
@@ -75,7 +91,14 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
     approve(c.getChangeId());
     QtStage(c);
 
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.deny(Permission.SUBMIT).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.deny(Permission.SUBMIT)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
 
     String commandStr;
     commandStr = "gerrit-plugin-qt-workflow staging-rebuild";
@@ -84,7 +107,14 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
     String resultStr = userSshSession.exec(commandStr);
     assertThat(userSshSession.getError()).contains("not authorized");
 
-    projectOperations.project(project).forUpdate().add(TestProjectUpdate.allow(Permission.SUBMIT).ref("refs/heads/master").group(REGISTERED_USERS)).update();
+    projectOperations
+        .project(project)
+        .forUpdate()
+        .add(
+            TestProjectUpdate.allow(Permission.SUBMIT)
+                .ref("refs/heads/master")
+                .group(REGISTERED_USERS))
+        .update();
   }
 
   @Test
