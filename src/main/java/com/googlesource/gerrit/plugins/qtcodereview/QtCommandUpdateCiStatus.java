@@ -50,19 +50,19 @@ class QtCommandUpdateCiStatus extends SshCommand {
       aliases = {"-i"},
       required = true,
       usage = "queue info of ci servers")
-  private String queue_json;
+  private String queueJson;
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
   @Override
   protected void run() throws UnloggedFailure {
-    logger.atInfo().log("ci-status-update -i %s", queue_json);
+    logger.atInfo().log("ci-status-update -i %s", queueJson);
 
     if (permissionBackend
         .currentUser()
         .testOrFalse(
             new PluginPermission(pluginName, QtCiStatusUpdateCapability.CI_STATUS_UPDATE))) {
-      String statusMessage = QtCiStatusStorage.setData(queue_json);
+      String statusMessage = QtCiStatusStorage.setData(queueJson);
       if (statusMessage != null) throw die(statusMessage);
     } else throw die("not permitted");
   }
