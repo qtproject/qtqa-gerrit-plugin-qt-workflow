@@ -36,12 +36,10 @@ import com.google.inject.Inject;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
-import java.util.concurrent.locks.ReentrantLock;
 import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.ObjectId;
@@ -119,8 +117,6 @@ class QtCommandBuildApprove extends SshCommand {
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 
-  private Repository git;
-
   /** Parameter value for pass result. */
   private static final String PASS = "pass";
   /** Parameter value for fail result. */
@@ -128,39 +124,30 @@ class QtCommandBuildApprove extends SshCommand {
   /** Parameter value for stdin message. */
   private static final String STDIN_MESSAGE = "-";
 
-  private Project.NameKey projectKey;
-  private BranchNameKey buildBranchKey;
-  private BranchNameKey destBranchKey;
-  private BranchNameKey stagingBranchKey;
-  private BranchNameKey destBranchShortKey;
-
-  private List<Entry<ChangeData, RevCommit>> affectedChanges = null;
-
   @Override
   protected void run() throws UnloggedFailure {
-    stagingBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, destBranch);
+    BranchNameKey stagingBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, destBranch);
     qtUtil.lockStaging(stagingBranchKey.branch()); // block processing of parallel requests
     try {
-      runBuildApprove();
+      runBuildApprove(stagingBranchKey);
     } finally {
       qtUtil.unlockStaging(stagingBranchKey.branch());
     }
   }
 
-  private void runBuildApprove() throws UnloggedFailure {
+  private void runBuildApprove(BranchNameKey stagingBranchKey) throws UnloggedFailure {
     logger.atInfo().log(
         "staging-approve -p %s -i %s -r %s -m %s -b %s",
         project, buildBranch, result, message, destBranch);
 
-    readMessageParameter();
+    String msg = readMessageParameter();
 
-    projectKey = QtUtil.getProjectKey(project);
-    buildBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_BUILDS, buildBranch);
-    destBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_HEADS, destBranch);
-    destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, destBranch);
+    Project.NameKey projectKey = QtUtil.getProjectKey(project);
+    BranchNameKey buildBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_BUILDS, buildBranch);
+    BranchNameKey destBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_HEADS, destBranch);
+    BranchNameKey destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, destBranch);
 
-    try {
-      git = gitManager.openRepository(projectKey);
+    try (Repository git = gitManager.openRepository(projectKey)) {
 
       // Check required permissions
       permissionBackend
@@ -183,9 +170,10 @@ class QtCommandBuildApprove extends SshCommand {
       if (git.resolve(buildBranchKey.branch()) == null) throw die("build not found");
 
       if (result.toLowerCase().equals(PASS)) {
-        approveBuildChanges();
+        approveBuildChanges(
+            git, projectKey, buildBranchKey, destBranchKey, stagingBranchKey, destBranchShortKey, msg);
       } else if (result.toLowerCase().equals(FAIL)) {
-        rejectBuildChanges();
+        rejectBuildChanges(git, projectKey, buildBranchKey, destBranchKey, msg);
       } else {
         throw die("result argument accepts only value pass or fail.");
       }
@@ -201,29 +189,35 @@ class QtCommandBuildApprove extends SshCommand {
     } catch (QtUtil.BranchNotFoundException e) {
       throw die("invalid branch " + e.getMessage());
     } catch (UpdateException | RestApiException | ConfigInvalidException e) {
-      logger.atSevere().log("staging-napprove failed to update change status %s", e);
+      logger.atSevere().log("staging-approve failed to update change status %s", e);
       throw die("Failed to update change status");
     } catch (QtUtil.MergeConflictException e) {
-      String msg =
+      String msg2 =
           String.format(
-              "Merge build '%s' to branch '%s' failed", buildBranch, destBranchKey.shortName());
-      logger.atSevere().log("%s", msg);
+              "Merge build '%s' to branch '%s' failed", buildBranch, destBranch);
+      logger.atSevere().log("%s", msg2);
       throw die(
           String.format(
               "Merge conflict! build branch '%s' into '%s' failed", buildBranch, destBranch));
-    } finally {
-      if (git != null) git.close();
     }
   }
 
-  private void approveBuildChanges()
+  private void approveBuildChanges(
+      Repository git,
+      Project.NameKey projectKey,
+      BranchNameKey buildBranchKey,
+      BranchNameKey destBranchKey,
+      BranchNameKey stagingBranchKey,
+      BranchNameKey destBranchShortKey,
+      String msg)
       throws QtUtil.MergeConflictException, IOException, UpdateException, UnloggedFailure,
           RestApiException, ConfigInvalidException, QtUtil.BranchNotFoundException {
-    if (message == null)
-      message = String.format("Change merged into branch '%s'", destBranchKey.shortName());
+    if (msg == null)
+      msg = String.format("Change merged into branch '%s'", destBranchKey.shortName());
 
     ObjectId oldId = git.resolve(destBranchKey.branch());
 
+    List<Entry<ChangeData, RevCommit>> affectedChanges;
     try {
       affectedChanges =
           qtUtil.mergeIntegrationToBranch(
@@ -234,17 +228,17 @@ class QtCommandBuildApprove extends SshCommand {
               destBranchKey,
               "Merge integration " + buildBranch);
     } catch (NoSuchRefException e) {
-      message = "Gerrit plugin internal error. Please contact Gerrit Admin.";
+      String rejectMsg = "Gerrit plugin internal error. Please contact Gerrit Admin.";
       logger.atInfo().log("%s", e.getMessage());
-      rejectBuildChanges();
+      rejectBuildChanges(git, projectKey, buildBranchKey, destBranchKey, rejectMsg);
       return;
     } catch (QtUtil.MergeConflictException e) {
-      message =
+      String rejectMsg =
           "Unable to merge this integration because another integration parallel to this one "
               + "successfully merged first and created a conflict in one of the tested changes.\n"
               + "Please review, resolve conflicts if necessary, and restage.";
       logger.atInfo().log("%s", e.getMessage());
-      rejectBuildChanges();
+      rejectBuildChanges(git, projectKey, buildBranchKey, destBranchKey, rejectMsg);
       return;
     }
 
@@ -252,9 +246,12 @@ class QtCommandBuildApprove extends SshCommand {
         affectedChanges,
         Change.Status.MERGED,
         Change.Status.INTEGRATING,
-        message,
+        msg,
         ChangeMessagesUtil.TAG_MERGED,
-        true);
+        true,
+        git,
+        projectKey,
+        destBranchKey);
 
     logger.atInfo().log(
         "build '%s' merged into branch '%s'", buildBranch, destBranchKey.shortName());
@@ -274,13 +271,19 @@ class QtCommandBuildApprove extends SshCommand {
     stdout.println(newId.name());
   }
 
-  private void rejectBuildChanges()
+  private void rejectBuildChanges(
+      Repository git,
+      Project.NameKey projectKey,
+      BranchNameKey buildBranchKey,
+      BranchNameKey destBranchKey,
+      String msg)
       throws QtUtil.MergeConflictException, UpdateException, RestApiException, IOException,
           ConfigInvalidException, QtUtil.BranchNotFoundException, UnloggedFailure {
-    if (message == null)
-      message = String.format("Change rejected for branch '%s'", destBranchKey.shortName());
+    if (msg == null)
+      msg = String.format("Change rejected for branch '%s'", destBranchKey.shortName());
 
-    affectedChanges = qtUtil.listChangesNotMerged(git, buildBranchKey, destBranchKey);
+    List<Entry<ChangeData, RevCommit>> affectedChanges =
+        qtUtil.listChangesNotMerged(git, buildBranchKey, destBranchKey);
 
     // Notify user that build did not have any open changes. The build has already been approved.
     if (affectedChanges.isEmpty()) {
@@ -294,9 +297,12 @@ class QtCommandBuildApprove extends SshCommand {
         affectedChanges,
         Change.Status.NEW,
         Change.Status.INTEGRATING,
-        message,
+        msg,
         ChangeMessagesUtil.TAG_REVERT,
-        false);
+        false,
+        git,
+        projectKey,
+        destBranchKey);
 
     logger.atInfo().log(
         "build '%s' rejected for branch '%s'", buildBranch, destBranchKey.shortName());
@@ -308,7 +314,10 @@ class QtCommandBuildApprove extends SshCommand {
       Change.Status oldStatus,
       String changeMessage,
       String tag,
-      Boolean passed)
+      Boolean passed,
+      Repository git,
+      Project.NameKey projectKey,
+      BranchNameKey destBranchKey)
       throws UpdateException, RestApiException, IOException, ConfigInvalidException {
 
     List<Entry<ChangeData, RevCommit>> emailingList =
@@ -335,7 +344,7 @@ class QtCommandBuildApprove extends SshCommand {
                 changeId = insertPatchSet(u, git, cd.notes(), newCommit);
                 if (!changeId.equals(cd.getId())) {
                   logger.atWarning().log(
-                    "wrong changeId for new patchSet %s != %s", changeId, cd.getId());
+                      "wrong changeId for new patchSet %s != %s", changeId, cd.getId());
                 }
               } else currCommit = null;
 
@@ -350,7 +359,7 @@ class QtCommandBuildApprove extends SshCommand {
         }
         u.execute();
       }
-  }
+    }
     // do rest
     for (Entry<ChangeData, RevCommit> item : emailingList) {
       ChangeData cd = item.getKey();
@@ -363,7 +372,7 @@ class QtCommandBuildApprove extends SshCommand {
             "     change %s merged into '%s'", change.getId(), destBranchKey.shortName());
       } else {
         qtUtil.postChangeIntegrationFailEvent(change);
-        qtEmailSender.sendBuildFailedEmail(projectKey, change, user.getAccountId(), message);
+        qtEmailSender.sendBuildFailedEmail(projectKey, change, user.getAccountId(), changeMessage);
         logger.atInfo().log(
             "     change %s rejected for '%s'", change.getId(), destBranchKey.shortName());
       }
@@ -387,24 +396,23 @@ class QtCommandBuildApprove extends SshCommand {
     changeMerged.fire(changeData, ps, user.asIdentifiedUser().state(), ps.commitId().name(), TimeUtil.now());
   }
 
-  private void readMessageParameter() throws UnloggedFailure {
-    if (message == null) return;
+  private String readMessageParameter() throws UnloggedFailure {
+    if (message == null) return null;
 
     try {
       // User will submit message through stdin.
       if (message.equals(STDIN_MESSAGE)) {
-        // Clear stdin indicator.
-        message = "";
-
-        // Read message from stdin.
+        StringBuilder sb = new StringBuilder();
         BufferedReader stdin = new BufferedReader(new InputStreamReader(in, "UTF-8"));
         String line;
         while ((line = stdin.readLine()) != null) {
-          message += line + "\n";
+          sb.append(line).append("\n");
         }
+        return sb.toString();
       }
     } catch (IOException e) {
       throw new UnloggedFailure(1, "fatal: " + e.getMessage(), e);
     }
+    return message;
   }
 }
