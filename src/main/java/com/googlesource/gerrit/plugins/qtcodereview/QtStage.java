@@ -50,7 +50,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
-import java.util.regex.Matcher;
 import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.errors.RepositoryNotFoundException;
 import org.eclipse.jgit.lib.Config;
@@ -250,14 +249,31 @@ public class QtStage
   }
 
   public static class CommitMessageCheck {
-    public String pattern;
+    public Pattern pattern;
     public String errorMessage;
 
-    public CommitMessageCheck(String pattern, String errorMessage) {
+    public CommitMessageCheck(Pattern pattern, String errorMessage) {
       this.pattern = pattern;
       this.errorMessage = errorMessage;
     }
   }
+
+  private static final CommitMessageCheck[] COMMIT_MESSAGE_CHECKS = {
+    // Matches two or more line breaks, possibly with spaces between them in end of the string.
+    new CommitMessageCheck(
+        Pattern.compile("(?:.|\\r?\\n)*(?:[ \\t]*\\r?\\n){2,}[ \\t]*$"),
+        "Extra line break found after commit footer."),
+
+    // Match spaces or tabs after a line break in end of the string.
+    new CommitMessageCheck(
+        Pattern.compile("\\r?\\n[ \\t]+$"),
+        "Extra whitepace found after last line break."),
+
+    // Match spaces or tabs before a line break in end of the string.
+    new CommitMessageCheck(
+        Pattern.compile(".*[ \\t]+\\r?\\n$"),
+        "Extra whitespace found before last line break.")
+  };
 
   private void validateCommitMessage(String message)
       throws PreconditionFailedException {
@@ -268,24 +284,8 @@ public class QtStage
     if (index == -1) throw new PreconditionFailedException("Change-Id footer missing");
     String endOfMessage = message.substring(index + delimiter.length());
 
-    Pattern pattern;
-    Matcher matcher;
-    final CommitMessageCheck[] checks = {
-      // Matches two or more line breaks, possibly with spaces between them in end of the string.
-      new CommitMessageCheck("(?:.|\\r?\\n)*(?:[ \\t]*\\r?\\n){2,}[ \\t]*$",
-          "Extra line break found after commit footer."),
-
-      // Match spaces or tabs after a line break in end of the string.
-      new CommitMessageCheck("\\r?\\n[ \\t]+$", "Extra whitepace found after last line break."),
-
-      // Match spaces or tabs before a line break in end of the string.
-      new CommitMessageCheck( ".*[ \\t]+\\r?\\n$", "Extra whitespace found before last line break.")
-    };
-
-    for (CommitMessageCheck check : checks) {
-      pattern = Pattern.compile(check.pattern);
-      matcher = pattern.matcher(endOfMessage);
-      if (matcher.find())
+    for (CommitMessageCheck check : COMMIT_MESSAGE_CHECKS) {
+      if (check.pattern.matcher(endOfMessage).find())
         throw new PreconditionFailedException(check.errorMessage);
     }
   }
