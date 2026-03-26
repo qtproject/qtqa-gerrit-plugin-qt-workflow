@@ -24,13 +24,22 @@ import org.kohsuke.args4j.Option;
 @CommandMetaData(name = "staging-rebuild", description = "Rebuild a staging branch.")
 class QtCommandRebuildStaging extends SshCommand {
 
-  @Inject private PermissionBackend permissionBackend;
+  private final PermissionBackend permissionBackend;
+  private final GitRepositoryManager gitManager;
+  private final BatchUpdate.Factory updateFactory;
+  private final QtUtil qtUtil;
 
-  @Inject private GitRepositoryManager gitManager;
-
-  @Inject private BatchUpdate.Factory updateFactory;
-
-  @Inject private QtUtil qtUtil;
+  @Inject
+  QtCommandRebuildStaging(
+      PermissionBackend permissionBackend,
+      GitRepositoryManager gitManager,
+      BatchUpdate.Factory updateFactory,
+      QtUtil qtUtil) {
+    this.permissionBackend = permissionBackend;
+    this.gitManager = gitManager;
+    this.updateFactory = updateFactory;
+    this.qtUtil = qtUtil;
+  }
 
   @Option(
       name = "--project",

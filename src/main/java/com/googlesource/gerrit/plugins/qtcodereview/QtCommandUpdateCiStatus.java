@@ -31,11 +31,19 @@ import org.kohsuke.args4j.Option;
     description = "Upload CI server queue info to Gerrit server.")
 class QtCommandUpdateCiStatus extends SshCommand {
 
-  @Inject private PermissionBackend permissionBackend;
+  private final PermissionBackend permissionBackend;
+  private final QtCiStatusStorage ciStatusStorage;
+  private final String pluginName;
 
-  @Inject private QtCiStatusStorage ciStatusStorage;
-
-  @Inject @PluginName private String pluginName;
+  @Inject
+  QtCommandUpdateCiStatus(
+      PermissionBackend permissionBackend,
+      QtCiStatusStorage ciStatusStorage,
+      @PluginName String pluginName) {
+    this.permissionBackend = permissionBackend;
+    this.ciStatusStorage = ciStatusStorage;
+    this.pluginName = pluginName;
+  }
 
   @Option(
       name = "--queueinfo",

@@ -28,10 +28,22 @@ import org.kohsuke.args4j.Argument;
 @CommandMetaData(name = "stage", description = "Stage a change.")
 class QtCommandStage extends SshCommand {
 
-  @Inject private QtStage qtStage;
-  @Inject private ChangesCollection changes;
-  @Inject private PatchSetParser psParser;
-  @Inject private Revisions revisions;
+  private final QtStage qtStage;
+  private final ChangesCollection changes;
+  private final PatchSetParser psParser;
+  private final Revisions revisions;
+
+  @Inject
+  QtCommandStage(
+      QtStage qtStage,
+      ChangesCollection changes,
+      PatchSetParser psParser,
+      Revisions revisions) {
+    this.qtStage = qtStage;
+    this.changes = changes;
+    this.psParser = psParser;
+    this.revisions = revisions;
+  }
 
   private static final FluentLogger logger = FluentLogger.forEnclosingClass();
 

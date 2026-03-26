@@ -33,11 +33,19 @@ import org.kohsuke.args4j.Option;
             + " the destination branch yet.")
 class QtCommandListStaging extends SshCommand {
 
-  @Inject private PermissionBackend permissionBackend;
+  private final PermissionBackend permissionBackend;
+  private final GitRepositoryManager gitManager;
+  private final QtUtil qtUtil;
 
-  @Inject private GitRepositoryManager gitManager;
-
-  @Inject private QtUtil qtUtil;
+  @Inject
+  QtCommandListStaging(
+      PermissionBackend permissionBackend,
+      GitRepositoryManager gitManager,
+      QtUtil qtUtil) {
+    this.permissionBackend = permissionBackend;
+    this.gitManager = gitManager;
+    this.qtUtil = qtUtil;
+  }
 
   @Option(
       name = "--project",

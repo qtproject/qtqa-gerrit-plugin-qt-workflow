@@ -35,13 +35,22 @@ import org.kohsuke.args4j.Option;
             + " merge or revert will be performed.")
 class QtCommandAdminChangeStatus extends SshCommand {
 
-  @Inject Provider<InternalChangeQuery> queryProvider;
+  private final Provider<InternalChangeQuery> queryProvider;
+  private final BatchUpdate.Factory updateFactory;
+  private final QtChangeUpdateOp.Factory qtUpdateFactory;
+  private final ChangeMerged changeMerged;
 
-  @Inject private BatchUpdate.Factory updateFactory;
-
-  @Inject private QtChangeUpdateOp.Factory qtUpdateFactory;
-
-  @Inject private ChangeMerged changeMerged;
+  @Inject
+  QtCommandAdminChangeStatus(
+      Provider<InternalChangeQuery> queryProvider,
+      BatchUpdate.Factory updateFactory,
+      QtChangeUpdateOp.Factory qtUpdateFactory,
+      ChangeMerged changeMerged) {
+    this.queryProvider = queryProvider;
+    this.updateFactory = updateFactory;
+    this.qtUpdateFactory = qtUpdateFactory;
+    this.changeMerged = changeMerged;
+  }
 
   @Option(
       name = "--project",

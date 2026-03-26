@@ -40,15 +40,25 @@ import org.kohsuke.args4j.Option;
             + " the changes to INTEGRATING.")
 class QtCommandNewBuild extends SshCommand {
 
-  @Inject private PermissionBackend permissionBackend;
+  private final PermissionBackend permissionBackend;
+  private final GitRepositoryManager gitManager;
+  private final BatchUpdate.Factory updateFactory;
+  private final QtUtil qtUtil;
+  private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
-  @Inject private GitRepositoryManager gitManager;
-
-  @Inject private BatchUpdate.Factory updateFactory;
-
-  @Inject private QtUtil qtUtil;
-
-  @Inject private QtChangeUpdateOp.Factory qtUpdateFactory;
+  @Inject
+  QtCommandNewBuild(
+      PermissionBackend permissionBackend,
+      GitRepositoryManager gitManager,
+      BatchUpdate.Factory updateFactory,
+      QtUtil qtUtil,
+      QtChangeUpdateOp.Factory qtUpdateFactory) {
+    this.permissionBackend = permissionBackend;
+    this.gitManager = gitManager;
+    this.updateFactory = updateFactory;
+    this.qtUtil = qtUtil;
+    this.qtUpdateFactory = qtUpdateFactory;
+  }
 
   @Option(
       name = "--project",

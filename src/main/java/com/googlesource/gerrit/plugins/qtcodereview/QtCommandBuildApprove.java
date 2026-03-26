@@ -61,23 +61,37 @@ import org.kohsuke.args4j.Option;
         "Report pass or fail status for builds. If passed changed are merged into target branch.")
 class QtCommandBuildApprove extends SshCommand {
 
-  @Inject private PermissionBackend permissionBackend;
+  private final PermissionBackend permissionBackend;
+  private final GitRepositoryManager gitManager;
+  private final BatchUpdate.Factory updateFactory;
+  private final PatchSetInserter.Factory patchSetInserterFactory;
+  private final GitReferenceUpdated referenceUpdated;
+  private final ChangeMerged changeMerged;
+  private final QtUtil qtUtil;
+  private final QtEmailSender qtEmailSender;
+  private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
-  @Inject private GitRepositoryManager gitManager;
-
-  @Inject private BatchUpdate.Factory updateFactory;
-
-  @Inject private PatchSetInserter.Factory patchSetInserterFactory;
-
-  @Inject private GitReferenceUpdated referenceUpdated;
-
-  @Inject private ChangeMerged changeMerged;
-
-  @Inject private QtUtil qtUtil;
-
-  @Inject private QtEmailSender qtEmailSender;
-
-  @Inject private QtChangeUpdateOp.Factory qtUpdateFactory;
+  @Inject
+  QtCommandBuildApprove(
+      PermissionBackend permissionBackend,
+      GitRepositoryManager gitManager,
+      BatchUpdate.Factory updateFactory,
+      PatchSetInserter.Factory patchSetInserterFactory,
+      GitReferenceUpdated referenceUpdated,
+      ChangeMerged changeMerged,
+      QtUtil qtUtil,
+      QtEmailSender qtEmailSender,
+      QtChangeUpdateOp.Factory qtUpdateFactory) {
+    this.permissionBackend = permissionBackend;
+    this.gitManager = gitManager;
+    this.updateFactory = updateFactory;
+    this.patchSetInserterFactory = patchSetInserterFactory;
+    this.referenceUpdated = referenceUpdated;
+    this.changeMerged = changeMerged;
+    this.qtUtil = qtUtil;
+    this.qtEmailSender = qtEmailSender;
+    this.qtUpdateFactory = qtUpdateFactory;
+  }
 
   @Option(
       name = "--project",
