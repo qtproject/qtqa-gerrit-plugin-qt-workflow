@@ -8,16 +8,21 @@ import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
 import com.google.gerrit.extensions.restapi.IdString;
+import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.server.change.ChangeResource;
 import com.google.gerrit.server.change.RevisionResource;
+import com.google.gerrit.server.permissions.PermissionBackendException;
 import com.google.gerrit.server.restapi.change.ChangesCollection;
 import com.google.gerrit.server.restapi.change.Revisions;
+import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.sshd.CommandMetaData;
 import com.google.gerrit.sshd.SshCommand;
 import com.google.gerrit.sshd.commands.PatchSetParser;
 import com.google.inject.Inject;
+import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
+import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.kohsuke.args4j.Argument;
 
 @CommandMetaData(name = "stage", description = "Stage a change.")
@@ -58,7 +63,7 @@ class QtCommandStage extends SshCommand {
         IdString id = IdString.fromDecoded(patchSet.commitId().name());
         RevisionResource r = revisions.parse(c, id);
         qtStage.apply(r, new SubmitInput());
-      } catch (Exception e) {
+      } catch (RestApiException | IOException | PermissionBackendException | UpdateException | ConfigInvalidException e) {
         ok = false;
         writeError("error", e.getMessage() + "\n");
       }

@@ -20,8 +20,12 @@ import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.query.change.ChangeData;
+import com.google.gerrit.extensions.restapi.RestApiException;
+import com.google.gerrit.server.project.NoSuchProjectException;
+import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.submit.IntegrationConflictException;
 import com.google.gerrit.server.update.BatchUpdate;
+import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.update.context.RefUpdateContext;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
@@ -199,7 +203,9 @@ public class QtCherryPickPatch {
         logger.atInfo().log("cherrypick done for change %s", changeData.getId());
         return cherryPickCommit;
       }
-    } catch (Exception e) {
+    } catch (IntegrationConflictException e) {
+      throw e;
+    } catch (IOException | NoSuchRefException | UpdateException | RestApiException | QtUtil.MergeConflictException | NoSuchProjectException e) {
       throw new IntegrationConflictException("Reason: " + e.getMessage());
     }
   }

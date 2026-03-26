@@ -45,11 +45,13 @@ import com.google.gerrit.server.git.MergeUtil;
 import com.google.gerrit.server.git.MergeUtilFactory;
 import com.google.gerrit.server.notedb.ChangeNotes;
 import com.google.gerrit.server.permissions.PermissionBackendException;
+import com.google.gerrit.server.project.NoSuchProjectException;
 import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.project.ProjectCache;
 import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
+import com.google.gerrit.server.submit.IntegrationConflictException;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
 import com.google.gerrit.server.update.context.RefUpdateContext;
@@ -154,6 +156,14 @@ public class QtUtil {
     private static final long serialVersionUID = 1L;
 
     public BranchNotFoundException(final String message) {
+      super(message);
+    }
+  }
+
+  public static class InvalidChangeStatus extends Exception {
+    private static final long serialVersionUID = 1L;
+
+    public InvalidChangeStatus(final String message) {
       super(message);
     }
   }
@@ -345,7 +355,7 @@ public class QtUtil {
   // Step backwards from the ref and return change list in the same order
   private List<ChangeData> arrangeOrderLikeInRef(
       Repository git, ObjectId refObj, ObjectId tipObj, List<ChangeData> changeList)
-      throws Exception {
+      throws IOException, InvalidChangeStatus {
     List<ChangeData> results = new ArrayList<ChangeData>();
     int count = 0;
     logger.atInfo().log("Arranging change order to match original");
@@ -374,18 +384,18 @@ public class QtUtil {
           commit = revWalk.parseCommit(commit.getParent(0));
         }
       } while (commit != null && !revWalk.isMergedInto(commit, branchHead) && count < 200);
-    } catch (Exception e) {
-      throw new Exception("arranging change order failed: " + e.getMessage());
+    } catch (IOException e) {
+      throw new IOException("arranging change order failed: " + e.getMessage(), e);
     }
 
-    if (count == 200) throw new Exception("arranging change order failed: too many commits");
+    if (count == 200) throw new InvalidChangeStatus("arranging change order failed: too many commits");
 
     return results;
   }
 
   private ObjectId pickChangesToStagingRef(
       Repository git, final Project.NameKey projectKey, List<ChangeData> changes, ObjectId tipObj)
-      throws Exception {
+      throws IOException, IntegrationConflictException {
     ObjectId newId = tipObj;
     logger.atInfo().log("Cherry-picking changes on top of %s", tipObj.name());
 
@@ -410,8 +420,10 @@ public class QtUtil {
                     )
                 .toObjectId();
       }
-    } catch (Exception e) {
-      throw new Exception("cherry-picking changes failed: " + e.getMessage());
+    } catch (IntegrationConflictException e) {
+      throw e;
+    } catch (IOException e) {
+      throw new IOException("cherry-picking changes failed: " + e.getMessage(), e);
     }
     return newId;
   }
@@ -447,8 +459,8 @@ public class QtUtil {
         } else commit = null;
       } while (commit != null && !commit.equals(branchHead) && count < 200);
 
-      if (count == 200) throw new Exception("can't find ref, too many commits");
-    } catch (Exception e) {
+      if (count == 200) throw new NoSuchRefException("can't find ref, too many commits");
+    } catch (IOException | NoSuchRefException e) {
       reusableHead = null;
       logger.atSevere().log("Finding reusable staging commit failed: %s", e.getMessage());
     }
@@ -508,7 +520,7 @@ public class QtUtil {
       logger.atInfo().log("changes to be cherry-picked: %s", changeStr);
 
       newStageRef = pickChangesToStagingRef(git, projectKey, changes_to_cherrypick, newStageRef);
-    } catch (Exception e) {
+    } catch (IOException | NoSuchRefException | IntegrationConflictException | InvalidChangeStatus e) {
       logger.atSevere().log(
           "rebuild staging ref %s failed: %s", stagingBranchKey.branch(), e.getMessage());
       newStageRef = branchRef;
@@ -636,7 +648,7 @@ public class QtUtil {
     if (message == null) {
       try {
         message = "Merge \"" + revWalk.parseCommit(toMerge).getShortMessage() + "\"";
-      } catch (Exception e) {
+      } catch (IOException e) {
         message = "Merge";
       }
     }
@@ -699,7 +711,7 @@ public class QtUtil {
         RefUpdate refUpdate = git.updateRef(destination.branch());
         refUpdate.setNewObjectId(mergeCommit);
         return refUpdate.update();
-      } catch (Exception e) {
+      } catch (IOException | MergeConflictException e) {
         logger.atWarning().log("merge failed, %s", e);
         return null;
       } finally {
@@ -719,7 +731,7 @@ public class QtUtil {
         result = refUpdate.update();
         logger.atInfo().log(
             "fastforward branch %s to %s, result: %s", branchName, toObjectId.name(), result);
-      } catch (Exception e) {
+      } catch (IOException e) {
         result = null;
         logger.atWarning().log("fastforward failed for %s: %s", branchName, e);
       }
@@ -750,7 +762,7 @@ public class QtUtil {
         }
         count++;
       } while (commit != null && count < 200);
-    } catch (Exception e) {
+    } catch (IOException e) {
       commits = null;
       logger.atWarning().log("listing commits in a branch failed: %s", e);
     }
@@ -811,14 +823,15 @@ public class QtUtil {
       if (result != RefUpdate.Result.FAST_FORWARD) return null;
 
       return cherryPicked;
-    } catch (Exception e) {
+    } catch (IOException | NoSuchProjectException | RestApiException e) {
       logger.atWarning().log("cherrypicking commits to branch failed: %s", e);
       return null;
     }
   }
 
   private List<Map.Entry<ChangeData, RevCommit>> listChanges(
-      Repository git, BranchNameKey destination, List<RevCommit> commits) throws Exception {
+      Repository git, BranchNameKey destination, List<RevCommit> commits)
+      throws InvalidChangeStatus {
 
     Map<Change.Id, Map.Entry<ChangeData, RevCommit>> map = new HashMap<>();
 
@@ -840,7 +853,7 @@ public class QtUtil {
         if (changes.size() > 1) {
           String msg =
               String.format("Same Change-Id in several changes on same branch: %s", commit.name());
-          throw new Exception(msg);
+          throw new InvalidChangeStatus(msg);
         }
         ChangeData cd = changes.get(0);
         map.put(cd.getId(), new AbstractMap.SimpleEntry<ChangeData, RevCommit>(cd, commit));
@@ -884,7 +897,7 @@ public class QtUtil {
         throw new NoSuchRefException("Failed to list commits in " + integrationBranch);
       else if (commitsInBranch.isEmpty())
         throw new NoSuchRefException("No commits in " + integrationBranch);
-    } catch (Exception e) {
+    } catch (IOException | NoSuchRefException e) {
       logger.atWarning().log("preconditions of merging integration failed: %s", e);
       throw new NoSuchRefException(e.getMessage());
     }
@@ -906,9 +919,9 @@ public class QtUtil {
       List<Map.Entry<ChangeData, RevCommit>> mergedCommits =
           listChangesNotMerged(git, integrationBranch, targetBranch);
       result = mergeBranches(user, git, integrationBranch, targetBranch, customCommitMessage);
-      if (result != RefUpdate.Result.FAST_FORWARD) throw new Exception("Merge conflict");
+      if (result != RefUpdate.Result.FAST_FORWARD) throw new MergeConflictException("Merge conflict");
       return mergedCommits;
-    } catch (Exception e) {
+    } catch (IOException | NoSuchRefException | MergeConflictException | BranchNotFoundException | InvalidChangeStatus e) {
       result = null;
       logger.atWarning().log(
           "Merging integration %s to %s failed: %s",
