@@ -16,7 +16,7 @@ public class QtGetCiStatus implements RestReadView<AccountResource> {
 
   @Inject private QtCiStatusStorage statusStorage;
 
-  private static String ciStatusUnknownColor = "var(--disabled-foreground)";
+  private static final String ciStatusUnknownColor = "var(--disabled-foreground)";
 
   public static class StatusInfo {
     public String message;
