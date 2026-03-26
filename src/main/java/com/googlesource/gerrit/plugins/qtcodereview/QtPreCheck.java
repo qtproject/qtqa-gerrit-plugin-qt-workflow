@@ -97,7 +97,7 @@ public class QtPreCheck
     this.titlePatternDisabled =
         new ParameterizedString(
             MoreObjects.firstNonNull(
-                pluginCfg.getString("precheck", null, "precheckTooltip"),
+                pluginCfg.getString("precheck", null, "precheckTooltipDisabled"),
                 DEFAULT_TOOLTIP_DISABLED));
 
     disabledProjects = pluginCfg.getStringList("precheck", "disabled", "projects");
