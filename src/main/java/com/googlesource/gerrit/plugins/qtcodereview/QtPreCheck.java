@@ -67,13 +67,10 @@ public class QtPreCheck
   private final GroupCache groupCache;
   private final BatchUpdate.Factory updateFactory;
   private final QtUtil qtUtil;
+  private final QtChangeUpdateOp.Factory qtUpdateFactory;
   private final String label;
   private final ParameterizedString titlePattern;
   private final ParameterizedString titlePatternDisabled;
-
-  @Inject private PluginConfigFactory pluginCfg;
-
-  @Inject private QtChangeUpdateOp.Factory qtUpdateFactory;
 
   @Inject
   QtPreCheck(
@@ -82,7 +79,8 @@ public class QtPreCheck
       PermissionBackend permissionBackend,
       GroupCache groupCache,
       BatchUpdate.Factory updateFactory,
-      QtUtil qtUtil) {
+      QtUtil qtUtil,
+      QtChangeUpdateOp.Factory qtUpdateFactory) {
 
     Config pluginCfg = cfgFactory.getGlobalPluginConfig(pluginName);
 
@@ -90,6 +88,7 @@ public class QtPreCheck
     this.groupCache = groupCache;
     this.updateFactory = updateFactory;
     this.qtUtil = qtUtil;
+    this.qtUpdateFactory = qtUpdateFactory;
     this.label = "PreCheck";
     this.titlePattern =
         new ParameterizedString(
