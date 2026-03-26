@@ -32,7 +32,7 @@ import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import java.io.IOException;
-import java.sql.Timestamp;
+import java.time.Instant;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
@@ -181,9 +181,9 @@ public class QtCherryPickPatch {
         }
       }
 
-      Timestamp commitTimestamp = new Timestamp(committerIdent.getWhen().getTime());
+      Instant commitTimestamp = committerIdent.getWhen().toInstant();
       try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
-        try (BatchUpdate bu = batchUpdateFactory.create(project, identifiedUser, commitTimestamp.toInstant())) {
+        try (BatchUpdate bu = batchUpdateFactory.create(project, identifiedUser, commitTimestamp)) {
           bu.addOp(
               changeData.getId(),
               qtUpdateFactory.create(newStatus, null, defaultMessage, inputMessage, tag, null));
