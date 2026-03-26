@@ -64,10 +64,10 @@ import java.io.IOException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.locks.ReentrantLock;
+import java.time.Instant;
 import java.time.ZoneId;
 import java.util.AbstractMap;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -804,7 +804,7 @@ public class QtUtil {
                 git.getConfig(),
                 newBranchHead,
                 commit,
-                new PersonIdent(commit.getCommitterIdent(), new Date()),
+                new PersonIdent(commit.getCommitterIdent(), Instant.now(), ZoneId.of("UTC")),
                 commit.getFullMessage(),
                 revWalk,
                 0,

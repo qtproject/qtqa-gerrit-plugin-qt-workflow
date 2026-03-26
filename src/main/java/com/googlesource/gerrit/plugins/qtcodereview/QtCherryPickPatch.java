@@ -33,8 +33,8 @@ import com.google.inject.Provider;
 import com.google.inject.Singleton;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Arrays;
-import java.util.Date;
 import java.util.List;
 import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.ObjectId;
@@ -114,7 +114,7 @@ public class QtCherryPickPatch {
 
       // Copy the committer, but change the date to now.
       PersonIdent committerIdent =
-          new PersonIdent(commitToCherryPick.getCommitterIdent(), new Date());
+          new PersonIdent(commitToCherryPick.getCommitterIdent(), Instant.now(), ZoneId.of("UTC"));
 
       commitToCherryPick.setPatchsetId(changeData.currentPatchSet().id());
       commitToCherryPick.setNotes(changeData.notes());
