@@ -40,42 +40,42 @@ public class QtGetCiStatus implements RestReadView<AccountResource> {
 
   private String generateHtml(QtCiStatusStorage.CiResourceItem items[]) {
 
-    String html = "";
-    html += "<style>";
-    html +=   ".cistatuslist { border-top: 1px solid var(--border-color);";
-    html +=     " padding: var(--spacing-m) var(--spacing-l); }";
-    html +=   ".cistatusitem { font-size: var(--font-size-small);";
-    html +=     " margin-left: var(--spacing-l);}";
-    html += "</style>";
-    html += "<div class=\"dropdown-content\">";
-    html +=   "<span style=\"padding: var(--spacing-m) var(--spacing-l); display: block;";
-    html +=     " background-color: var(--selection-background-color);\">";
+    StringBuilder sb = new StringBuilder();
+    sb.append("<style>");
+    sb.append(".cistatuslist { border-top: 1px solid var(--border-color);");
+    sb.append(" padding: var(--spacing-m) var(--spacing-l); }");
+    sb.append(".cistatusitem { font-size: var(--font-size-small);");
+    sb.append(" margin-left: var(--spacing-l);}");
+    sb.append("</style>");
+    sb.append("<div class=\"dropdown-content\">");
+    sb.append("<span style=\"padding: var(--spacing-m) var(--spacing-l); display: block;");
+    sb.append(" background-color: var(--selection-background-color);\">");
 
     if (items != null) {
-      html += "Workload</span>";
+      sb.append("Workload</span>");
       for (QtCiStatusStorage.CiResourceItem r : items) {
-        html += generateSectionHtml(r.name, r.running, r.queue, r.load);
+        sb.append(generateSectionHtml(r.name, r.running, r.queue, r.load));
       }
     } else {
-      html += "Not updated</span>"; ;
+      sb.append("Not updated</span>");
     }
-    html += "<div>";
+    sb.append("</div>");
 
-    return html;
+    return sb.toString();
   }
 
   private String generateSectionHtml(String name, Integer running, Integer queue, Integer load) {
-    String html = "";
-    html += "<div class=\"cistatuslist\">" + StringEscapeUtils.escapeHtml4(name);
-    html +=   "<div class=\"cistatusitem\">";
-    html +=     "<span><b>" + running + "</b> running</span><br>";
-    html +=     "<span style=\"color: " + loadColor(load) + ";\">";
-    html +=        "<b>" + queue + "</b>";
-    html +=     "</span>";
-    html +=     "<span> in queue</span>";
-    html +=   "</div>";
-    html += "</div>";
-    return html;
+    StringBuilder sb = new StringBuilder();
+    sb.append("<div class=\"cistatuslist\">").append(StringEscapeUtils.escapeHtml4(name));
+    sb.append("<div class=\"cistatusitem\">");
+    sb.append("<span><b>").append(running).append("</b> running</span><br>");
+    sb.append("<span style=\"color: ").append(loadColor(load)).append(";\">");
+    sb.append("<b>").append(queue).append("</b>");
+    sb.append("</span>");
+    sb.append("<span> in queue</span>");
+    sb.append("</div>");
+    sb.append("</div>");
+    return sb.toString();
   }
 
   private String maxLoadColor(QtCiStatusStorage.CiResourceItem items[]) {
