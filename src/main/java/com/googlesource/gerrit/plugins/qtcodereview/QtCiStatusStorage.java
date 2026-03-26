@@ -11,14 +11,14 @@ import com.google.inject.Singleton;
 @Singleton
 public class QtCiStatusStorage {
 
-  public class CiResourceItem {
+  public static class CiResourceItem {
     String name;
     int running;
     int queue;
     int load;
   }
 
-  private static CiResourceItem[] queues = null;
+  private static volatile CiResourceItem[] queues = null;
 
   public static CiResourceItem[] getData() {
     return queues;
