@@ -10,10 +10,12 @@ import java.util.Set;
 
 public class QtBuildFailedEmailTemplateRegister implements MailSoyTemplateProvider {
 
+  @Override
   public String getPath() {
     return "mail";
   }
 
+  @Override
   public Set<String> getFileNames() {
     Set<String> set = new HashSet<>();
     set.add("QtBuildFailed.soy");
