@@ -103,7 +103,7 @@ public class QtCherryPickPatch {
       RevCommit baseCommit = revWalk.parseCommit(destId);
       CodeReviewCommit commitToCherryPick = revWalk.parseCommit(sourceId);
 
-      List parents = Arrays.asList(commitToCherryPick.getParents());
+      List<RevCommit> parents = Arrays.asList(commitToCherryPick.getParents());
       if (allowFastForward == true
           && parents.contains(baseCommit)
           && commitToCherryPick.getParentCount() < 2) {
