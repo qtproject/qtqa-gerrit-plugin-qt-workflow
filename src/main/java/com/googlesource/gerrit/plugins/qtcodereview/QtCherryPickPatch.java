@@ -10,7 +10,9 @@ import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdate
 import com.google.common.flogger.FluentLogger;
 import com.google.gerrit.entities.Change;
 import com.google.gerrit.entities.Project;
+import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.server.IdentifiedUser;
+import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.gerrit.server.git.CodeReviewCommit;
 import com.google.gerrit.server.git.CodeReviewCommit.CodeReviewRevWalk;
 import com.google.gerrit.server.git.GitRepositoryManager;
@@ -22,7 +24,6 @@ import com.google.gerrit.server.project.ProjectState;
 import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.server.project.NoSuchProjectException;
-import com.google.gerrit.server.project.NoSuchRefException;
 import com.google.gerrit.server.submit.IntegrationConflictException;
 import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
@@ -35,7 +36,6 @@ import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
-import org.eclipse.jgit.errors.ConfigInvalidException;
 import org.eclipse.jgit.lib.Config;
 import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectInserter;
@@ -43,9 +43,6 @@ import org.eclipse.jgit.lib.ObjectReader;
 import org.eclipse.jgit.lib.PersonIdent;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.storage.file.FileBasedConfig;
-import org.eclipse.jgit.util.FS;
-import org.eclipse.jgit.util.SystemReader;
 
 @Singleton
 public class QtCherryPickPatch {
@@ -58,6 +55,7 @@ public class QtCherryPickPatch {
   private final MergeUtilFactory mergeUtilFactory;
   private final ProjectCache projectCache;
   private final QtChangeUpdateOp.Factory qtUpdateFactory;
+  private final String[] emptyCommitExceptions;
 
   @Inject
   QtCherryPickPatch(
@@ -66,13 +64,17 @@ public class QtCherryPickPatch {
       Provider<IdentifiedUser> user,
       MergeUtilFactory mergeUtilFactory,
       ProjectCache projectCache,
-      QtChangeUpdateOp.Factory qtUpdateFactory) {
+      QtChangeUpdateOp.Factory qtUpdateFactory,
+      PluginConfigFactory cfgFactory,
+      @PluginName String pluginName) {
     this.batchUpdateFactory = batchUpdateFactory;
     this.gitManager = gitManager;
     this.user = user;
     this.mergeUtilFactory = mergeUtilFactory;
     this.projectCache = projectCache;
     this.qtUpdateFactory = qtUpdateFactory;
+    Config pluginCfg = cfgFactory.getGlobalPluginConfig(pluginName);
+    this.emptyCommitExceptions = pluginCfg.getStringList("staging", null, "emptyCommitExceptions");
   }
 
   public CodeReviewCommit cherryPickPatch(
@@ -157,26 +159,14 @@ public class QtCherryPickPatch {
                 git.createAttributesNodeProvider());
 
         if (cherryPickCommit.getTree().equals(baseCommit.getTree())) {
-          Config cfg;
-          try {
-            FileBasedConfig userConfig = SystemReader.getInstance().openUserConfig(null, FS.DETECTED);
-            userConfig.load();
-            cfg = userConfig;
-          } catch (IOException | ConfigInvalidException e) {
-            logger.atWarning().withCause(e).log("Could not load user gitconfig");
-            cfg = new Config();
-          }
-          String exceptions = cfg.getString("qtcodereview", null, "emptyCommitExceptions");
-          logger.atInfo().log(
-              "Found empty commit exceptions: %s", exceptions);
+          logger.atInfo().log("Found empty commit exceptions: %s",
+              Arrays.toString(emptyCommitExceptions));
           boolean allowed = false;
-          if (exceptions != null && !exceptions.isEmpty()) {
+          if (emptyCommitExceptions.length > 0) {
             String originalCommitMessage = commitToCherryPick.getFullMessage();
-            allowed =
-                Arrays.stream(exceptions.split(","))
-                    .map(String::trim)
-                    .filter(s -> !s.isEmpty())
-                    .anyMatch(originalCommitMessage::contains);
+            allowed = Arrays.stream(emptyCommitExceptions)
+                .filter(s -> !s.isEmpty())
+                .anyMatch(originalCommitMessage::contains);
           }
           if (!allowed) {
             throw new IntegrationConflictException("Cannot stage change: The patch set is empty.");

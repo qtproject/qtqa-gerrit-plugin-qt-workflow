@@ -13,7 +13,9 @@ import com.google.gerrit.acceptance.GitUtil;
 import com.google.gerrit.acceptance.PushOneCommit;
 import com.google.gerrit.acceptance.RestResponse;
 import com.google.gerrit.acceptance.TestPlugin;
+import com.google.gerrit.acceptance.UseLocalDisk;
 import com.google.gerrit.acceptance.UseSsh;
+import com.google.gerrit.acceptance.config.GlobalPluginConfig;
 import com.google.gerrit.acceptance.testsuite.project.TestProjectUpdate;
 import com.google.gerrit.entities.Permission;
 import com.google.gerrit.entities.BranchNameKey;
@@ -23,11 +25,8 @@ import com.google.gerrit.extensions.client.ChangeStatus;
 import java.util.ArrayList;
 import org.apache.http.HttpStatus;
 import org.eclipse.jgit.revwalk.RevCommit;
-import org.eclipse.jgit.storage.file.FileBasedConfig;
 import org.eclipse.jgit.transport.PushResult;
 import org.eclipse.jgit.transport.RemoteRefUpdate;
-import org.eclipse.jgit.util.FS;
-import org.eclipse.jgit.util.SystemReader;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -150,13 +149,12 @@ public class QtStageIT extends QtCodeReviewIT {
   }
 
   @Test
+  @UseLocalDisk
+  @GlobalPluginConfig(
+      pluginName = "gerrit-plugin-qt-workflow",
+      name = "staging.emptyCommitExceptions",
+      values = {"[ChangeLog]"})
   public void emptyChange_Stage_AllowException() throws Exception {
-
-    // Store exception string
-    FileBasedConfig gitConfig = SystemReader.getInstance().openUserConfig(null, FS.DETECTED);
-    gitConfig.load();
-    gitConfig.setString("qtcodereview", null, "emptyCommitExceptions", "[ChangeLog]");
-    gitConfig.save();
 
     RevCommit initialHead = getRemoteHead();
     PushOneCommit.Result c = pushCommit("master", "1st commit]", "afile", "");
