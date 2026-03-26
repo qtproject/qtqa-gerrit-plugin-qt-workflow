@@ -115,7 +115,7 @@ public class QtChangeUpdateOp implements BatchUpdateOp {
       updated = true;
     }
 
-    if (updated == true) {
+    if (updated) {
       change.setLastUpdatedOn(ctx.getWhen());
     }
 

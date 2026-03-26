@@ -35,7 +35,7 @@ public class QtChangeMessageModifier implements ChangeMessageModifier {
 
     boolean first_line = true;
     for (String line : lines) {
-      if (((!line.startsWith("Reviewed-on: ") || showReviewedOn == true)
+      if (((!line.startsWith("Reviewed-on: ") || showReviewedOn)
               && !line.startsWith("Tested-by: ")
               && !line.startsWith("Sanity-Review: ")
               && !line.startsWith("ChangeLog: "))

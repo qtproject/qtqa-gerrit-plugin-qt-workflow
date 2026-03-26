@@ -104,13 +104,13 @@ class QtCommandNewBuild extends SshCommand {
           .ref(buildBranchKey.branch())
           .check(RefPermission.CREATE);
 
-      if (QtUtil.branchExists(git, buildBranchKey) == true) {
+      if (QtUtil.branchExists(git, buildBranchKey)) {
         logger.atSevere().log(
             "staging-new-build Target build '%s' already exists", buildBranchKey.branch());
         throw die("Target build already exists!");
       }
 
-      if (QtUtil.branchExists(git, stagingBranchKey) == false) {
+      if (!QtUtil.branchExists(git, stagingBranchKey)) {
         logger.atSevere().log(
             "staging-new-build staging ref '%s' not found", stagingBranchKey.branch());
         throw die("Staging ref not found!");
