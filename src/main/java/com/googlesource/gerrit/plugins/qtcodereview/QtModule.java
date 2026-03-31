@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2020-25 The Qt Company
+// Copyright (C) 2020-26 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -9,6 +9,7 @@ import static com.google.gerrit.server.change.ChangeResource.CHANGE_KIND;
 import static com.google.gerrit.server.change.RevisionResource.REVISION_KIND;
 import static com.google.gerrit.server.group.GroupResource.GROUP_KIND;
 import static com.googlesource.gerrit.plugins.qtcodereview.QtCiStatusUpdateCapability.CI_STATUS_UPDATE;
+import static com.googlesource.gerrit.plugins.qtcodereview.QtStagingPromoteCapability.STAGING_PROMOTE;
 
 import com.google.gerrit.extensions.annotations.Exports;
 import com.google.gerrit.extensions.config.CapabilityDefinition;
@@ -36,9 +37,17 @@ public class QtModule extends FactoryModule {
     bind(CapabilityDefinition.class)
         .annotatedWith(Exports.named(CI_STATUS_UPDATE))
         .to(QtCiStatusUpdateCapability.class);
+    bind(CapabilityDefinition.class)
+        .annotatedWith(Exports.named(STAGING_PROMOTE))
+        .to(QtStagingPromoteCapability.class);
     bind(ProjectConfigEntry.class)
         .annotatedWith(Exports.named("showReviewedOnFooter"))
         .toInstance(new ProjectConfigEntry("Show 'Reviewed-on' footer in commit messages", false));
+    bind(ProjectConfigEntry.class)
+        .annotatedWith(Exports.named("stagingQueueBranches"))
+        .toInstance(
+            new ProjectConfigEntry(
+                "Branches in staging-queue mode (space-separated branch names)", ""));
 
     factory(QtChangeUpdateOp.Factory.class);
     DynamicSet.bind(binder(), ChangeMessageModifier.class).to(QtChangeMessageModifier.class);

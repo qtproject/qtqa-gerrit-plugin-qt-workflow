@@ -1,10 +1,11 @@
 //
-// Copyright (C) 2020-25 The Qt Company
+// Copyright (C) 2020-26 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import static com.google.gerrit.server.project.ProjectCache.illegalState;
+import static com.google.gerrit.server.update.context.RefUpdateContext.RefUpdateType.CHANGE_MODIFICATION;
 
 import com.google.common.base.MoreObjects;
 import com.google.common.base.Strings;
@@ -17,7 +18,10 @@ import com.google.gerrit.entities.Change.Status;
 import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
 import com.google.gerrit.exceptions.StorageException;
+import com.google.gerrit.extensions.annotations.PluginName;
+import com.google.gerrit.extensions.api.access.PluginPermission;
 import com.google.gerrit.extensions.api.changes.SubmitInput;
+import com.google.gerrit.extensions.restapi.AuthException;
 import com.google.gerrit.extensions.restapi.PreconditionFailedException;
 import com.google.gerrit.extensions.restapi.ResourceConflictException;
 import com.google.gerrit.extensions.restapi.Response;
@@ -41,7 +45,10 @@ import com.google.gerrit.server.query.change.ChangeData;
 import com.google.gerrit.server.query.change.InternalChangeQuery;
 import com.google.gerrit.server.submit.IntegrationConflictException;
 import com.google.gerrit.server.submit.MergeOp;
+import com.google.gerrit.server.update.BatchUpdate;
 import com.google.gerrit.server.update.UpdateException;
+import com.google.gerrit.server.update.context.RefUpdateContext;
+import com.google.gerrit.server.util.time.TimeUtil;
 import com.google.inject.Inject;
 import com.google.inject.Provider;
 import com.google.inject.Singleton;
@@ -82,10 +89,13 @@ public class QtStage
   private final QtCherryPickPatch qtCherryPickPatch;
   private final QtUtil qtUtil;
   private final Provider<InternalChangeQuery> queryProvider;
+  private final BatchUpdate.Factory updateFactory;
+  private final QtChangeUpdateOp.Factory qtUpdateFactory;
 
   private final AccountResolver accountResolver;
   private final String label;
   private final ParameterizedString titlePattern;
+  private final String pluginName;
 
   @Inject
   QtStage(
@@ -98,7 +108,10 @@ public class QtStage
       GitReferenceUpdated referenceUpdated,
       QtCherryPickPatch qtCherryPickPatch,
       QtUtil qtUtil,
-      Provider<InternalChangeQuery> queryProvider) {
+      Provider<InternalChangeQuery> queryProvider,
+      BatchUpdate.Factory updateFactory,
+      QtChangeUpdateOp.Factory qtUpdateFactory,
+      @PluginName String pluginName) {
 
     this.repoManager = repoManager;
     this.permissionBackend = permissionBackend;
@@ -114,6 +127,9 @@ public class QtStage
     this.qtCherryPickPatch = qtCherryPickPatch;
     this.qtUtil = qtUtil;
     this.queryProvider = queryProvider;
+    this.updateFactory = updateFactory;
+    this.qtUpdateFactory = qtUpdateFactory;
+    this.pluginName = pluginName;
   }
 
   @Override
@@ -135,8 +151,17 @@ public class QtStage
       IdentifiedUser submitter = rsrc.getUser().asIdentifiedUser();
       Project.NameKey projectKey = rsrc.getProject();
       BranchNameKey destBranchKey = change.getDest();
-
-      rsrc.permissions().check(ChangePermission.QT_STAGE);
+      if (change.getStatus() == Change.Status.PRESTAGED) {
+        if (!permissionBackend
+            .user(rsrc.getUser())
+            .testOrFalse(
+                new PluginPermission(pluginName, QtStagingPromoteCapability.STAGING_PROMOTE))) {
+          throw new AuthException(
+              "Promoting from pre-stage requires the stagingPromote capability");
+        }
+      } else {
+        rsrc.permissions().check(ChangePermission.QT_STAGE);
+      }
       projectCache
           .get(rsrc.getProject())
           .orElseThrow(illegalState(rsrc.getProject()))
@@ -168,7 +193,7 @@ public class QtStage
           PermissionBackendException {
     logger.atInfo().log("changeToStaging starts for %s", change.getId());
 
-    if (change.getStatus() != Change.Status.NEW) {
+    if (change.getStatus() != Change.Status.NEW && change.getStatus() != Change.Status.PRESTAGED) {
       logger.atSevere().log(
           "stage: change %s status wrong: %s", change.getId(), change.getStatus());
       throw new ResourceConflictException("Change is " + change.getStatus());
@@ -210,6 +235,28 @@ public class QtStage
       changeData = changeDataFactory.create(change);
       MergeOp.checkSubmitRequirements(changeData);
 
+      if (change.getStatus() == Change.Status.NEW
+          && qtUtil.isPrestageMode(projectKey, destBranchKey)) {
+        // Queue the change without cherry-picking it onto the staging branch.
+        QtChangeUpdateOp op =
+            qtUpdateFactory.create(
+                Change.Status.PRESTAGED,
+                Change.Status.NEW,
+                "Assigned to staging queue, waiting for promotion to CI",
+                null,
+                QtUtil.TAG_CI,
+                null);
+        try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+          try (BatchUpdate u = updateFactory.create(projectKey, submitter, TimeUtil.now())) {
+            u.addOp(change.getId(), op).execute();
+          }
+        }
+        change = op.getChange();
+        logger.atInfo().log(
+            "changeToStaging %s,%s assigned to staging queue", change.getId(), change.getKey());
+        return change;
+      }
+
       CodeReviewCommit commit =
           qtCherryPickPatch.cherryPickPatch(
               changeData,
@@ -218,7 +265,7 @@ public class QtStage
               destId,
               false, // allowFastForward
               Change.Status.STAGED,
-              "Staged for CI", // defaultMessage
+              "Staged for CI, waiting for next integration", // defaultMessage
               null, // inputMessage
               QtUtil.TAG_CI // tag
               );
@@ -338,6 +385,40 @@ public class QtStage
   @Override
   public UiAction.Description getDescription(RevisionResource resource) {
     Change change = resource.getChange();
+
+    // PRESTAGED changes can be promoted to STAGED by users with the stagingPromote capability.
+    if (change.getStatus() == Change.Status.PRESTAGED) {
+      if (!resource.isCurrent()
+          || !permissionBackend
+              .user(resource.getUser())
+              .testOrFalse(
+                  new PluginPermission(pluginName, QtStagingPromoteCapability.STAGING_PROMOTE))) {
+        return null;
+      }
+      try {
+        if (!projectCache
+            .get(resource.getProject())
+            .map(ProjectState::statePermitsWrite)
+            .orElse(false)) {
+          return null;
+        }
+      } catch (StorageException e) {
+        logger.atSevere().withCause(e).log("Error checking if project permits write");
+        throw new StorageException("Could not determine problems for the change", e);
+      }
+      ObjectId revId = resource.getPatchSet().commitId();
+      Map<String, String> params =
+          ImmutableMap.of(
+              "patchSet", String.valueOf(resource.getPatchSet().number()),
+              "branch", change.getDest().shortName(),
+              "commit", revId.abbreviate(7).name());
+      return new UiAction.Description()
+          .setLabel("Promote")
+          .setTitle(Strings.emptyToNull(titlePattern.replace(params)))
+          .setVisible(true)
+          .setEnabled(true);
+    }
+
     if (!change.getStatus().isOpen()
         || change.isWorkInProgress()
         || !resource.isCurrent()

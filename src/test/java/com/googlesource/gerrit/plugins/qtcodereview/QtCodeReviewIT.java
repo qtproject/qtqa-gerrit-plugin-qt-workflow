@@ -1,4 +1,4 @@
-// Copyright (C) 2021-24 The Qt Company
+// Copyright (C) 2021-26 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -296,6 +296,10 @@ public class QtCodeReviewIT extends LightweightPluginDaemonTest {
     } else {
       assertThat(commitMsg).doesNotContain("Reviewed-by");
     }
+  }
+
+  protected void assertStatusPrestaged(Change change) throws Exception {
+    assertStatus(change, ChangeStatus.PRESTAGED, true, false);
   }
 
   protected void assertStatusNew(Change change) throws Exception {

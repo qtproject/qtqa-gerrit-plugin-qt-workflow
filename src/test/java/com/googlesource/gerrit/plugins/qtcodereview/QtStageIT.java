@@ -1,4 +1,4 @@
-// Copyright (C) 2019-25 The Qt Company
+// Copyright (C) 2019-26 The Qt Company
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
@@ -37,7 +37,7 @@ import org.junit.Test;
 @UseSsh
 public class QtStageIT extends QtCodeReviewIT {
 
-  private final String STAGED_MSG = "Staged for CI";
+  private final String STAGED_MSG = "Staged for CI, waiting for next integration";
 
   @Before
   public void SetDefaultPermissions() throws Exception {

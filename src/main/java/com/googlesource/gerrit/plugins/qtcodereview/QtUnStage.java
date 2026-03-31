@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2020-23 The Qt Company
+// Copyright (C) 2020-26 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -122,7 +122,8 @@ class QtUnStage
 
     logger.atInfo().log("unstage start for %s", change);
 
-    if (change.getStatus() != Change.Status.STAGED) {
+    if (change.getStatus() != Change.Status.STAGED
+        && change.getStatus() != Change.Status.PRESTAGED) {
       logger.atSevere().log(
           "unstage: change %s status wrong %s", change.getId(), change.getStatus());
       throw new ResourceConflictException("change is " + change.getStatus());
@@ -142,6 +143,33 @@ class QtUnStage
 
     final BranchNameKey destBranchShortKey =
         QtUtil.getNameKeyShort(projectKey.get(), QtUtil.R_STAGING, stagingBranchKey.branch());
+
+    // PRESTAGED changes are not on the staging branch; only a status update is needed.
+    if (change.getStatus() == Change.Status.PRESTAGED) {
+      try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
+        QtChangeUpdateOp op =
+            qtUpdateFactory.create(
+                Change.Status.NEW,
+                Change.Status.PRESTAGED,
+                "Unstaged",
+                input.message,
+                QtUtil.TAG_CI,
+                null);
+        try (BatchUpdate u = updateFactory.create(projectKey, submitter, TimeUtil.now())) {
+          u.addOp(change.getId(), op).execute();
+        }
+        change = op.getChange();
+        logger.atInfo().log("unstaged prestaged %s,%s", change.getId(), change.getKey());
+        return change;
+      }
+    }
+
+    // For STAGED changes in prestage mode, move back to PRESTAGED instead of NEW.
+    Change.Status unstageTargetStatus =
+        qtUtil.isPrestageMode(projectKey, change.getDest())
+            ? Change.Status.PRESTAGED
+            : Change.Status.NEW;
+
     try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
       try (Repository git = repoManager.openRepository(projectKey)) {
 
@@ -154,7 +182,7 @@ class QtUnStage
 
         QtChangeUpdateOp op =
             qtUpdateFactory.create(
-                Change.Status.NEW,
+                unstageTargetStatus,
                 Change.Status.STAGED,
                 "Unstaged",
                 input.message,
@@ -167,10 +195,12 @@ class QtUnStage
             git, submitter, projectKey, stagingBranchKey, destBranchShortKey);
 
         change = op.getChange();
-        qtUtil.postChangeUnStagedEvent(change);
+        if (unstageTargetStatus == Change.Status.NEW) {
+          qtUtil.postChangeUnStagedEvent(change);
+        }
         logger.atInfo().log(
-            "unstaged %s,%s from %s",
-            change.getId(), change.getKey(), stagingBranchKey.shortName());
+            "unstaged %s,%s from %s to %s",
+            change.getId(), change.getKey(), stagingBranchKey.shortName(), unstageTargetStatus);
 
       } catch (ResourceConflictException e) {
         logger.atSevere().log("unstage resource conflict error %s", e);
@@ -195,7 +225,8 @@ class QtUnStage
             .setVisible(false);
 
     Change change = rsrc.getChange();
-    if (change.getStatus() != Change.Status.STAGED) {
+    if (change.getStatus() != Change.Status.STAGED
+        && change.getStatus() != Change.Status.PRESTAGED) {
       return description;
     }
 

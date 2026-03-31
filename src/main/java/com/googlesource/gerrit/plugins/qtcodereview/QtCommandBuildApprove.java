@@ -1,5 +1,5 @@
 //
-// Copyright (C) 2021-25 The Qt Company
+// Copyright (C) 2021-26 The Qt Company
 //
 
 package com.googlesource.gerrit.plugins.qtcodereview;
@@ -51,7 +51,8 @@ import org.kohsuke.args4j.Option;
 /**
  * A command to report pass or fail status for builds. When a build receives pass status, the branch
  * is updated with build ref and all open changes in the build are marked as merged. When a build
- * receives fail status, all change in the build are marked as new and they need to be staged again.
+ * receives fail status, all changes in the build are marked as new (or pre-staged if the branch is
+ * in pre-stage mode) and they need to be staged again.
  *
  * <p>For example, how to approve a build $ ssh -p 29418 localhost gerrit-plugin-qt-workflow
  * staging-approve -p project -b master -i 123 -r=pass
@@ -325,9 +326,14 @@ class QtCommandBuildApprove extends SshCommand {
       throw die("No open changes in the build branch");
     }
 
+    Change.Status rejectStatus =
+        qtUtil.isPrestageMode(projectKey, destBranchKey)
+            ? Change.Status.PRESTAGED
+            : Change.Status.NEW;
+
     updateChanges(
         affectedChanges,
-        Change.Status.NEW,
+        rejectStatus,
         Change.Status.INTEGRATING,
         msg,
         ChangeMessagesUtil.TAG_REVERT,

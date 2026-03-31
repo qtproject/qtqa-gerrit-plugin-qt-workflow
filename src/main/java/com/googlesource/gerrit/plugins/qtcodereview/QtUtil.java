@@ -1,6 +1,6 @@
 // Copyright (C) 2011 The Android Open Source Project
 // Copyright (C) 2014 Digia Plc and/or its subsidiary(-ies).
-// Copyright (C) 2021-23 The Qt Company
+// Copyright (C) 2021-26 The Qt Company
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -30,10 +30,12 @@ import com.google.gerrit.entities.PatchSet;
 import com.google.gerrit.entities.Project;
 import com.google.gerrit.entities.RefNames;
 import com.google.gerrit.exceptions.StorageException;
+import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.extensions.registration.DynamicItem;
 import com.google.gerrit.extensions.restapi.RestApiException;
 import com.google.gerrit.server.ChangeMessagesUtil;
 import com.google.gerrit.server.IdentifiedUser;
+import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.gerrit.server.data.ChangeAttribute;
 import com.google.gerrit.server.events.EventDispatcher;
 import com.google.gerrit.server.events.EventFactory;
@@ -63,6 +65,7 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.AbstractMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -115,6 +118,8 @@ public class QtUtil {
   private final QtCherryPickPatch qtCherryPickPatch;
   private final QtChangeUpdateOp.Factory qtUpdateFactory;
   private final QtEmailSender qtEmailSender;
+  private final PluginConfigFactory pluginCfgFactory;
+  private final String pluginName;
 
   @Inject
   QtUtil(
@@ -128,7 +133,9 @@ public class QtUtil {
       ProjectCache projectCache,
       QtCherryPickPatch qtCherryPickPatch,
       QtChangeUpdateOp.Factory qtUpdateFactory,
-      QtEmailSender qtEmailSender) {
+      QtEmailSender qtEmailSender,
+      PluginConfigFactory pluginCfgFactory,
+      @PluginName String pluginName) {
     this.queryProvider = queryProvider;
     this.referenceUpdated = referenceUpdated;
     this.updateFactory = updateFactory;
@@ -140,6 +147,8 @@ public class QtUtil {
     this.qtCherryPickPatch = qtCherryPickPatch;
     this.qtUpdateFactory = qtUpdateFactory;
     this.qtEmailSender = qtEmailSender;
+    this.pluginCfgFactory = pluginCfgFactory;
+    this.pluginName = pluginName;
   }
 
   public static class MergeConflictException extends Exception {
@@ -528,16 +537,22 @@ public class QtUtil {
       logger.atSevere().log(
           "rebuild staging ref %s failed: %s", stagingBranchKey.branch(), e.getMessage());
       newStageRef = branchRef;
+      Change.Status revertStatus =
+          isPrestageMode(projectKey, destBranchShortKey)
+              ? Change.Status.PRESTAGED
+              : Change.Status.NEW;
       String message =
-          "Merge conflict in staging branch. Status changed back to new. Please stage again.";
+          "Merge conflict in staging branch. Status changed back to "
+              + revertStatus.name().toLowerCase()
+              + ". Please stage again.";
       QtChangeUpdateOp op =
           qtUpdateFactory.create(
-              Change.Status.NEW, Change.Status.STAGED, message, null, null, null);
+              revertStatus, Change.Status.STAGED, message, null, null, null);
       try (RefUpdateContext ctx = RefUpdateContext.open(CHANGE_MODIFICATION)) {
         try (BatchUpdate u = updateFactory.create(projectKey, user, TimeUtil.now())) {
           for (ChangeData item : changes_staged) {
             Change change = item.change();
-            logger.atInfo().log("change %s,%s back to NEW", change.getId(), change.getKey());
+            logger.atInfo().log("change %s,%s back to %s", change.getId(), change.getKey(), revertStatus);
             u.addOp(change.getId(), op);
           }
           u.execute();
@@ -959,6 +974,21 @@ public class QtUtil {
             throw new RuntimeException(e);
           }
         });
+  }
+
+  public boolean isPrestageMode(Project.NameKey projectKey, BranchNameKey destBranchKey) {
+    try {
+      String branches =
+          pluginCfgFactory
+              .getFromProjectConfigWithInheritance(projectKey, pluginName)
+              .getString("stagingQueueBranches");
+      if (branches == null || branches.isBlank()) return false;
+      return Arrays.asList(branches.trim().split("\\s+")).contains(destBranchKey.shortName());
+    } catch (NoSuchProjectException e) {
+      logger.atWarning().log(
+          "isPrestageMode: project %s not found, defaulting to false: %s", projectKey, e);
+      return false;
+    }
   }
 
   public void postChangeStagedEvent(Change change) {
