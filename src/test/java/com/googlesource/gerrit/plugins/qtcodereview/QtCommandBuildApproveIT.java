@@ -258,6 +258,8 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
   @Test
   public void cherryPicked_Stays_Intact_After_Merge_And_Build() throws Exception {
+    final RevCommit initialHead = getRemoteHead();
+
     // make a change on feature branch
     final PushOneCommit.Result f1 = pushCommit("feature", "f1-commitmsg", "f1-file", "f1-content");
     approve(f1.getChangeId());
@@ -274,6 +276,7 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
     QtApproveBuild("feature", "feature-build-000");
 
     // make a change on master branch
+    testRepo.reset(initialHead);
     final PushOneCommit.Result m1 = pushCommit("master", "m1-commitmsg", "m1-file", "m1-content");
     approve(m1.getChangeId());
     QtStage(m1);
@@ -305,12 +308,15 @@ public class QtCommandBuildApproveIT extends QtCodeReviewIT {
 
   @Test
   public void avoid_Double_Handling_Of_Change_On_Merge_Of_Merge() throws Exception {
+    final RevCommit initialHead = getRemoteHead();
+
     // make a change on feature branch
     final PushOneCommit.Result f1 = pushCommit("feature", "f1-commitmsg", "f1-file", "f1-content");
     approve(f1.getChangeId());
     gApi.changes().id(f1.getCommit().getName()).current().submit();
 
     // make a change on master branch
+    testRepo.reset(initialHead);
     final PushOneCommit.Result m1 = pushCommit("master", "m1-commitmsg", "m1-file", "m1-content");
     approve(m1.getChangeId());
 

@@ -91,6 +91,7 @@ public class QtStage
   private final Provider<InternalChangeQuery> queryProvider;
   private final BatchUpdate.Factory updateFactory;
   private final QtChangeUpdateOp.Factory qtUpdateFactory;
+  private final Provider<MergeOp> mergeOpProvider;
 
   private final AccountResolver accountResolver;
   private final String label;
@@ -111,6 +112,7 @@ public class QtStage
       Provider<InternalChangeQuery> queryProvider,
       BatchUpdate.Factory updateFactory,
       QtChangeUpdateOp.Factory qtUpdateFactory,
+      Provider<MergeOp> mergeOpProvider,
       @PluginName String pluginName) {
 
     this.repoManager = repoManager;
@@ -129,6 +131,7 @@ public class QtStage
     this.queryProvider = queryProvider;
     this.updateFactory = updateFactory;
     this.qtUpdateFactory = qtUpdateFactory;
+    this.mergeOpProvider = mergeOpProvider;
     this.pluginName = pluginName;
   }
 
@@ -233,7 +236,7 @@ public class QtStage
       validateCommit(git, rsrc);
 
       changeData = changeDataFactory.create(change);
-      MergeOp.checkSubmitRequirements(changeData);
+      mergeOpProvider.get().checkSubmitRequirements(changeData);
 
       if (change.getStatus() == Change.Status.NEW
           && qtUtil.isPrestageMode(projectKey, destBranchKey)) {
@@ -456,7 +459,7 @@ public class QtStage
 
     ChangeData cd = changeDataFactory.create(resource.getNotes());
     try {
-      MergeOp.checkSubmitRequirements(cd);
+      mergeOpProvider.get().checkSubmitRequirements(cd);
     } catch (ResourceConflictException e) {
       return new UiAction.Description()
           .setLabel(label)
