@@ -4,12 +4,12 @@
 
 package com.googlesource.gerrit.plugins.qtcodereview;
 
+import com.google.common.html.HtmlEscapers;
 import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestReadView;
 import com.google.gerrit.server.account.AccountResource;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
-import org.apache.commons.text.StringEscapeUtils;
 
 @Singleton
 public class QtGetCiStatus implements RestReadView<AccountResource> {
@@ -66,7 +66,7 @@ public class QtGetCiStatus implements RestReadView<AccountResource> {
 
   private String generateSectionHtml(String name, Integer running, Integer queue, Integer load) {
     StringBuilder sb = new StringBuilder();
-    sb.append("<div class=\"cistatuslist\">").append(StringEscapeUtils.escapeHtml4(name));
+    sb.append("<div class=\"cistatuslist\">").append(HtmlEscapers.htmlEscaper().escape(name));
     sb.append("<div class=\"cistatusitem\">");
     sb.append("<span><b>").append(running).append("</b> running</span><br>");
     sb.append("<span style=\"color: ").append(loadColor(load)).append(";\">");
