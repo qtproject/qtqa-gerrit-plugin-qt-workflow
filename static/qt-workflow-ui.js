@@ -225,8 +225,7 @@ Gerrit.install(plugin => {
 
             cancelBtn.addEventListener('click', function onCancel() {
                 if (submitting) return;
-                v.close()
-                v.popup.remove();
+                v.close();
                 document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
             });
 
@@ -595,8 +594,7 @@ Gerrit.install(plugin => {
                 const shouldCancel = confirm('Are you sure you want to discard this precheck configuration?');
                 if (!shouldCancel) return;
 
-                v.close()
-                v.popup.remove();
+                v.close();
                 activePrecheckPopup = null;
                 document.removeEventListener('iron-overlay-canceled', ironOverlayHandler);
                 document.removeEventListener('keydown', escapeKeyHandler, true);
