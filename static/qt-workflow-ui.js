@@ -7,12 +7,12 @@
 'use strict';
 
 var BUTTONS = [
-    { key: 'gerrit-plugin-qt-workflow~abandon', icon: "block" },
-    { key: 'gerrit-plugin-qt-workflow~defer', icon: "watch_later" },
-    { key: 'gerrit-plugin-qt-workflow~reopen', icon: "history" },
-    { key: 'gerrit-plugin-qt-workflow~stage', icon: "done_all" },
-    { key: 'gerrit-plugin-qt-workflow~unstage', icon: "undo" },
-    { key: 'gerrit-plugin-qt-workflow~precheck', icon: "preview" }
+    { key: 'gerrit-plugin-qt-workflow~abandon',  icon: "block",       priority: 0    /* ActionPriority.DEFAULT */ },
+    { key: 'gerrit-plugin-qt-workflow~defer',    icon: "watch_later", priority: 0.1  /* ActionPriority.DEFAULT */ },
+    { key: 'gerrit-plugin-qt-workflow~reopen',   icon: "history",     priority: 0    /* ActionPriority.DEFAULT */ },
+    { key: 'gerrit-plugin-qt-workflow~stage',    icon: "done_all",    priority: -3.1 /* ActionPriority.REVISION */ },
+    { key: 'gerrit-plugin-qt-workflow~unstage',  icon: "undo",        priority: -3.1 /* ActionPriority.REVISION */ },
+    { key: 'gerrit-plugin-qt-workflow~precheck', icon: "preview",     priority: -3   /* ActionPriority.REVISION */ }
 ];
 
 Gerrit.install(plugin => {
@@ -747,6 +747,7 @@ Gerrit.install(plugin => {
                 cActions.setIcon(plugin.buttons[key], button.icon);
                 cActions.setTitle(plugin.buttons[key], action.title);
                 cActions.setEnabled(plugin.buttons[key], action.enabled===true);
+                cActions.setActionPriority(action.__type, plugin.buttons[key], button.priority);
                 if (key === 'gerrit-plugin-qt-workflow~precheck') {
                     createPrecheck()
                     cActions.addTapListener(plugin.buttons[key], onPrecheckBtn);
