@@ -70,12 +70,6 @@ Gerrit.install(plugin => {
                         display: flex;
                         gap: var(--spacing-s);
                     }
-                    paper-button {
-                        color: var(--primary-button-background-color);
-                    }
-                    paper-button:hover {
-                        background: var(--hover-background-color);
-                    }
                     #commentdialog {
                         position: fixed;
                     }
@@ -137,8 +131,8 @@ Gerrit.install(plugin => {
                                 <kbd>Ctrl+Enter</kbd> to confirm
                             </div>
                             <div class="footer-buttons">
-                                <paper-button id="cancelBtn" value="default">Cancel</paper-button>
-                                <paper-button id="confirmBtn" value="default">Confirm</paper-button>
+                                <gr-button id="cancelBtn" link>Cancel</gr-button>
+                                <gr-button id="confirmBtn" link primary>Confirm</gr-button>
                             </div>
                         </div>
                     </form>
@@ -184,18 +178,13 @@ Gerrit.install(plugin => {
                 if (submitting) return;
                 submitting = true;
 
-                // Preserve original text/color so we can restore later.
+                // Preserve original text so we can restore it later.
                 const confirmOrigText = confirmBtn.textContent;
-                const confirmOrigColor = confirmBtn.style.color;
-                const cancelOrigColor = cancelBtn.style.color;
 
-                // Update UI to indicate submitting state.
                 confirmBtn.disabled = true;
                 cancelBtn.disabled = true;
-                confirmBtn.setAttribute('loading');
+                confirmBtn.loading = true;
                 confirmBtn.textContent = 'Submitting...';
-                confirmBtn.style.color = 'var(--deemphasized-text-color)';
-                cancelBtn.style.color = 'var(--deemphasized-text-color)';
 
                 const message = commentInput.value.trim();
                 const payload = message ? { message: message } : {};
@@ -207,12 +196,10 @@ Gerrit.install(plugin => {
                 }).catch((failed_resp) => {
                     // Restore UI so user can retry.
                     submitting = false;
-                    confirmBtn.removeAttribute('loading');
+                    confirmBtn.loading = false;
                     confirmBtn.disabled = false;
                     cancelBtn.disabled = false;
                     confirmBtn.textContent = confirmOrigText;
-                    confirmBtn.style.color = confirmOrigColor;
-                    cancelBtn.style.color = cancelOrigColor;
                     this.dispatchEvent(
                         new CustomEvent('show-alert', {
                             detail: {message: failed_resp},
@@ -293,12 +280,6 @@ Gerrit.install(plugin => {
                     .footer-buttons {
                         display: flex;
                         gap: var(--spacing-s);
-                    }
-                    paper-button {
-                        color: var(--primary-button-background-color);
-                    }
-                    paper-button:hover {
-                        background: var(--hover-background-color);
                     }
                     select {
                         color: var(--primary-text-color);
@@ -408,8 +389,8 @@ Gerrit.install(plugin => {
                                 <kbd>Ctrl+Enter</kbd> to confirm
                             </div>
                             <div class="footer-buttons">
-                                <paper-button id="cancelBtn" value="default">Cancel</paper-button>
-                                <paper-button id="confirmBtn" value="default">Confirm</paper-button>
+                                <gr-button id="cancelBtn" link>Cancel</gr-button>
+                                <gr-button id="confirmBtn" link primary>Confirm</gr-button>
                             </div>
                         </div>
                     </form>
@@ -521,18 +502,13 @@ Gerrit.install(plugin => {
                 if (submitting) return;
                 submitting = true;
 
-                // Preserve original text/color so we can restore later.
+                // Preserve original text so we can restore it later.
                 const confirmOrigText = confirmBtn.textContent;
-                const confirmOrigColor = confirmBtn.style.color;
-                const cancelOrigColor = cancelBtn.style.color;
 
-                // Update UI to indicate submitting state.
                 confirmBtn.disabled = true;
                 cancelBtn.disabled = true;
-                confirmBtn.setAttribute('loading');
+                confirmBtn.loading = true;
                 confirmBtn.textContent = 'Submitting...';
-                confirmBtn.style.color = 'var(--deemphasized-text-color)';
-                cancelBtn.style.color = 'var(--deemphasized-text-color)';
 
                 const actions = plugin.__precheckActions || {};
                 const preAction = actions["gerrit-plugin-qt-workflow~precheck"];
@@ -541,12 +517,10 @@ Gerrit.install(plugin => {
                 if (!url) {
                     // Restore UI so user can retry.
                     submitting = false;
-                    confirmBtn.removeAttribute('loading');
+                    confirmBtn.loading = false;
                     confirmBtn.disabled = false;
                     cancelBtn.disabled = false;
                     confirmBtn.textContent = confirmOrigText;
-                    confirmBtn.style.color = confirmOrigColor;
-                    cancelBtn.style.color = cancelOrigColor;
                     this.dispatchEvent(
                         new CustomEvent('show-alert', {
                             detail: {message: 'Precheck action is not available.'},
@@ -571,12 +545,10 @@ Gerrit.install(plugin => {
                     }).catch((failed_resp) => {
                         // Restore UI so user can retry.
                         submitting = false;
-                        confirmBtn.removeAttribute('loading');
+                        confirmBtn.loading = false;
                         confirmBtn.disabled = false;
                         cancelBtn.disabled = false;
                         confirmBtn.textContent = confirmOrigText;
-                        confirmBtn.style.color = confirmOrigColor;
-                        cancelBtn.style.color = cancelOrigColor;
                         this.dispatchEvent(
                             new CustomEvent('show-alert', {
                                 detail: {message: failed_resp},
