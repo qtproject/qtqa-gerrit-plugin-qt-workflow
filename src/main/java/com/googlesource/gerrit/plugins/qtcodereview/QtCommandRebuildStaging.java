@@ -64,21 +64,26 @@ class QtCommandRebuildStaging extends SshCommand {
     BranchNameKey stagingBranchKey = QtUtil.getNameKeyLong(project, QtUtil.R_STAGING, branch);
     qtUtil.lockStaging(stagingBranchKey.branch());
     try {
-      BranchNameKey destBranchShortKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, branch);
+      BranchNameKey branchKey = QtUtil.getNameKeyShort(project, QtUtil.R_HEADS, branch);
       Project.NameKey projectKey = Project.nameKey(project);
 
       try (Repository git = gitManager.openRepository(projectKey)) {
         permissionBackend
             .user(user)
             .project(projectKey)
-            .ref(destBranchShortKey.branch())
+            .ref(branchKey.branch())
             .check(RefPermission.UPDATE);
 
-        if (git.resolve(stagingBranchKey.branch()) == null)
-          throw die("branch staging ref not found");
+        if (!QtUtil.branchExists(git, branchKey)) {
+          logger.atSevere().log("staging-rebuild branch not found: %s", branchKey.branch());
+          throw die("branch not found");
+        }
+        // If the staging ref is missing but the destination branch exists, let
+        // qtUtil.rebuildStagingBranch() create it: it captures the (null) old staging
+        // ref before creating the branch, so the ref-updated event fires correctly.
 
         qtUtil.rebuildStagingBranch(
-            git, user.asIdentifiedUser(), projectKey, stagingBranchKey, destBranchShortKey);
+            git, user.asIdentifiedUser(), projectKey, stagingBranchKey, branchKey);
 
         logger.atInfo().log("staging-rebuild done for %s", stagingBranchKey.shortName());
       } catch (AuthException e) {

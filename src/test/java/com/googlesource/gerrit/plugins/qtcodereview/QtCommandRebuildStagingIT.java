@@ -65,6 +65,19 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
   }
 
   @Test
+  public void RebuildStaging_CreatesMissingStagingBranch() throws Exception {
+    // No change has ever been staged for "master", so refs/staging/master does not
+    // exist yet, while refs/heads/master does. staging-rebuild should create the
+    // missing staging branch from refs/heads/master instead of failing.
+    RevCommit initialHead = getRemoteHead();
+    assertThat(getRemoteRefHead(project, R_STAGING + "master")).isNull();
+
+    RevCommit stagingHead = qtRebuildStaging("master", null, initialHead);
+
+    assertThat(stagingHead).isEqualTo(initialHead);
+  }
+
+  @Test
   public void multiChange_RebuildStaging_WhileBuilding() throws Exception {
     // Push 3 independent commits
     RevCommit initialHead = getRemoteHead();
@@ -136,7 +149,7 @@ public class QtCommandRebuildStagingIT extends QtCodeReviewIT {
     QtStage(c);
 
     String resultStr = qtRebuildStagingExpectFail("invalidbranch");
-    assertThat(resultStr).contains("branch staging ref not found");
+    assertThat(resultStr).contains("branch not found");
   }
 
   private RevCommit qtRebuildStaging(

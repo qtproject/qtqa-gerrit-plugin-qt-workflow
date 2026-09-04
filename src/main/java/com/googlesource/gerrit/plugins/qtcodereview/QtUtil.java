@@ -370,7 +370,7 @@ public class QtUtil {
     logger.atInfo().log("Arranging change order to match original");
 
     try {
-      if (refObj.equals(tipObj)) return results;
+      if (refObj == null || refObj.equals(tipObj)) return results;
 
       RevWalk revWalk = new RevWalk(git);
       RevCommit branchHead = revWalk.parseCommit(tipObj);
@@ -443,7 +443,7 @@ public class QtUtil {
       Repository git, ObjectId stagingHead, ObjectId branchHead, List<ChangeData> stagedChanges) {
     ObjectId reusableHead = null;
     logger.atInfo().log("Finding reusable staging commit");
-    if (stagingHead.equals(branchHead)) return branchHead;
+    if (stagingHead == null || stagingHead.equals(branchHead)) return branchHead;
 
     try {
       RevWalk revWalk = new RevWalk(git);
