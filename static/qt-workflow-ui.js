@@ -657,11 +657,14 @@ Gerrit.install(plugin => {
 
     // Hide Sanity Bot review score row by default in reply dialog
     plugin.hook('review-label-scores-sanity-review').onAttached(element => {
-        const html = '<div id="review-label-scores-sanity-review-more-button"> \
-                          <div id="sanitybotreviewmorediv" class="labelNameCell" style="display:block;">more...</div> \
+        // The label row is a table row whose cells must stay its direct children in the
+        // flat tree, so the wrappers use display:contents and generate no box of their own.
+        const html = '<div id="review-label-scores-sanity-review-more-button" style="display:contents;"> \
+                          <div id="sanitybotreviewmorediv" class="labelNameCell">more...</div> \
                           <div id="sanitybotreviewscorediv" style="display:none;"></div> \
                       </div>';
         var wrapper_elem = document.createElement('div');
+        wrapper_elem.style.display = 'contents';
         wrapper_elem.innerHTML = html;
 
         // Place the sanity review label elements inside the new wrapper element.
@@ -680,7 +683,7 @@ Gerrit.install(plugin => {
         var review_score_div = wrapper_elem.querySelector("#sanitybotreviewscorediv");
         more_button_handler.addEventListener("click", function() {
             more_button_div.style.display = "none";
-            review_score_div.style.display = "block";
+            review_score_div.style.display = "contents";
         });
     });
 
