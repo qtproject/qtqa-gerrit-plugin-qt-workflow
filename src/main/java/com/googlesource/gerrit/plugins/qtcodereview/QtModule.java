@@ -16,7 +16,6 @@ import com.google.gerrit.extensions.config.CapabilityDefinition;
 import com.google.gerrit.extensions.config.FactoryModule;
 import com.google.gerrit.extensions.registration.DynamicSet;
 import com.google.gerrit.extensions.restapi.RestApiModule;
-import com.google.gerrit.extensions.webui.TopMenu;
 import com.google.gerrit.server.config.ProjectConfigEntry;
 import com.google.gerrit.server.events.EventTypes;
 import com.google.gerrit.server.git.ChangeMessageModifier;
@@ -53,7 +52,6 @@ public class QtModule extends FactoryModule {
     DynamicSet.bind(binder(), ChangeMessageModifier.class).to(QtChangeMessageModifier.class);
     DynamicSet.bind(binder(), MailSoyTemplateProvider.class)
         .to(QtBuildFailedEmailTemplateRegister.class);
-    DynamicSet.bind(binder(), TopMenu.class).to(QtCiStatusTopMenu.class);
 
     install(
         new RestApiModule() {

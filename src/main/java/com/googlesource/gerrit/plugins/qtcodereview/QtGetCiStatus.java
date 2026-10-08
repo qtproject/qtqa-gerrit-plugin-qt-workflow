@@ -5,20 +5,27 @@
 package com.googlesource.gerrit.plugins.qtcodereview;
 
 import com.google.common.html.HtmlEscapers;
+import com.google.gerrit.extensions.annotations.PluginName;
 import com.google.gerrit.extensions.restapi.Response;
 import com.google.gerrit.extensions.restapi.RestReadView;
 import com.google.gerrit.server.account.AccountResource;
+import com.google.gerrit.server.config.PluginConfigFactory;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
+import org.eclipse.jgit.lib.Config;
 
 @Singleton
 public class QtGetCiStatus implements RestReadView<AccountResource> {
 
-  @Inject private QtCiStatusStorage statusStorage;
-
+  private static final String KEY_CI_MENU_ENABLED = "ciMenuEnabled";
   private static final String ciStatusUnknownColor = "var(--disabled-foreground)";
 
+  @Inject private QtCiStatusStorage statusStorage;
+  @Inject private PluginConfigFactory cfgFactory;
+  @Inject @PluginName private String pluginName;
+
   public static class StatusInfo {
+    public boolean enabled;
     public String message;
     public String statusColor;
   }
@@ -27,6 +34,7 @@ public class QtGetCiStatus implements RestReadView<AccountResource> {
   public Response<StatusInfo> apply(AccountResource rsrc) {
 
     StatusInfo statusInfo = new StatusInfo();
+    statusInfo.enabled = isCiMenuEnabled() && rsrc.getUser().isIdentifiedUser();
     statusInfo.message = "";
     statusInfo.statusColor = ciStatusUnknownColor;
     if (!rsrc.getUser().isIdentifiedUser()) return Response.ok(statusInfo);
@@ -38,6 +46,11 @@ public class QtGetCiStatus implements RestReadView<AccountResource> {
     return Response.ok(statusInfo);
   }
 
+  private boolean isCiMenuEnabled() {
+    Config cfg = cfgFactory.getGlobalPluginConfig(pluginName);
+    return cfg.getBoolean(pluginName, null, KEY_CI_MENU_ENABLED, false);
+  }
+
   private String generateHtml(QtCiStatusStorage.CiResourceItem items[]) {
 
     StringBuilder sb = new StringBuilder();
@@ -47,17 +60,17 @@ public class QtGetCiStatus implements RestReadView<AccountResource> {
     sb.append(".cistatusitem { font-size: var(--font-size-small);");
     sb.append(" margin-left: var(--spacing-l);}");
     sb.append("</style>");
-    sb.append("<div class=\"dropdown-content\">");
+    sb.append("<div class=\"qt-ci-status-content\">");
     sb.append("<span style=\"padding: var(--spacing-m) var(--spacing-l); display: block;");
     sb.append(" background-color: var(--selection-background-color);\">");
 
     if (items != null) {
-      sb.append("Workload</span>");
+      sb.append("CI Queue Info</span>");
       for (QtCiStatusStorage.CiResourceItem r : items) {
         sb.append(generateSectionHtml(r.name, r.running, r.queue, r.load));
       }
     } else {
-      sb.append("Not updated</span>");
+      sb.append("Info not available</span>");
     }
     sb.append("</div>");
 

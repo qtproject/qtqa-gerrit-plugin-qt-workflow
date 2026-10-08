@@ -19,8 +19,11 @@ Gerrit.install(plugin => {
 
     plugin.buttons = null;
 
-    var CiStatusColorElement = null;
-    var CiStatusElement = null;
+    var CiStatusBadgeElement = null;
+    var CiStatusPopupElement = null;
+    var CiStatusContainerElement = null;
+    var CiStatusHostElement = null;
+    var CiStatusEnabled = false;
     var CiStatusMessage = null;
     var CiStatusMessageNew = null;
     var CiStatusColor = null;
@@ -834,18 +837,25 @@ Gerrit.install(plugin => {
     });
 
     function updateCiStatusUI() {
-        if (CiStatusColorElement && CiStatusColor) CiStatusColorElement.style.color = CiStatusColor;
-        if (CiStatusElement && CiStatusMessage !== CiStatusMessageNew ) {
-            const elem = document.createElement('div');
-            elem.innerHTML = CiStatusMessageNew.trim(); // No white space;
-            CiStatusElement.parentElement.appendChild(elem);
-            CiStatusElement.nextElementSibling.style.display = "none";
+        if (!CiStatusContainerElement) return;
+        // Attach only when enabled, so the header gets no empty gap otherwise.
+        if (!CiStatusEnabled) {
+            if (CiStatusContainerElement.parentNode) CiStatusContainerElement.remove();
+            return;
+        }
+        if (CiStatusHostElement && CiStatusContainerElement.parentNode !== CiStatusHostElement) {
+            CiStatusHostElement.appendChild(CiStatusContainerElement);
+        }
+        if (CiStatusBadgeElement && CiStatusColor) CiStatusBadgeElement.style.color = CiStatusColor;
+        if (CiStatusPopupElement && CiStatusMessage !== CiStatusMessageNew) {
+            CiStatusPopupElement.innerHTML = CiStatusMessageNew.trim(); // No white space;
             CiStatusMessage = CiStatusMessageNew;
         }
     }
 
     plugin.restApi().get('/accounts/self/gerrit-plugin-qt-workflow~cistatus')
         .then((ok_resp) => {
+            CiStatusEnabled = !!ok_resp.enabled;
             if (ok_resp.message) CiStatusMessageNew = ok_resp.message;
             if (ok_resp.status_color) CiStatusColor = ok_resp.status_color;
             updateCiStatusUI();
@@ -853,11 +863,85 @@ Gerrit.install(plugin => {
             // use defaults
         });
 
-    plugin.hook('main-header-ci-status').onAttached(element => {
-        var rootElem = element.parentElement.parentElement.shadowRoot;
-        CiStatusElement = rootElem.querySelector(".itemAction");
-        var button = rootElem.querySelector("gr-button");
-        CiStatusColorElement = button.shadowRoot.querySelector("gr-icon");
+    plugin.hook('header-top-right').onAttached(element => {
+        // The hook can attach more than once (e.g. the header re-rendering).
+        CiStatusHostElement = element;
+        if (CiStatusContainerElement) {
+            updateCiStatusUI();
+            return;
+        }
+
+        const css_str = '<style> \
+                          .qt-ci-status-container {\
+                              position: relative;\
+                              display: inline-block;\
+                          }\
+                          .qt-ci-status-badge {\
+                              cursor: pointer;\
+                              padding: 0 var(--spacing-m);\
+                              color: var(--header-text-color);\
+                              background: none;\
+                              border: none;\
+                              font: inherit;\
+                          }\
+                          .qt-ci-status-popup {\
+                              display: none;\
+                              position: absolute;\
+                              top: 100%;\
+                              right: 0;\
+                              width: max-content;\
+                              white-space: nowrap;\
+                              background-color: var(--dialog-background-color);\
+                              box-shadow: var(--elevation-level-2);\
+                              z-index: 100;\
+                          }\
+                          .qt-ci-status-popup.qt-open {\
+                              display: block;\
+                          }\
+                        </style>';
+
+        CiStatusContainerElement = document.createElement('div');
+        CiStatusContainerElement.className = 'qt-ci-status-container';
+
+        // The style must live inside the container so it survives header re-attach.
+        CiStatusContainerElement.appendChild(htmlToElement(css_str));
+
+        CiStatusBadgeElement = document.createElement('button');
+        CiStatusBadgeElement.type = 'button';
+        CiStatusBadgeElement.setAttribute('aria-haspopup', 'true');
+        CiStatusBadgeElement.setAttribute('aria-expanded', 'false');
+        CiStatusBadgeElement.className = 'qt-ci-status-badge';
+        CiStatusBadgeElement.textContent = 'CI Status';
+
+        CiStatusPopupElement = document.createElement('div');
+        CiStatusPopupElement.className = 'qt-ci-status-popup';
+
+        const setCiPopupOpen = (open) => {
+            CiStatusPopupElement.classList.toggle('qt-open', open);
+            CiStatusBadgeElement.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+
+        CiStatusBadgeElement.addEventListener('click', () => {
+            setCiPopupOpen(!CiStatusPopupElement.classList.contains('qt-open'));
+        });
+
+        document.addEventListener('click', (e) => {
+            const path = e.composedPath ? e.composedPath() : [e.target];
+            if (!path.includes(CiStatusContainerElement)) {
+                setCiPopupOpen(false);
+            }
+        });
+
+        CiStatusContainerElement.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && CiStatusPopupElement.classList.contains('qt-open')) {
+                setCiPopupOpen(false);
+                CiStatusBadgeElement.focus();
+            }
+        });
+
+        CiStatusContainerElement.appendChild(CiStatusBadgeElement);
+        CiStatusContainerElement.appendChild(CiStatusPopupElement);
+
         updateCiStatusUI();
     });
 });

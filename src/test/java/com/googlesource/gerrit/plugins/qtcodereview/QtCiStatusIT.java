@@ -13,8 +13,6 @@ import com.google.gerrit.acceptance.UseLocalDisk;
 import com.google.gerrit.acceptance.UseSsh;
 import com.google.gerrit.acceptance.config.GlobalPluginConfig;
 import com.google.gerrit.extensions.api.access.PluginPermission;
-import com.google.gerrit.extensions.webui.TopMenu.MenuEntry;
-import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -62,6 +60,25 @@ public class QtCiStatusIT extends QtCodeReviewIT {
     String html = response.getEntityContent();
     assertThat(html).contains("\"status_color\":\"var(--disabled-foreground)\"");
     assertThat(html).doesNotContain("running");
+  }
+
+  @Test
+  public void CiStatus_DisabledByDefault() throws Exception {
+    RestResponse response = qtCiStatusGet();
+    String html = response.getEntityContent();
+    assertThat(html).contains("\"enabled\":false");
+  }
+
+  @Test
+  @UseLocalDisk
+  @GlobalPluginConfig(
+      pluginName = "gerrit-plugin-qt-workflow",
+      name = "gerrit-plugin-qt-workflow.ciMenuEnabled",
+      value = "true")
+  public void CiStatus_EnabledWhenConfigured() throws Exception {
+    RestResponse response = qtCiStatusGet();
+    String html = response.getEntityContent();
+    assertThat(html).contains("\"enabled\":true");
   }
 
   @Test
@@ -119,23 +136,6 @@ public class QtCiStatusIT extends QtCodeReviewIT {
     assertThat(html).contains("pool 3");
     assertThat(html).contains("8765");
     assertThat(html).contains("9876");
-  }
-
-  @Test
-  public void topMenuHidden() throws Exception {
-    List<MenuEntry> topMenuItems = gApi.config().server().topMenus();
-    assertThat(topMenuItems).isEmpty();
-  }
-
-  @Test
-  @UseLocalDisk
-  @GlobalPluginConfig(
-      pluginName = "gerrit-plugin-qt-workflow",
-      name = "gerrit-plugin-qt-workflow.ciMenuEnabled",
-      value = "true")
-  public void topMenuVisible() throws Exception {
-    List<MenuEntry> topMenuItems = gApi.config().server().topMenus();
-    assertThat(topMenuItems.get(0).name).isEqualTo("CI-Status");
   }
 
   @Test
